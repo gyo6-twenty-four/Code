@@ -6,7 +6,7 @@ plugins {
 
 group = 'com.asdf'
 version = '0.0.1-SNAPSHOT'
-description = 'BackEnd'
+description = 'gyo624_BackEnd'
 
 java {
     toolchain {
@@ -16,10 +16,6 @@ java {
 
 repositories {
     mavenCentral()
-}
-
-ext {
-    set('springAiVersion', "2.0.1")
 }
 
 dependencies {
@@ -41,12 +37,6 @@ dependencies {
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
-}
-
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
-    }
 }
 
 tasks.named('test') {
