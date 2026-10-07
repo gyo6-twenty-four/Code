@@ -1,13 +1,13 @@
-package com.asdf.gyo624_backend;
+package com.education24;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
-class Gyo624BackEndApplicationTests {
-
+@ActiveProfiles("test")
+class Education24ApplicationTests {
     @Test
     void contextLoads() {
     }
-
 }

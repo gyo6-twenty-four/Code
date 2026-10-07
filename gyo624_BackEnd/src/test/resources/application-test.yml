@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:education24;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+app:
+  jwt:
+    secret: education24-test-secret-must-be-at-least-thirty-two-bytes
+    access-token-ttl: 15m
+    refresh-token-ttl: 14d
+  bootstrap-admin:
+    enabled: false

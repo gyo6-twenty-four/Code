@@ -1,0 +1,35 @@
+spring:
+    application:
+        name: education24
+    profiles:
+        default: dev
+    datasource:
+        url: ${DB_URL:jdbc:postgresql://localhost:5432/education24}
+        username: ${DB_USERNAME:education24}
+        password: ${DB_PASSWORD:education24}
+    jpa:
+        hibernate:
+            ddl-auto: validate
+        open-in-view: false
+    flyway:
+        enabled: true
+
+server:
+    error:
+        include-message: never
+
+app:
+    jwt:
+        secret: ${JWT_SECRET}
+        access-token-ttl: ${JWT_ACCESS_TTL:15m}
+        refresh-token-ttl: ${JWT_REFRESH_TTL:14d}
+    bootstrap-admin:
+        enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+        email: ${BOOTSTRAP_ADMIN_EMAIL:}
+        password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+        name: ${BOOTSTRAP_ADMIN_NAME:최초 관리자}
+
+springdoc:
+    swagger-ui:
+        path: /swagger-ui.html
+    default-flat-param-object: true
