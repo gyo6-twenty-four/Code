@@ -1,18 +1,100 @@
-# React + Vite
+# 교육24 프론트엔드
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite로 구현한 교사·관리자 화면 미리보기입니다. Figma 교사 페이지에서 추출한 `Untitled.pdf`의 화면을 PC·모바일 반응형으로 구현한 뒤, 요청한 사용성 개선을 반영했습니다. 관리자 5개 화면은 `asdf.pdf`를 기준으로 구현했습니다. 사용자가 선택한 최종 기준에 따라 `qefwrgb.pdf`의 이전 초안으로 변경하지 않았습니다.
 
-Currently, two official plugins are available:
+```sh
+npm install
+npm run dev
+npm run build
+npm run lint
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+PC는 스크롤 가능한 사이드바, 모바일은 하단 탭과 왼쪽 탐색 서랍으로 이동합니다. 기본 진입 화면은 기록 커버리지 홈입니다. 수업 기록 페이지는 제거했고, 기존 `/#/records` 링크는 홈 화면으로 연결됩니다. 수업 메모는 타임라인에서 작성합니다.
 
-## React Compiler
+## 화면
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+| 경로 | 화면 |
+| --- | --- |
+| `/#/login` | T01 로그인 (계정 역할 자동 판별) |
+| `/#/invite` | T02 초대 수락 |
+| `/#/reset-password` | T03 비밀번호 재설정 |
+| `/#/onboarding` | T04 학교 정보 설정 |
+| `/#/timeline` | T06 타임라인 · 수업 메모 작성 |
+| `/#/students` | T07 학생별 관찰 |
+| `/#/observations/batch` | T08 학급 일괄 관찰 |
+| `/#/coverage` | T09 기록 커버리지 |
+| `/#/evaluations` | T10 평가 목록 |
+| `/#/evaluations/create` | T11 평가 생성·수정 (`?id=reading` 등) |
+| `/#/career` | T12 진로 탐색 |
+| `/#/reports` | T13 학생 기록 보드 |
+| `/#/reports/edit` | T14 학생 기록 편집 (`?id=minjun` 등) |
+| `/#/reports/check` | T15 기재 요령 확인 결과 예시 |
+| `/#/reports/export` | T16 CSV·TSV 내보내기 |
+| `/#/transfer` | T17 학생 관찰 기록 이관 |
+| `/#/recording` | T18 녹음 조작 미리보기 |
+| `/#/notifications` | T19 알림함 |
+| `/#/settings` | T20 설정 |
+| `/#/admin` | A20 관리자 홈 |
+| `/#/admin/teachers` | A21 교사 계정 관리 |
+| `/#/admin/rosters` | A22 학생 명단 요약 관리 |
+| `/#/admin/timetable` | A23 시간표 관리 |
+| `/#/admin/settings` | A25 관리자 설정 |
+| `/#/admin/audit` | A24 감사 로그 및 CSV 내보내기 |
 
-Note: This will impact Vite dev & build performances.
+## 동작과 데이터
 
-## Expanding the ESLint configuration
+- 설정·학교 정보·학생 관찰·평가·진로·학생 기록·알림 읽음 상태를 localStorage에 저장합니다.
+- 관찰을 저장하면 타임라인과 최근 관찰에 반영됩니다. 일괄 관찰은 직접 입력한 공통 내용을 선택한 학생에게 저장합니다.
+- 평가 생성·수정 후 평가 목록으로 돌아갑니다. 학생 기록 편집에서는 저장한 내용을 점검 결과 화면과 연결합니다.
+- 내보내기는 내용이 실제 저장된 학생 기록만 UTF-8 BOM CSV/TSV로 다운로드합니다. 이름·항목·기록 내용을 포함합니다.
+- 이관은 현재 브라우저에 저장한 관찰 중 선택한 학생·원래 학급·기준 날짜에 일치하는 기록만 옮깁니다. 학교 서버에는 영향을 주지 않습니다.
+- 녹음 화면은 PDF의 안내에 따른 조작 UI 미리보기입니다. 시작·일시정지·종료 타이머만 동작하며 마이크 접근·실제 녹음·음성 파일 저장은 하지 않습니다.
+- 로그인·초대·메일 발송·권한 검증·기재 요령 검증 API는 연결되지 않았습니다. 로그인은 화면 미리보기이며 인증 기능이 아닙니다. 기재 요령 결과, 학교 집계, 기본 학생 수 등은 디자인의 예시 데이터입니다.
+- 관리자 화면은 교사 계정 미리보기 정보·학급별 명단 요약·시간표를 브라우저에 저장하고 변경을 감사 로그에 반영합니다. 실제 계정 생성·권한 부여·초대 메일 전송은 하지 않습니다. 명단 화면은 학급별 집계 요약을 관리하며 CSV 명단 가져오기나 개별 학생 등록 API는 연결되지 않았습니다.
+- 수업 메모는 빈 입력과 예시 placeholder로 시작하며, 저장하면 localStorage와 타임라인에 반영됩니다.
+- 학급 선택은 등록된 유효 학급만 제공합니다. 새 학급은 1~6학년·1~99반 선택을 조합해 생성하며 중복을 검사합니다. 기존에 잘못 입력된 명단은 지우지 않고 수정할 수 있도록 유지합니다.
+- 시간표는 월~금·1~8교시 주간표이며 학급별/교사별 조회, 수업 추가·수정·삭제를 지원합니다. 수업별 즉시 저장, 학급·교사 중복 배정 차단을 적용합니다.
+- 편집 페이지에는 취소/복귀 링크, 입력 팝업에는 취소 버튼이 있습니다. 팝업의 수정은 저장 전까지 적용되지 않습니다. 설정은 팝업 안에서 한 번만 저장하면 됩니다.
+- 텍스트·선택·날짜 필드는 왼쪽 정렬이며, 숫자 증감 입력과 달력 일자는 중앙 정렬을 유지합니다. 토글에는 220ms 이동 애니메이션과 동작 줄이기 설정을 반영했습니다.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 검증
+
+`npm run build`, `npm run lint` 및 390×844 / 1440×960 브라우저 화면 확인을 수행했습니다. 관찰 저장·새로고침 유지·타임라인 반영, 일괄 저장, 평가 생성·기준 추가·목록 반영, 학생 기록 저장·CSV 다운로드 내용, 기록 이관, 녹음 UI 상태 전환, 관리자 중복 이메일 방지·초대 정보 저장·학급 요약 추가·시간표 수정·감사 로그 연동 및 내보내기를 수동 검증했습니다. 320/768/1024px에서도 주요 화면의 가로 넘침을 확인했습니다.
+
+## 디자인 범위와 서버 연결
+
+교사 20개 + 관리자 5개의 원본 화면에서 출발해, 수업 기록 페이지 제거와 시간표·탐색·입력 UX 개편을 반영했습니다. 첫 번째 교사 PDF와 두 번째 관리자 PDF가 최종 기준입니다. 원본 프레임·PDF 페이지 매핑과 구현 상태는 `docs/figma-screens.json`에 있습니다.
+
+화면과 로컬 상태 동작이 구현된 프론트엔드 미리보기입니다. 실제 학교 데이터·인증·권한·메일·기재 요령 검증 등은 서버 API 연결이 필요합니다. 서버 연동을 위한 임의 엔드포인트나 자격 증명은 추가하지 않았습니다.
+
+원본 파일: https://www.figma.com/design/ETnBhiru3DbU0Ul0IcL91x/Untitled
+
+## 커스텀 폼 컨트롤
+
+공통 `Field`는 `src/components/Fields.jsx`에서 텍스트·비밀번호·숫자·드롭다운·달력 입력을 렌더링합니다. 화면마다 기본 브라우저 선택 UI를 만들지 않습니다. 스타일은 `src/components/fields.css`를 사용합니다.
+
+- 드롭다운: 선택 상태·체크 표시, 방향키/Home/End/Enter/Escape, 항목이 6개 이상인 경우 검색 입력.
+- 달력: 한국어 표시, 월·연도 선택, 방향키와 PageUp/PageDown, 오늘 선택. 저장 값은 기존 ISO 날짜(`YYYY-MM-DD`)를 유지합니다.
+- 숫자: 직접 입력과 커스텀 증감 버튼, 허용 범위 오류 표시.
+- 텍스트·비밀번호: 일관된 포커스·오류 상태, 비밀번호 보기/숨기기. 오류는 입력 아래 표시합니다.
+- 팝업은 화면 경계에 맞춰 위치를 조정하며, 모달 내부에서도 모달 위에 표시합니다.
+
+`npm test`는 윤년·월 경계·날짜 범위·팝업 위치 계산을 검증합니다. 키보드 선택, 모달 내 검색/닫기, 숫자 검증, 320px 화면의 달력 표시도 브라우저에서 확인했습니다.
+
+최근 개선 검증: `npm test`에 학급 형식·범위·목록 정규화와 교사/학급 중복 배정, 동일 교사의 하루 여러 수업 허용 검증을 추가했습니다.
+
+## 계정 역할과 탐색
+
+- 서비스명은 로그인·학교 설정·PC/모바일 내비게이션·탭 제목에서 교육24로 표시합니다.
+- 교사 내비게이션에는 관리자 메뉴나 전환 링크가 없습니다. `/#/admin` 하위 주소를 직접 입력해도 교사 계정에는 권한 없음 화면을 표시합니다.
+- 학교 정보·계정 로그인은 설정에 모았습니다. 학교 정보 화면에는 실제로 존재하지 않는 4단계 진행 표시를 사용하지 않습니다.
+- 로그인에 교사/관리자 선택 버튼이 없습니다. 현재는 등록된 계정의 이메일을 찾아 역할에 맞는 홈으로 이동하는 프론트엔드 미리보기입니다. 기본 교사 예시 이메일은 `name@school.kr`, 관리자 예시는 `m.park@school.kr`입니다. 비밀번호를 검증하거나 저장하지 않습니다. 실제 서비스에서는 이 어댑터를 서버 인증 응답으로 교체하고, 모든 관리자 API에서 서버 권한 검사를 적용해야 합니다.
+- 역할은 프로필에 입력한 이메일이나 이름으로 바뀌지 않습니다. 별도의 계정 ID로 계정 목록의 역할을 확인합니다. 대기·비활성·미등록 계정은 로그인 미리보기에 진입할 수 없습니다.
+
+## 홈 캘린더와 로그아웃
+
+- 교사 홈 상단에 월간 캘린더가 있습니다. 이전/다음 달, 오늘 복귀, 키보드 날짜 이동, 날짜별 수업·관찰·메모 조회와 선택 날짜의 관찰 작성으로 이어집니다.
+- 수업은 해당 교사의 주간 시간표를 요일별로 반복 표시합니다. 휴업일·공휴일·날짜별 보강 예외는 아직 연결되어 있지 않습니다. 관찰과 메모는 실제 저장 날짜를 기준으로 표시합니다.
+- 교사·관리자 설정에 로그아웃 버튼이 있습니다. 로그인 세션 ID만 해제하며 저장된 관찰·설정·시간표 등은 삭제하지 않습니다. 로그아웃 후 새로고침·뒤로가기·보호 화면 주소 직접 입력 시에도 로그인 화면을 표시합니다.
+- 로그인 화면에는 홈으로 돌아가기 링크가 없습니다. 저장된 활성 계정 세션이 없는 첫 방문도 로그인에서 시작합니다. 다른 탭에서 로그아웃한 상태도 반영합니다.
+- 현재는 브라우저 기반 계정 미리보기입니다. 서버 연결 시 로그아웃에서 서버 세션·쿠키 무효화를 함께 수행해야 합니다.
