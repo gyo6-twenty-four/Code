@@ -1,112 +1,245 @@
-import { useSchedule } from './lib/schedule-store'
-import { actorId } from './lib/schedule'
-import { useEffect, useState } from 'react'
-import { Brand, Modal, PrimaryButton } from './components/ui'
-import { navigate, persist, readRecords, readSettings, settingsKey, useNotice, useRoute } from './lib/state'
-import { pages, teacherMenu, adminMenu, menuActive } from './screens/catalog'
-import { accountHome, accountSessionKey, canAccessAdmin, isActiveAccount, readAccountId } from './lib/account'
-import { previewAccounts } from './lib/preview-auth'
-import Recording from './screens/Recording'
-import { observationDateError } from './lib/observations'
-import Settings from './screens/Settings'
-import { Auth, Onboarding } from './screens/Auth'
-import { BatchObservation, StudentObservation, Timeline } from './screens/Records'
-import Admin from './screens/Admin'
-import Timetable from './screens/Timetable'
-import { TeacherAccounts, Rosters, AuditLog } from './screens/AdminManagement'
-import { TeacherDashboard, Evaluations, EvaluationEditor, Career, ReportEditor, ReportCheck, ReportExport, Transfer, Notifications } from './screens/Teacher'
-import './App.css'
-import './components/fields.css'
-import './ux.css'
-
-const authRoutes = ['/login', '/invite', '/reset-password', '/set-password']
-const formIds = { '/students': 'observation-form', '/observations/batch': 'batch-form', '/evaluations/create': 'evaluation-form', '/career': 'career-form', '/reports/edit': 'report-form', '/reports/export': 'export-form', '/transfer': 'transfer-form', '/admin/teachers': 'teacher-invite-form', '/admin/rosters': 'roster-form', '/admin/timetable': 'timetable-form', '/admin/audit': 'audit-form' }
+import { useEffect, useState } from 'react';
+import { Brand, Field, Modal } from './components/ui';
+import { useNotice, useRoute, navigate } from './lib/state';
+import { todayValue } from './components/field-utils';
+import Auth, { Onboarding } from './api/Auth';
+import { Observation, Career } from './api/Records';
+import { Reports, RecordEditor, ExportRecords, Transfer } from './api/Reports';
+import { AdminHome, Teachers, Rosters, Audit, ImportFile } from './api/Admin';
+import Settings, { Notifications } from './api/Settings';
+import Timetable from './api/Timetable';
+import Recording from './screens/Recording';
+import { clearSession, detailError, onSessionExpired, refreshToken, renewSession, request } from './api/client';
+import { usePage, useResource } from './api/hooks';
+import { className, assertUser } from './api/model';
+import './App.css';
+import './components/fields.css';
+import './ux.css';
+import './api/api.css';
+const publicRoutes = ['/login', '/invite', '/set-password', '/reset-password'];
+const titles = {
+  '/coverage': '나의 수업',
+  '/timetable': '나의 시간표',
+  '/students': '학생별 관찰 기록',
+  '/observations/batch': '학급 일괄 관찰',
+  '/timeline': '학생 관찰 타임라인',
+  '/career': '진로 기록',
+  '/reports': '학생 기록 보드',
+  '/reports/edit': '생기부 항목 편집',
+  '/reports/check': '기재 요령 확인',
+  '/reports/export': '나이스 내보내기',
+  '/transfer': '학생 기록 이관',
+  '/recording': '수업 녹음',
+  '/notifications': '알림함',
+  '/settings': '설정',
+  '/admin': '학교 운영 현황',
+  '/admin/teachers': '교사 계정 관리',
+  '/admin/rosters': '학생 명단 관리',
+  '/admin/timetable': '시간표 관리',
+  '/admin/audit': '감사 로그',
+  '/admin/settings': '설정',
+  '/admin/notifications': '알림함'
+};
+const teacherMenu = [['홈', '/coverage'], ['나의 시간표', '/timetable'], ['학생별 관찰', '/students'], ['학급 일괄 관찰', '/observations/batch'], ['학생 관찰 타임라인', '/timeline'], ['진로', '/career'], ['생기부', '/reports'], ['학생 기록 이관', '/transfer'], ['수업 녹음', '/recording'], ['알림함', '/notifications'], ['설정', '/settings']];
+const adminMenu = [['관리자 홈', '/admin'], ['교사 계정', '/admin/teachers'], ['명단 관리', '/admin/rosters'], ['시간표 관리', '/admin/timetable'], ['감사 로그', '/admin/audit'], ['알림함', '/admin/notifications'], ['설정', '/admin/settings']];
 export default function App() {
-  const location = useRoute()
-  const requestedRoute = location.split('?')[0] === '/records' ? '/coverage' : location.split('?')[0]
-  const query = new URLSearchParams(location.split('?')[1] || '')
-  const [settings, setSettings] = useState(readSettings)
-  const [accountId, setAccountId] = useState(() => { try { return readAccountId(localStorage.getItem(accountSessionKey)) } catch { return null } })
-  const candidate = previewAccounts().find(item => item.id === accountId)
-  const account = isActiveAccount(candidate) ? candidate : null
-  const route = !account && !authRoutes.includes(requestedRoute) ? '/login' : requestedRoute
-  useEffect(() => { if (route !== requestedRoute) navigate(route) }, [route, requestedRoute])
-  useEffect(() => { const sync = event => { if (event.key === accountSessionKey || event.key === null) setAccountId(readAccountId(localStorage.getItem(accountSessionKey))) }; window.addEventListener('storage', sync); return () => window.removeEventListener('storage', sync) }, [])
-  const denied = route.startsWith('/admin') && !canAccessAdmin(account)
-  const [records, setRecords] = useState(readRecords)
-  const [notice, notify] = useNotice()
-  const { state: scheduleState } = useSchedule(account, notify)
-  const scheduleUnread = scheduleState.notices.filter(item => item.userId === actorId(account) && !item.read).length
-  const [menu, setMenu] = useState(false)
-  const page = pages[route]
-  const admin = route.startsWith('/admin')
-  useEffect(() => { document.title = `${denied ? '접근 권한 없음' : page?.title || (route === '/set-password' ? '비밀번호 설정' : route === '/onboarding' ? '학교 정보 설정' : route === '/invite' ? '초대 수락' : route === '/reset-password' ? '비밀번호 재설정' : '로그인')} · 교육24` }, [page, route, denied])
-  function saveSettings() {
-    try { persist(settingsKey, settings); notify('변경 사항을 저장했어요.') } catch { notify('저장하지 못했어요. 저장 공간을 확인한 뒤 다시 시도해 주세요.') }
+  const location = useRoute(),
+    requested = location.split('?')[0] === '/records' ? '/coverage' : location.split('?')[0],
+    query = new URLSearchParams(location.split('?')[1] || '');
+  const [account, setAccount] = useState(null),
+    [initializing, setInitializing] = useState(true),
+    [restoreError, setRestoreError] = useState(''),
+    [attempt, setAttempt] = useState(0);
+  const [notice, notify] = useNotice(),
+    [menu, setMenu] = useState(false);
+  const [dataRevision, setDataRevision] = useState(0);
+  const [year, setYear] = useState(todayValue().slice(0, 4)),
+    [classId, setClassId] = useState(''),
+    [studentId, setStudentId] = useState('');
+  useEffect(() => onSessionExpired(() => {
+    setAccount(null);
+    setClassId('');
+    setStudentId('');
+    setInitializing(false);
+  }), []);
+  useEffect(() => {
+    let active = true;
+    async function restore() {
+      try {
+        if (refreshToken()) {
+          await renewSession();
+          const result = await request('/me');
+          if (active) setAccount(assertUser(result.data));
+        }
+      } catch (error) {
+        if (active && error.name !== 'AbortError') {
+          if (error.status === 401) clearSession();else setRestoreError(detailError(error));
+        }
+      } finally {
+        if (active) setInitializing(false);
+      }
+    }
+    restore();
+    return () => {
+      active = false;
+    };
+  }, [attempt]);
+  const route = !account && !publicRoutes.includes(requested) ? '/login' : account?.onboardingCompleted === false && !publicRoutes.includes(requested) ? '/onboarding' : requested;
+  useEffect(() => {
+    if (!initializing && !restoreError && route !== requested) navigate(route);
+  }, [initializing, restoreError, route, requested]);
+  useEffect(() => {
+    document.title = `${titles[route] || (route === '/onboarding' ? '사용 환경 설정' : '학교 계정')} · 교육24`;
+  }, [route]);
+  const classes = usePage(account ? '/classes' : null, {
+    schoolYear: year
+  });
+  const students = usePage(account && classId ? `/classes/${classId}/students` : null, {
+    schoolYear: year
+  });
+  const unread = useResource(account ? '/notifications/unread-count' : null);
+  const admin = account?.role === 'ADMIN',
+    adminRoute = route.startsWith('/admin');
+  function selectClass(id) {
+    setClassId(id);
+    setStudentId('');
+    students.setPage(1);
   }
-  function saveObservations(items) {
-    const invalid = items.map(item => observationDateError(item.date)).find(Boolean)
-    if (invalid) { notify(invalid); return false }
-    if (!items.length) { notify('기록을 저장할 학생을 선택해 주세요.'); return false }
-    const next = [...items.map(item => ({ ...item, id: crypto.randomUUID() })), ...records]
-    try { persist('classroom-observations', next); setRecords(next); notify(`${items.length}건의 관찰을 저장했어요.`); return true } catch { notify('저장하지 못했어요. 저장 공간을 확인한 뒤 다시 시도해 주세요.'); return false }
+  function onLogin(value) {
+    const user = assertUser(value);
+    setAccount(user);
+    setClassId('');
+    setStudentId('');
+    setRestoreError('');
+    setMenu(false);
+    navigate(user.onboardingCompleted === false ? '/onboarding' : user.role === 'ADMIN' ? '/admin' : '/coverage');
   }
-  function saveRecords(next) {
-    try { persist('classroom-observations', next); setRecords(next); return true } catch { notify('저장하지 못했어요. 저장 공간을 확인한 뒤 다시 시도해 주세요.'); return false }
+  async function updateProfile() {
+    try {
+      const result = await request('/me');
+      setAccount(assertUser(result.data));
+    } catch (error) {
+      notify(detailError(error));
+    }
   }
-  function login(nextAccount) {
-    const next = { ...settings, name: nextAccount.name, email: nextAccount.email }
-    try { persist(accountSessionKey, nextAccount.id); persist(settingsKey, next); setAccountId(nextAccount.id); setSettings(next); setMenu(false); navigate(accountHome(nextAccount)); notify('로그인했어요.'); return true } catch { notify('계정 정보를 저장하지 못했어요. 다시 시도해 주세요.'); return false }
+  async function logout() {
+    try {
+      await request('/auth/logout', {
+        method: 'POST',
+        body: {
+          refreshToken: refreshToken()
+        }
+      });
+    } catch (error) {
+      notify(`로그아웃 요청 결과를 확인하지 못했어요. 이 기기의 로그인은 해제합니다. ${detailError(error)}`);
+    } finally {
+      clearSession();
+      setMenu(false);
+      navigate('/login');
+    }
   }
-  function logout() {
-    try { persist(accountSessionKey, null); setAccountId(null); setMenu(false); navigate('/login'); notify('로그아웃했어요.'); return true } catch { notify('로그아웃 정보를 저장하지 못했어요. 다시 시도해 주세요.'); return false }
+  const common = {
+    account,
+    classes,
+    classId,
+    selectClass,
+    students,
+    studentId,
+    selectStudent: setStudentId,
+    year,
+    notify,
+    query
+  };
+  const count = typeof unread.data === 'number' ? unread.data : unread.data?.count ?? unread.data?.unreadCount ?? 0;
+  const nav = <nav className="side-nav" aria-label={adminRoute ? '관리자 메뉴' : '교사 메뉴'}>{(adminRoute ? adminMenu : teacherMenu).map(([label, path]) => <a key={path} href={`#${path}`} aria-current={route === path ? 'page' : undefined} onClick={() => setMenu(false)}>{label}{path.endsWith('/notifications') && count > 0 && <span className="nav-unread">{count}</span>}</a>)}</nav>;
+  if (initializing) return <main className="not-found"><Brand /><p role="status">로그인 정보를 확인하고 있어요.</p></main>;
+  if (restoreError) return <main className="not-found"><Brand /><p role="alert">{restoreError}</p><button type="button" className="secondary-button" onClick={() => {
+      setRestoreError('');
+      setInitializing(true);
+      setAttempt(attempt + 1);
+    }}>다시 연결하기</button><button type="button" className="text-button" onClick={() => {
+      clearSession();
+      setRestoreError('');
+      navigate('/login');
+    }}>로그인 화면으로</button></main>;
+  if (publicRoutes.includes(route)) return <><Auth key={location} route={route} query={query} onLogin={onLogin} notify={notify} /><div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></>;
+  if (route === '/onboarding') return <Onboarding account={account} notify={notify} onComplete={async () => {
+    try {
+      onLogin((await request('/me')).data);
+    } catch (error) {
+      notify(detailError(error));
+    }
+  }} />;
+  if (adminRoute && !admin) return <main className="not-found"><Brand /><h1>접근 권한이 없어요</h1><a href="#/coverage">홈으로 돌아가기</a></main>;
+  let screen;
+  switch (route) {
+    case '/coverage':
+      screen = <Timetable {...common} home />;
+      break;
+    case '/timetable':
+    case '/admin/timetable':
+      screen = <><Timetable key={dataRevision} {...common} />{adminRoute && <ImportFile kind="timetables" notify={notify} onDone={() => setDataRevision(value => value + 1)} />}</>;
+      break;
+    case '/students':
+      screen = <Observation {...common} />;
+      break;
+    case '/observations/batch':
+      screen = <Observation {...common} batch />;
+      break;
+    case '/timeline':
+      screen = <Observation {...common} timeline />;
+      break;
+    case '/career':
+      screen = <Career {...common} />;
+      break;
+    case '/reports':
+      screen = <Reports {...common} />;
+      break;
+    case '/reports/edit':
+    case '/reports/check':
+      screen = <RecordEditor {...common} checkOnly={route.endsWith('/check')} />;
+      break;
+    case '/reports/export':
+      screen = account.role === 'TEACHER' ? <ExportRecords {...common} /> : <p>내보내기 작업 생성은 담당 교사 계정에서 진행해 주세요.</p>;
+      break;
+    case '/transfer':
+      screen = <Transfer {...common} />;
+      break;
+    case '/settings':
+    case '/admin/settings':
+      screen = <Settings account={account} notify={notify} onLogout={logout} updateProfile={updateProfile} />;
+      break;
+    case '/notifications':
+    case '/admin/notifications':
+      screen = <Notifications notify={notify} refreshUnread={unread.reload} />;
+      break;
+    case '/admin':
+      screen = <AdminHome year={year} />;
+      break;
+    case '/admin/teachers':
+      screen = <Teachers {...common} />;
+      break;
+    case '/admin/rosters':
+      screen = <Rosters {...common} />;
+      break;
+    case '/admin/audit':
+      screen = <Audit notify={notify} />;
+      break;
+    case '/recording':
+      screen = <Recording settings={{
+        grade: '',
+        classroom: ''
+      }} classroomLabel={className(classes.data?.find(item => item.id === classId))} />;
+      break;
+    default:
+      screen = <p>현재 이용할 수 없는 메뉴예요. <a href={`#${admin ? '/admin' : '/coverage'}`}>홈으로 이동</a></p>;
   }
-  const common = { onLogout: logout, account, onLogin: login, settings, setSettings, records, saveObservations, saveRecords, notify, query }
-  const action = page?.action && <PrimaryButton type={formIds[route] ? 'submit' : 'button'} form={formIds[route]} onClick={route === '/settings' ? saveSettings : route === '/timeline' ? () => navigate('/students') : page.destination ? () => navigate(page.destination + (route === '/reports/check' && query.get('id') ? `?id=${query.get('id')}` : '')) : undefined}>{page.action}</PrimaryButton>
-  const backPath = { '/evaluations/create': '/evaluations', '/reports/edit': '/reports', '/reports/check': '/reports', '/reports/export': '/reports', '/transfer': '/students', '/career': '/coverage', '/settings': '/coverage', '/admin/settings': '/admin' }[route]
-  const navigation = <><p className="space-label">{admin ? '학교 운영' : '수업과 학생'}</p><nav className="side-nav" aria-label={admin ? '관리자 메뉴' : '교사 메뉴'}>{(admin ? adminMenu : teacherMenu).map(([label, path]) => <a key={path} href={`#${path}`} onClick={() => setMenu(false)} aria-current={menuActive(path, route) ? 'page' : undefined}>{label}{path.endsWith('/notifications') && scheduleUnread > 0 && <span className="nav-unread" aria-label={`읽지 않은 알림 ${scheduleUnread}개`}>{scheduleUnread}</span>}</a>)}</nav></>
-
-  return <>
-    {denied ? <main className="not-found"><Brand /><h1>접근 권한이 없어요</h1><p>현재 계정으로 이용할 수 없는 페이지예요.</p><a href="#/coverage">교사 홈으로 돌아가기</a></main> : authRoutes.includes(route) ? <Auth key={route} route={route} {...common} /> : route === '/onboarding' ? <Onboarding {...common} /> : page ? <div className={`app-shell ${admin ? 'admin-shell' : ''}`}>
-      <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus() }}>본문으로 이동</a>
-      <aside className="sidebar">
-        <Brand /><div className="sidebar-scroll">{navigation}</div>
-        <button type="button" className="profile-button" onClick={() => navigate(admin ? '/admin/settings' : '/settings')}><span>{`${settings.name} ${admin ? '관리자' : '선생님'}`}</span><span className="avatar">{settings.name.slice(0, 1)}</span></button>
-      </aside>
-      <header className="topbar"><span>{settings.year}학년도 · {settings.school}</span><button type="button" onClick={() => navigate(admin ? '/admin/settings' : '/settings')}>{admin ? '관리자' : `${settings.name} 선생님`}</button></header>
-      <div className="workspace">
-        <header className="mobile-brand"><Brand label="교육24" onClick={() => setMenu(true)} /></header>
-        <main id="main-content" className={`screen screen-${page.code}`} tabIndex={-1}>
-          <>{backPath && <a className="back-link" href={`#${backPath}`}>← 취소하고 {backPath === '/evaluations' ? '평가 목록' : backPath === '/reports' ? '학생 기록 보드' : backPath === '/students' ? '학생별 관찰' : '홈'}으로</a>}</><div className="screen-heading"><div><h1>{page.title}</h1><p className="page-description">{page.description}</p></div><div className="desktop-action">{action}</div></div>
-          {route === '/timeline' && <Timeline key={route} {...common} />}
-          {route === '/students' && <StudentObservation key={route} {...common} />}
-          {route === '/observations/batch' && <BatchObservation key={route} {...common} />}
-          {['/settings', '/admin/settings'].includes(route) && <Settings key={route} {...common} />}
-          {route === '/coverage' && <TeacherDashboard key={route} type="coverage" {...common} />}
-          {route === '/evaluations' && <Evaluations key={route} {...common} />}
-          {route === '/evaluations/create' && <EvaluationEditor key={location} {...common} />}
-          {route === '/career' && <Career key={route} {...common} />}
-          {route === '/reports' && <TeacherDashboard key={route} type="reports" {...common} />}
-          {route === '/reports/edit' && <ReportEditor key={location} {...common} />}
-          {route === '/reports/check' && <ReportCheck key={location} {...common} />}
-          {route === '/reports/export' && <ReportExport key={route} {...common} />}
-          {route === '/transfer' && <Transfer key={route} {...common} />}
-          {route === '/recording' && <Recording key={route} {...common} />}
-          {(route === '/notifications' || route === '/admin/notifications') && <Notifications key={route} {...common} />}
-          {route === '/admin' && <Admin />}
-          {route === '/admin/teachers' && <TeacherAccounts key={route} {...common} />}
-          {route === '/admin/rosters' && <Rosters key={route} {...common} />}
-          {(route === '/admin/timetable' || route === '/timetable') && <Timetable key={route} {...common} admin={admin} />}
-          {route === '/admin/audit' && <AuditLog key={route} {...common} />}
-        </main>
-        <footer className="mobile-footer">{action}<nav className="bottom-nav" aria-label="하단 메뉴">
-          {(admin ? [['현황', '/admin', 'admin'], ['교사', '/admin/teachers', 'admin-teachers'], ['시간표', '/admin/timetable', 'admin-timetable']] : [['홈', '/coverage', 'records'], ['학생', '/students', 'students'], ['타임라인', '/timeline', 'timeline']]).map(([label, path, group]) => <a key={path} href={`#${path}`} aria-current={page.group === group ? 'page' : undefined}>{label}</a>)}
-          <button type="button" onClick={() => setMenu(true)} aria-label="더보기" aria-expanded={menu}>더보기</button>
-        </nav></footer>
-      </div>
-    </div> : <main className="not-found"><h1>페이지를 찾을 수 없어요</h1><a href="#/coverage">홈으로 이동</a></main>}
-    <div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div>
-    {menu && !denied && <Modal title={admin ? '교육24 관리자 메뉴' : '교육24 메뉴'} className="navigation-drawer" onClose={() => setMenu(false)}>{navigation}</Modal>}
-
-  </>
+  return <div className={`app-shell ${adminRoute ? 'admin-shell' : ''}`}><a className="skip-link" href="#main-content" onClick={e => {
+      e.preventDefault();
+      document.getElementById('main-content')?.focus();
+    }}>본문으로 이동</a><aside className="sidebar"><Brand /><div className="sidebar-scroll">{nav}</div><a className="profile-button" href={`#${adminRoute ? '/admin/settings' : '/settings'}`}>{account.name} {admin ? '관리자' : '선생님'}</a></aside><header className="topbar"><span>{account.school?.name || account.schoolName || '교육24'} · {year}학년도</span><span>{account.name}</span></header><div className="workspace"><header className="mobile-brand"><Brand onClick={() => setMenu(true)} /></header><main id="main-content" tabIndex={-1} className="screen"><div className="screen-heading"><h1>{titles[route] || '메뉴 안내'}</h1>{route === '/coverage' && <a className="primary-button" href="#/timetable">시간표 보기</a>}</div><div className="api-toolbar api-context-toolbar"><Field label="학년도" type="number" min={2000} max={2100} value={year} onChange={e => {
+            setYear(e.target.value);
+            classes.setPage(1);
+            selectClass('');
+          }} />{!adminRoute && <a href="#/reports/export">기록 내보내기</a>}</div><div key={`${account.id}:${route}:${classId}:${studentId}:${year}`}>{screen}</div></main><footer className="mobile-footer"><nav className="bottom-nav" aria-label="하단 메뉴"><a href={`#${adminRoute ? '/admin' : '/coverage'}`}>홈</a><a href={`#${adminRoute ? '/admin/rosters' : '/students'}`}>학생</a><a href={`#${adminRoute ? '/admin/notifications' : '/notifications'}`}>알림 {count > 0 ? count : ''}</a><button type="button" onClick={() => setMenu(true)}>더보기</button></nav></footer></div>{menu && <Modal title="전체 메뉴" className="navigation-drawer" onClose={() => setMenu(false)}>{nav}</Modal>}<div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></div>;
 }
