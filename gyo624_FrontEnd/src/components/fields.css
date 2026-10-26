@@ -36,7 +36,7 @@
 .field .field-control[aria-expanded='true'] { border-color: var(--brand); box-shadow: 0 0 0 3px #3182f618; }
 .field .field-validation-proxy { position: absolute; inset: 24px auto auto 0; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
 .field .field-error { margin-top: 6px; padding: 0 2px; color: #d63847; font-size: 12px; line-height: 18px; text-align: left; }
-.field .has-accessory .field-input { padding-inline: 50px; }
+.field .has-accessory .field-input { padding-inline: 14px 58px; }
 .password-toggle { position: absolute; inset: 4px 6px 4px auto; min-width: 42px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--fg-tertiary); font-size: 12px; line-height: 18px; }
 .password-toggle[aria-pressed='true'] { color: var(--brand); }
 .field .field-number { display: flex; align-items: center; gap: 4px; height: 48px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: white; transition: border-color 150ms ease, box-shadow 150ms ease; }

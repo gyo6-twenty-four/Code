@@ -90,3 +90,52 @@
   .navigation-drawer { animation: none; }
 }
 .undo-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; padding: 14px 18px; border-radius: 12px; color: #244a79; background: #eaf3ff; font-size: 13px; }
+.auth-error { margin-top: 16px; line-height: 1.6; }
+.signup-identity { display: grid; gap: 4px; padding: 14px; border-radius: 12px; background: #f2f7ff; font-size: 13px; }
+.signup-identity span { color: var(--fg-secondary); }
+.auth-card .primary-button:disabled { opacity: .6; cursor: wait; }
+.recording-stop { width: 100%; margin-top: 12px; }
+
+.recording-status { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.recording-status.is-active { color: #d63847; background: #fff0f1; }
+.recording-dot { width: 7px; height: 7px; border-radius: 50%; background: #e84454; animation: recording-pulse 1.3s ease-in-out infinite; }
+.is-running .waveform span { background: #99bffc; }
+.is-running .waveform span:nth-child(3n) { background: var(--brand); }
+@keyframes recording-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .recording-dot { animation: none; } }
+
+/* Timetable and date-specific lesson exchanges. */
+.schedule-toolbar h2 { font-size: 18px; }
+.lesson-card strong, .lesson-card span { overflow-wrap: anywhere; }
+.exchange-section { padding: 24px; margin-top: 28px; background: white; border: 1px solid var(--line); border-radius: 18px; }
+.exchange-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.exchange-heading h2, .exchange-notifications h2 { font-size: 17px; }
+.exchange-heading h3 { font-size: 14px; line-height: 1.6; }
+.exchange-heading p { margin-top: 6px; color: var(--fg-tertiary); font-size: 12px; line-height: 1.7; }
+.exchange-heading .secondary-button { width: auto; min-height: 40px; padding: 8px 14px; flex-shrink: 0; }
+.exchange-section > .segmented, .exchange-notifications > .segmented { margin-bottom: 16px; }
+.exchange-card { padding: 16px; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.exchange-card header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13px; line-height: 1.6; }
+.exchange-status { display: inline-block; padding: 3px 8px; color: #2863b5; background: #edf5ff; border-radius: 6px; font-size: 11px; white-space: nowrap; }
+.status-accepted { color: #13724f; background: #e9f8ef; }
+.status-rejected, .status-cancelled { color: #656e7d; background: #f2f4f6; }
+.exchange-card dl { margin: 16px 0; display: grid; gap: 12px; font-size: 12px; line-height: 1.8; }
+.exchange-card dt { color: var(--fg-tertiary); }
+.exchange-card dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.exchange-message { padding: 10px; background: #f8fafc; border-radius: 8px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.exchange-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.exchange-actions .primary-button, .exchange-actions .secondary-button { flex: 1; width: auto; min-width: 100px; min-height: 40px; font-size: 13px; }
+.exchange-compact { padding: 20px 0 0; margin-top: 20px; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.exchange-compact .exchange-heading h2 { font-size: 14px; }
+.exchange-compact .exchange-heading { align-items: flex-start; }
+.exchange-compact .exchange-heading .secondary-button { font-size: 12px; }
+.exchange-compact > .text-button { display: inline-block; margin-top: 12px; text-decoration: none; font-size: 12px; }
+.exchange-dialog { width: min(560px, calc(100vw - 32px)); }
+.exchange-dialog fieldset { margin: 20px 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.exchange-dialog legend { padding: 0 6px; font-size: 13px; font-weight: 600; }
+.exchange-notifications { margin-bottom: 32px; }
+.exchange-notifications > h2 { margin-bottom: 16px; }
+.exchange-notice { padding: 16px; margin: 12px 0; border: 1px solid var(--line); border-radius: 16px; background: white; }
+.exchange-notice .exchange-card { margin-top: 0; }
+.nav-unread { display: inline-grid; place-items: center; margin-left: 6px; min-width: 19px; padding: 0 5px; height: 19px; color: white; background: var(--brand); border-radius: 10px; font-size: 11px; }
+@media (max-width: 599px) { .exchange-section { padding: 16px 12px; } .exchange-compact { padding: 18px 0 0; } .exchange-card { padding: 12px; } .exchange-dialog fieldset { padding: 12px; } }

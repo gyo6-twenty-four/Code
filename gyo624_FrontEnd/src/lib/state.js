@@ -40,7 +40,7 @@ export function readCollection(key, fallback = []) {
 export function useCollection(key, fallback, notify) {
   const [items, setItems] = useState(() => readCollection(key, fallback))
   function save(next, message) {
-    try { persist(key, next); setItems(next); if (message) notify(message); return true } catch { notify('저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); return false }
+    try { persist(key, next); setItems(next); if (message) notify(message); return true } catch { notify('저장하지 못했어요. 저장 공간을 확인한 뒤 다시 시도해 주세요.'); return false }
   }
   return [items, save]
 }

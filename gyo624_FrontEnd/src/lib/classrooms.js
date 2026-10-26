@@ -13,9 +13,9 @@ export function classroomOptions(rosters, settings) {
 export const weekdays = ['월요일', '화요일', '수요일', '목요일', '금요일']
 export const subjects = ['국어', '수학', '통합', '사회', '과학', '영어', '체육', '음악', '미술', '도덕', '실과', '창의적 체험 활동']
 export function timetableError(candidate, entries) {
-  if (!weekdays.includes(candidate.day) || !/^[1-8]$/.test(String(candidate.period)) || !normalizeClassroom(candidate.classroom) || !subjects.includes(candidate.subject) || !candidate.teacher?.trim()) return '요일, 교시, 학급, 과목과 담당 교사를 확인해 주세요.'
+  if (!weekdays.includes(candidate.day) || !/^[1-9]$/.test(String(candidate.period)) || !normalizeClassroom(candidate.classroom) || !candidate.subject?.trim() || candidate.subject.trim().length > 40 || !candidate.teacher?.trim()) return '요일, 교시, 학급, 과목과 담당 교사를 확인해 주세요.'
   const sameSlot = entries.filter(item => item.id !== candidate.id && item.day === candidate.day && Number(item.period) === Number(candidate.period))
   if (sameSlot.some(item => normalizeClassroom(item.classroom) === normalizeClassroom(candidate.classroom))) return '이 학급은 같은 시간에 이미 수업이 있어요. 기존 수업을 수정하거나 다른 교시를 선택해 주세요.'
-  const conflict = sameSlot.find(item => item.teacher === candidate.teacher)
+  const conflict = sameSlot.find(item => (item.teacherId && candidate.teacherId ? item.teacherId === candidate.teacherId : item.teacher === candidate.teacher))
   return conflict ? `${candidate.teacher} 선생님은 같은 시간에 ${conflict.classroom} 수업이 있어요.` : ''
 }

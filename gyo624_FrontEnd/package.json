@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/components/field-utils.test.js src/lib/classrooms.test.js src/lib/account.test.js src/lib/dashboard-calendar.test.js",
+    "test": "node --test src/components/field-utils.test.js src/lib/classrooms.test.js src/lib/account.test.js src/lib/dashboard-calendar.test.js src/lib/passwords.test.js src/lib/observations.test.js src/lib/schedule.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

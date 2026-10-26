@@ -25,7 +25,10 @@ describe('시간표 배정', () => {
     assert.match(timetableError({ ...lesson, id: 'two', classroom: '2학년 1반' }, [lesson]), /김지현.*같은 시간/)
     assert.equal(timetableError({ ...lesson, id: 'two', classroom: '2학년 1반', teacher: '이서연' }, [lesson]), '')
   })
+  it('9교시와 직접 입력한 과목을 허용한다', () => {
+    assert.equal(timetableError({ ...lesson, period: '9', subject: '프로그래밍' }, []), '')
+  })
   it('잘못된 학급/요일/교시/과목을 차단한다', () => {
-    for (const patch of [{ classroom: 'asd' }, { day: '토요일' }, { period: '9' }, { subject: 'asdf' }]) assert.ok(timetableError({ ...lesson, ...patch }, []))
+    for (const patch of [{ classroom: 'asd' }, { day: '토요일' }, { period: '10' }, { subject: '   ' }]) assert.ok(timetableError({ ...lesson, ...patch }, []))
   })
 })

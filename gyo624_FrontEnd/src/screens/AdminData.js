@@ -20,8 +20,8 @@ export const auditSeed = [
   { id: 'audit-3', timestamp: '10.13 11:05', actor: '이서연', action: '시간표 변경', target: '화요일 2교시', channel: '웹' },
   { id: 'audit-4', timestamp: '10.12 14:26', actor: '박민수', action: '명단 가져오기', target: '2학년 1반', channel: '웹' },
 ]
-export function appendAudit(action, target) {
+export function appendAudit(action, target, actor = '박민수') {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Seoul' }).formatToParts(new Date()).map(p => [p.type, p.value]))
-  const item = { id: crypto.randomUUID(), timestamp: `${parts.month}.${parts.day} ${parts.hour}:${parts.minute}`, actor: '박민수', action, target, channel: '웹' }
+  const item = { id: crypto.randomUUID(), timestamp: `${parts.month}.${parts.day} ${parts.hour}:${parts.minute}`, actor, action, target, channel: '웹' }
   try { persist('classroom-audit', [item, ...readCollection('classroom-audit', auditSeed)]); return true } catch { return false }
 }
