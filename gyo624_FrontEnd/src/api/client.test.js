@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError, clearSession, establishSession, request, resource, refreshToken, onSessionExpired, listAll } from './client.js';
+import { ApiError, clearSession, establishSession, request, resource, refreshToken, onSessionExpired, listAll } from '../integration/http-client.js';
 import { assertUser, blocksGate, hasWarnings, safeDetails } from './model.js';
 const originalFetch = globalThis.fetch;
 const memory = new Map();

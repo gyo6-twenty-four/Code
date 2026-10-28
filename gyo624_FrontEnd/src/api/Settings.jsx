@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import { clearSession } from './client';
+import { navigate } from '../lib/state';
 import { Field, Modal, PrimaryButton } from '../components/ui';
 import { useMutation, useResource, usePage } from './hooks';
 import { ApiState, JsonDetails, MutationError, Pagination, SaveButton } from './shared';
+import PhoneField from '../components/PhoneField';
+import { phoneDigits } from '../lib/phone';
 export default function Settings({
   account,
   notify,
@@ -37,7 +41,7 @@ export default function Settings({
         }
         const body = kind === 'profile' ? {
           name: draft.name,
-          phone: draft.phone || ''
+          phone: phoneDigits(draft.phone)
         } : kind === 'school' ? {
           name: draft.name
         } : kind === 'notifications' ? {
@@ -49,6 +53,7 @@ export default function Settings({
           body
         }, '설정을 변경했어요.')) {
           setDraft(null);
+          if (kind === 'password/change') { clearSession(); navigate('/login'); notify('비밀번호를 변경했어요. 새 비밀번호로 로그인해 주세요.'); return; }
           profile.reload();
           notifications.reload();
           school.reload();
@@ -57,9 +62,9 @@ export default function Settings({
       }}>{kind === 'profile' ? <><Field label="이름" required value={draft.name || ''} onChange={e => setDraft({
             ...draft,
             name: e.target.value
-          })} /><Field label="연락처" type="tel" value={draft.phone || ''} onChange={e => setDraft({
+          })} /><PhoneField value={draft.phone || ''} onChange={phone => setDraft({
             ...draft,
-            phone: e.target.value
+            phone
           })} /></> : kind === 'school' ? <Field label="학교 이름" required value={draft.name || ''} onChange={e => setDraft({
           ...draft,
           name: e.target.value

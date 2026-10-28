@@ -1,9 +1,10 @@
 import { Children, useEffect, useId, useRef } from 'react'
 import rowMark from '../assets/row-mark.svg'
+import education24Logo from '../assets/education24-logo.svg'
 import { Field as FormField } from './Fields'
 
 export function Brand({ onClick, label = '교육24' }) {
-  const copy = <><span className="brand-mark" aria-hidden="true">교</span><span>{label}</span></>
+  const copy = <img className="brand-logo" src={education24Logo} width="92" height="32" alt={label} />
   return onClick ? <button type="button" className="brand" onClick={onClick} aria-label="메뉴 열기">{copy}</button> : <div className="brand">{copy}</div>
 }
 export function PrimaryButton({ children, className = '', ...props }) { return <button type="button" className={`primary-button ${className}`} {...props}>{children}</button> }

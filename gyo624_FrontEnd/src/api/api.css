@@ -3,8 +3,11 @@
 .api-panel h2 { font-size: 18px; margin-bottom: 12px; }
 .api-panel h3 { font-size: 15px; }
 .api-panel p { line-height: 1.8; overflow-wrap: anywhere; }
-.api-toolbar { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; margin-bottom: 18px; }
-.api-toolbar .field { min-width: 160px; flex: 1; }
+.api-toolbar { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; min-width: 0; margin-bottom: 18px; }
+.api-toolbar .field { min-width: 160px; flex: 1 1 200px; max-width: 360px; }
+.api-toolbar > .primary-button, .api-toolbar > .secondary-button { flex: 0 0 auto; width: auto; max-width: 100%; min-height: 48px; padding: 10px 20px; border-radius: 12px; font-size: 14px; }
+.api-toolbar > .dialog-hint, .api-toolbar > .agenda-empty, .api-toolbar > .api-error, .api-toolbar > .api-pagination { flex-basis: 100%; margin: 0; }
+.api-toolbar > .dialog-hint { line-height: 1.7; }
 .api-check { display: flex; align-items: center; gap: 10px; line-height: 1.7; cursor: pointer; }
 .api-check input { width: 18px; height: 18px; accent-color: var(--brand); flex-shrink: 0; }
 .api-error { padding: 18px; border: 1px solid #eeb4b4; border-radius: 12px; background: #fff8f8; display: grid; gap: 14px; }
@@ -15,11 +18,120 @@
 .api-stack > .primary-button { width: auto; justify-self: start; }
 .api-panel .text-button { margin: 10px 12px 0 0; }
 .api-stack .schedule-table .lesson-card:disabled { opacity: 1; cursor: default; }
-@media (max-width: 599px) { .api-panel { padding: 16px; } .api-toolbar { display: grid; grid-template-columns: 1fr; } .api-toolbar .field { min-width: 0; } }
+@media (max-width: 599px) { .api-panel { padding: 16px; } .api-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); } .api-toolbar .field { min-width: 0; max-width: none; } .api-toolbar > .primary-button, .api-toolbar > .secondary-button { justify-self: start; } }
 .api-details dl { margin: 0; }
 .api-details > div { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .api-details dt { color: var(--fg-tertiary); font-size: 12px; }
 .api-details dd { margin: 3px 0 0; }
 .api-context-toolbar .field { flex: 0 1 180px; }
+.api-year-controls { display: flex; flex: 0 1 250px; align-items: end; gap: 8px; min-width: 0; }
+.api-year-controls .field { flex: 1 1 180px; min-width: 0; }
+.year-today-button { flex-shrink: 0; min-height: 40px; margin-bottom: 4px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: white; color: var(--fg-secondary); font-size: 13px; line-height: 20px; }
+.year-today-button:hover:not(:disabled) { color: var(--brand); background: var(--brand-weak); }
+.year-today-button:disabled { color: #8b95a1; background: #f2f4f6; cursor: default; }
 .api-context-toolbar > a { margin-left: auto; align-self: center; font-size: 13px; color: var(--brand); }
 @media (max-width: 599px) { .api-context-toolbar { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } }
+
+/* Page actions must not inherit the full-width submit button layout. */
+.screen { min-width: 0; }
+.screen-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin-bottom: 24px; }
+.screen-heading h1 { flex: 1 1 220px; min-width: 0; height: auto; word-break: keep-all; overflow-wrap: break-word; }
+.screen-heading > .primary-button { flex: 0 0 auto; width: auto; max-width: 100%; min-height: 40px; padding: 10px 18px; border-radius: 11px; font-size: 14px; line-height: 20px; white-space: nowrap; }
+a.primary-button { text-decoration: none; }
+.api-stack, .api-panel, .dialog-heading { overflow-wrap: anywhere; }
+.dialog-heading { gap: 12px; }
+.dialog-heading .close-button { flex-shrink: 0; }
+.api-check { min-width: 0; }
+.api-check input { flex: 0 0 18px; }
+.api-panel .exchange-actions { align-items: center; }
+.api-details { min-width: 0; }
+.day-lessons li > div { min-width: 0; overflow-wrap: anywhere; }
+.selected-day-panel h2 { word-break: keep-all; overflow-wrap: anywhere; margin-bottom: 16px; }
+.api-stack > .dashboard-calendar { align-items: start; }
+.api-stack > .api-toolbar { margin-bottom: 0; }
+@media (min-width: 900px) {
+  .workspace { min-width: 0; }
+  .sidebar { position: sticky; top: 0; align-self: start; height: 100svh; min-height: 0; }
+  .sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; margin: 20px 0; }
+  .sidebar > .brand, .sidebar > .profile-button { flex-shrink: 0; }
+  .topbar { min-width: 0; gap: 24px; }
+  .topbar > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .topbar > span:last-child { flex-shrink: 0; }
+}
+@media (max-width: 599px) {
+  .screen-heading { align-items: flex-start; gap: 10px; }
+  .screen-heading h1 { flex-basis: 160px; }
+  .screen-heading > .primary-button { min-height: 40px; padding: 10px 12px; font-size: 13px; }
+  .api-context-toolbar .field { min-width: 0; }
+  .api-context-toolbar .api-year-controls { grid-column: 1 / -1; width: min(100%, 250px); }
+  .api-context-toolbar > a { max-width: 110px; text-align: right; overflow-wrap: anywhere; }
+  .api-stack > .primary-button { max-width: 100%; }
+  .home-calendar-heading h2, .selected-day-panel h2 { font-size: 18px; }
+  .api-pagination { flex-wrap: wrap; }
+}
+
+/* Fluid typography and content-driven sizing across the standalone screens. */
+.app-shell { font-size: 14px; line-height: 1.65; }
+.screen h1, .screen h2, .screen h3, .auth-card h1, .onboarding-card h1 { height: auto; min-height: 0; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.4; }
+.api-stack, .api-panel, .field, .field-input-wrap, .api-toolbar > *, .exchange-actions > *, .auth-fields > * { min-width: 0; }
+.api-panel, .api-check, .dialog-hint, .field-label, .detail-copy { word-break: keep-all; overflow-wrap: anywhere; }
+.api-panel .detail-copy { white-space: pre-wrap; }
+.api-stack > form:not(.api-toolbar), .settings-dialog form { display: grid; gap: 18px; }
+.api-stack .primary-button, .settings-dialog .primary-button, .api-stack .secondary-button { height: auto; min-height: 44px; padding: 10px 18px; line-height: 1.5; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.exchange-actions { align-items: center; }
+.exchange-actions .primary-button, .exchange-actions .secondary-button { flex: 0 1 auto; min-width: 0; }
+.api-stack .text-button { max-width: 100%; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.api-panel .field, .settings-dialog .field { margin-top: 0; }
+.api-check { align-items: flex-start; }
+.api-check input { margin-top: 4px; }
+.api-details { white-space: normal; }
+.api-details .api-details { max-height: none; overflow: visible; }
+.api-details dd { white-space: pre-wrap; }
+.field .field-control { justify-content: flex-start; padding-left: 14px; text-align: left; }
+.field-control > span { min-width: 0; max-width: 100%; }
+.auth-page, .onboarding-page { min-height: 100svh; padding: clamp(24px, 7vh, 80px) 20px; }
+.auth-card, .onboarding-card { width: 100%; max-width: 480px; min-height: 0; height: auto; padding: 32px; gap: 0; border: 1px solid var(--line); border-radius: 20px; background: white; }
+.auth-card h1 { font-size: clamp(23px, 3vw, 28px); }
+.auth-card .auth-fields, .login-page .auth-fields { margin-top: 28px; gap: 20px; }
+.auth-card .brand, .onboarding-card .brand { flex-shrink: 0; }
+.auth-card a { color: var(--brand); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.auth-card .secondary-button { text-align: center; text-decoration: none; }
+.onboarding-card > form { margin-top: 24px; }
+.settings-dialog { max-width: calc(100vw - 32px); max-height: calc(100svh - 32px); overflow: auto; padding: 24px; }
+.dialog-heading h2 { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.metric-grid { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
+.metric-card { height: auto; min-height: 110px; }
+.metric-card h2 { font-size: 14px; }
+.metric-value { overflow-wrap: anywhere; }
+.schedule-scroll { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; }
+.schedule-table { min-width: 680px; table-layout: fixed; }
+.schedule-table .lesson-card { height: auto; min-height: 88px; text-align: left; }
+.schedule-table .lesson-card strong, .schedule-table .lesson-card span { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.schedule-table .empty-slot { white-space: normal; }
+.logout-section { margin-top: 8px; }
+.profile-button { overflow-wrap: anywhere; text-decoration: none; }
+@media (max-width: 899px) {
+  .workspace { width: 100%; max-width: 760px; min-height: 0; padding: 20px clamp(16px, 4vw, 28px) 24px; }
+  .app-shell { padding-bottom: 88px; }
+  .mobile-footer { position: fixed; inset: auto 0 0; z-index: 4; padding: 8px 16px max(8px, env(safe-area-inset-bottom)); background: #ffffffed; border-top: 1px solid var(--line); }
+  .bottom-nav { max-width: 720px; margin: 0 auto; height: 52px; border-radius: 16px; }
+  .navigation-drawer { max-height: 100svh; }
+  .screen-heading { margin-top: 24px; }
+  .screen-heading h1 { font-size: 23px; flex: 1 1 180px; }
+  .api-toolbar { align-items: stretch; }
+  .api-context-toolbar { display: flex; }
+  .api-context-toolbar .api-year-controls { width: 240px; flex: 0 1 240px; }
+  .api-panel { padding: 18px; }
+}
+@media (max-width: 359px) {
+  .auth-page, .onboarding-page { padding: 16px 12px; }
+  .auth-card, .onboarding-card { padding: 24px 18px; }
+  .settings-dialog { padding: 20px 16px; }
+  .home-calendar-panel { padding: 14px 8px; }
+  .screen-heading { flex-direction: column; }
+  .screen-heading h1 { flex: none; }
+}
+
+@media (min-width: 900px) { .api-stack .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.settings-dialog .field + .field { margin-top: 0; }
+.api-toolbar > .primary-button, .api-toolbar > .secondary-button { align-self: end; }

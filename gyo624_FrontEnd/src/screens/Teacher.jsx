@@ -9,7 +9,6 @@ import { dateLessons } from '../lib/schedule'
 import { useState } from 'react'
 import { Field, Filters, InfoPanel, ListRow, Modal, PrimaryButton } from '../components/ui'
 import { navigate, readCollection, useCollection } from '../lib/state'
-import { downloadDelimited } from '../lib/export'
 import { careerSeed, evaluationSeed, notificationSeed, reportSeed } from './TeacherData'
 
 const classLabel = settings => `${settings.grade}학년 ${settings.classroom}반`
@@ -94,24 +93,6 @@ export function ReportCheck({ query }) {
   return <div className="validation-results"><section className="validation-banner"><p>확인 결과</p><h2>제출 전 기록을 살펴봐요</h2><span>항목별 내용을 검토하고 필요한 부분을 수정해요.</span></section><div className="settings-list validation-list">
     {[['필수 항목', '필수 내용을 빠짐없이 입력했는지 확인해요', '확인'], ['표현 점검', '비교·추측 표현을 다시 살펴봐요', '1건'], ['학생 정보', '학생과 학급 정보를 확인해요', '확인'], ['분량 확인', '학교 기준에 맞는 분량인지 확인해요', '확인']].map(([title, description, meta], i) => <ListRow key={title} className={i === 3 ? 'desktop-only' : ''} title={title} detail={description} meta={meta} onClick={() => setDetail([title, description])} />)}
   </div>{detail && <Detail title={detail[0]} onClose={() => setDetail(null)} action={() => navigate(`/reports/edit?id=${id}`)} actionLabel="기록 수정하기"><p className="detail-copy">{detail[1]}</p><p className="dialog-hint">학교의 기재 기준과 기록 내용을 함께 확인해 주세요.</p></Detail>}</div>
-}
-export function ReportExport({ notify }) {
-  const [filter, setFilter] = useState('전체')
-  const [format, setFormat] = useState('csv')
-  const [dialog, setDialog] = useState(null)
-  const [reports] = useState(() => readCollection('classroom-reports', reportSeed))
-  function exportFile() {
-    const filled = reports.filter(report => report.content?.trim())
-    if (!filled.length) { notify('저장한 학생 기록이 없어요. 학생 기록을 먼저 작성해 주세요.'); return }
-    const separator = format === 'csv' ? ',' : '\t'
-    downloadDelimited(`교육24.${format}`, [['학생', '항목', '기록 내용'], ...filled.map(report => [report.student, report.item, report.content])], separator)
-    notify(`${filled.length}명의 학생 기록을 내보냈어요.`)
-  }
-  return <><Filters value={filter} onChange={setFilter} /><form id="export-form" className="content-columns" onSubmit={e => { e.preventDefault(); exportFile() }}><div className="settings-list">
-    <ListRow title="복사할 항목" detail="교과 학습 발달 상황 · 24명" meta="준비됨" onClick={() => setDialog('items')} /><ListRow title="파일 형식" detail={`UTF-8 ${format.toUpperCase()} · 항목별 정리`} meta="선택" onClick={() => setDialog('format')} /><ListRow title="붙여넣기 안내" detail="내보낸 내용을 확인한 뒤 사용해요" meta="안내" onClick={() => setDialog('help')} />
-    </div><div className="export-info-column"><InfoPanel title="내보내기 전 확인" lines={['학생 이름과 항목을 확인해요', '학교 시스템에 붙여넣기 전에 내용을 검토해요']} /><InfoPanel className="desktop-only admin-guide" title="안전하게 확인해요" lines={['학생 이름과 항목을 확인해요']} /></div></form>
-    {dialog && <Modal title={dialog === 'format' ? '파일 형식' : dialog === 'items' ? '복사할 항목' : '붙여넣기 안내'} onClose={() => setDialog(null)}>{dialog === 'format' ? <Field label="내보낼 형식" value={format} onChange={e => setFormat(e.target.value)}><option value="csv">UTF-8 CSV</option><option value="tsv">UTF-8 TSV</option></Field> : dialog === 'items' ? <><p className="detail-copy">저장된 학생 기록 {reports.filter(report => report.content?.trim()).length}건을 내보낼 수 있어요.</p><a className="inline-link" href="#/reports/edit">학생 기록 작성하기</a></> : <p className="detail-copy">파일을 열어 학생 이름과 항목, 기록 내용을 확인한 뒤 학교 업무 시스템의 해당 항목에 옮겨 적어 주세요.</p>}<PrimaryButton className="dialog-apply" onClick={() => setDialog(null)}>확인</PrimaryButton></Modal>}
-  </>
 }
 export function Transfer({ settings, records, saveRecords, notify }) {
   const [source, setSource] = useState(classLabel(settings))

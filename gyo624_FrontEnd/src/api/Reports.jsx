@@ -2,7 +2,7 @@ import { blocksGate, hasWarnings, statusLabel } from './model';
 import { useEffect, useState } from 'react';
 import { Field, Modal, PrimaryButton } from '../components/ui';
 import { navigate } from '../lib/state';
-import { download, resource } from './client';
+import { resource } from './client';
 import { useMutation, usePage, useResource } from './hooks';
 import { ApiState, ClassSelect, StudentSelect, JsonDetails, MutationError, Pagination, SaveButton } from './shared';
 const types = {
@@ -109,7 +109,7 @@ function RecordDraft({
         setContent(e.target.value);
         setGate(null);
         setAck(false);
-      }} /><p>{content.length}자{initial.maxCharacterCount ? ` / ${initial.maxCharacterCount}자` : ''}</p>{teacher && !checkOnly && <SaveButton mutation={mutation} showError={false} disabled={!dirty}>임시 저장하기</SaveButton>}</form><div className="exchange-actions">{teacher && <PrimaryButton disabled={dirty || mutation.busy} onClick={check}>기재 요령 검사</PrimaryButton>}<button type="button" className="secondary-button" disabled={dirty || mutation.busy} onClick={async () => {
+      }} /><p>{content.length}자{initial.maxCharacterCount ? ` / ${initial.maxCharacterCount}자` : ''}</p>{teacher && !checkOnly && <SaveButton mutation={mutation} showError={false} disabled={!dirty}>임시 저장하기</SaveButton>}</form><div className="exchange-actions">{teacher && <PrimaryButton disabled={dirty || mutation.busy} onClick={check}>글자 수 확인</PrimaryButton>}<button type="button" className="secondary-button" disabled={dirty || mutation.busy} onClick={async () => {
         const result = await mutation.run(`/record-items/${initial.id}/gate-checks/latest`, {
           method: 'GET'
         });
@@ -118,14 +118,14 @@ function RecordDraft({
           setCheckedVersion(null);
           setAck(false);
         }
-      }}>최근 검사 결과</button><button type="button" className="secondary-button" onClick={() => setVersionsOpen(true)}>변경 이력</button><button type="button" className="text-button" onClick={() => setRulesOpen(true)}>적용 중인 기재 규칙</button><button type="button" className="text-button" onClick={reload}>최신 내용 불러오기</button></div>{dirty && <p className="dialog-hint">변경 내용을 저장한 뒤 검사·제출할 수 있어요.</p>}{gate && <section className="api-stack"><h3>검사 결과 · {statusLabel(gate.status)}</h3><p>규칙 버전 {gate.ruleVersion} · {gate.checkedAt}</p>{gate.issues?.map((issue, i) => <article className="api-panel" key={i}><strong>{statusLabel(issue.severity)} · {issue.message}</strong><p>{issue.start}~{issue.end} 위치</p>{Number.isInteger(issue.start) && Number.isInteger(issue.end) && <p><mark>{content.slice(issue.start, issue.end)}</mark></p>}<p>{issue.suggestion}</p></article>)}{warning && <label className="api-check"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />경고 내용을 확인했어요.</label>}</section>}{teacher && <PrimaryButton disabled={mutation.busy || dirty || !gate || checkedVersion !== initial.version || blocksGate(gate) || warning && !ack} onClick={async () => {
+      }}>최근 검사 결과</button><button type="button" className="secondary-button" onClick={() => setVersionsOpen(true)}>변경 이력</button><button type="button" className="text-button" onClick={() => setRulesOpen(true)}>작성 기준</button><button type="button" className="text-button" onClick={reload}>최신 내용 불러오기</button></div>{dirty && <p className="dialog-hint">변경 내용을 저장한 뒤 확인·완료 처리할 수 있어요.</p>}{gate && <section className="api-stack"><h3>검사 결과 · {statusLabel(gate.status)}</h3><p>확인 항목 {gate.ruleVersion} · {gate.checkedAt}</p>{gate.issues?.map((issue, i) => <article className="api-panel" key={i}><strong>{statusLabel(issue.severity)} · {issue.message}</strong><p>{issue.start}~{issue.end} 위치</p>{Number.isInteger(issue.start) && Number.isInteger(issue.end) && <p><mark>{content.slice(issue.start, issue.end)}</mark></p>}<p>{issue.suggestion}</p></article>)}{warning && <label className="api-check"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />경고 내용을 확인했어요.</label>}</section>}{teacher && <PrimaryButton disabled={mutation.busy || dirty || !gate || checkedVersion !== initial.version || blocksGate(gate) || warning && !ack} onClick={async () => {
       if (await mutation.run(`/record-items/${initial.id}/submit`, {
         body: {
           version: initial.version,
           warningsAcknowledged: ack
         }
       }, '작성 완료 처리했어요.')) reload();
-    }}>작성 완료하기</PrimaryButton>}<MutationError mutation={mutation} />{rulesOpen && <Modal title="적용 중인 기재 규칙" onClose={() => setRulesOpen(false)}><ApiState state={rules}><JsonDetails value={rules.data} /></ApiState></Modal>}{versionsOpen && <Modal title="변경 이력" onClose={() => {
+    }}>작성 완료하기</PrimaryButton>}<MutationError mutation={mutation} />{rulesOpen && <Modal title="작성 기준" onClose={() => setRulesOpen(false)}><ApiState state={rules}><JsonDetails value={rules.data} /></ApiState></Modal>}{versionsOpen && <Modal title="변경 이력" onClose={() => {
       setVersionsOpen(false);
       setRestoreId('');
     }}><ApiState state={versions}>{Array.isArray(versions.data) && versions.data.map(item => <article className="api-panel" key={item.id}><p>버전 {item.version} · {item.createdAt}</p><p className="detail-copy">{item.content}</p>{teacher && <button type="button" className="secondary-button" onClick={() => setRestoreId(item.id)}>이 버전 복원 선택</button>}</article>)}</ApiState>{restoreId && <><p>선택한 버전을 복원할까요? 편집 중인 내용은 먼저 보관해 주세요.</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
@@ -138,62 +138,6 @@ function RecordDraft({
             reload();
           }
         }}>복원 확인</PrimaryButton></>}<MutationError mutation={mutation} /></Modal>}</section>;
-}
-export function ExportRecords({
-  classes,
-  classId,
-  selectClass,
-  students,
-  year,
-  notify
-}) {
-  const [selected, setSelected] = useState([]),
-    [preview, setPreview] = useState(null),
-    [jobId, setJobId] = useState(''),
-    [ack, setAck] = useState(false);
-  const mutation = useMutation(notify),
-    job = useResource(jobId ? `/exports/${jobId}` : null);
-  useJobPolling(job);
-  const body = {
-    classId,
-    studentIds: selected,
-    recordTypes: ['BEHAVIOR_AND_OVERALL_OPINION'],
-    format: 'XLSX',
-    schoolYear: year
-  };
-  return <section className="api-stack"><ClassSelect classes={classes} value={classId} onChange={value => {
-      selectClass(value);
-      setSelected([]);
-      setPreview(null);
-      setAck(false);
-    }} /><ApiState state={students}>{students.data?.map(item => <label className="api-check api-panel" key={item.id}><input type="checkbox" checked={selected.includes(item.id)} onChange={e => {
-          setSelected(e.target.checked ? [...selected, item.id] : selected.filter(id => id !== item.id));
-          setPreview(null);
-          setAck(false);
-        }} />{item.name}</label>)}</ApiState><Pagination state={students} /><p>파일 형식: XLSX · 행동 특성 및 종합 의견</p><PrimaryButton disabled={!selected.length || mutation.busy} onClick={async () => {
-      const result = await mutation.run('/exports/neis/preview', {
-        body
-      });
-      if (result) setPreview(result.data);
-    }}>내보내기 미리보기</PrimaryButton>{preview && <section className="api-panel api-stack"><JsonDetails value={preview} /><label className="api-check"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />미리보기와 경고 내용을 확인했어요.</label><PrimaryButton disabled={!ack || mutation.busy || preview.gateStatus === 'FAIL' || preview.status === 'FAIL' || preview.issues?.some(item => item.severity === 'ERROR')} onClick={async () => {
-        const result = await mutation.run('/exports/neis', {
-          body: {
-            ...body,
-            warningsAcknowledged: ack
-          },
-          idempotent: true
-        }, '내보내기 작업을 요청했어요.');
-        if (result) {
-          setJobId(result.data?.exportId || result.data?.id || '');
-          setPreview(null);
-        }
-      }}>내보내기 작업 시작</PrimaryButton></section>}{jobId && <ApiState state={job}><section className="api-panel api-stack"><p>작업 상태: {statusLabel(job.data?.status)}</p>{job.data?.status === 'COMPLETED' && <PrimaryButton disabled={mutation.busy} onClick={async () => {
-          try {
-            await download(`/exports/${jobId}/download`, '교육24.xlsx');
-          } catch (error) {
-            notify(error.message);
-          }
-        }}>파일 다운로드</PrimaryButton>}{['FAILED', 'EXPIRED'].includes(job.data?.status) && <p role="alert">{job.data?.message || '작업에 실패했거나 다운로드 기간이 만료됐어요. 다시 요청해 주세요.'}</p>}<button type="button" className="text-button" onClick={job.reload}>상태 새로고침</button></section></ApiState>}<MutationError mutation={mutation} /></section>;
 }
 function useJobPolling(job) {
   useEffect(() => {
@@ -248,12 +192,12 @@ export function Transfer({
     })} /><Field label="이관 받을 학년도" type="number" min={2000} max={2100} required value={targetYear} onChange={e => change(() => {
       setTargetYear(e.target.value);
       setTarget('');
-    })} /><ClassSelect classes={targets} value={target} onChange={value => change(() => setTarget(value))} label="이관 받을 학급" /><Field label="충돌 처리" value={policy} onChange={e => change(() => setPolicy(e.target.value))}><option value="SKIP">기존 항목 건너뛰기</option><option value="CREATE_COPY">복사본 만들기</option><option value="OVERWRITE">기존 항목 덮어쓰기</option></Field><label className="api-check"><input type="checkbox" checked={includeCareers} onChange={e => change(() => setIncludeCareers(e.target.checked))} />진로 기록도 포함</label><ApiState state={students}>{students.data?.map(item => <label className="api-check api-panel" key={item.id}><input type="checkbox" checked={selected.includes(item.id)} onChange={e => change(() => setSelected(e.target.checked ? [...selected, item.id] : selected.filter(id => id !== item.id)))} />{item.name}</label>)}</ApiState><Pagination state={students} /><PrimaryButton disabled={!selected.length || !target || mutation.busy || target === classId && targetYear === year} onClick={async () => {
+    })} /><ClassSelect classes={targets} value={target} onChange={value => change(() => setTarget(value))} label="이관 받을 학급" /><Field label="충돌 처리" value={policy} onChange={e => change(() => setPolicy(e.target.value))}><option value="SKIP">기존 항목 건너뛰기</option><option value="CREATE_COPY">복사본 만들기</option><option value="OVERWRITE">기존 항목 덮어쓰기</option></Field><label className="api-check"><input type="checkbox" checked={includeCareers} onChange={e => change(() => setIncludeCareers(e.target.checked))} />진로 기록도 포함</label><ApiState state={students} empty={classId ? '이 학급에 등록된 학생이 없어요.' : '이관할 학급을 먼저 선택해 주세요.'}>{students.data?.map(item => <label className="api-check api-panel" key={item.id}><input type="checkbox" checked={selected.includes(item.id)} onChange={e => change(() => setSelected(e.target.checked ? [...selected, item.id] : selected.filter(id => id !== item.id)))} />{item.name}</label>)}</ApiState><Pagination state={students} /><PrimaryButton disabled={!selected.length || !target || mutation.busy || target === classId && targetYear === year} onClick={async () => {
       const result = await mutation.run('/transfers/preview', {
         body
       });
       if (result) setPreview(result.data);
-    }}>이관 대상 미리보기</PrimaryButton>{preview && <section className="api-panel"><JsonDetails value={preview} /><PrimaryButton disabled={mutation.busy || preview.valid === false || !!preview.errors?.length} onClick={() => setConfirm(true)}>이관 실행하기</PrimaryButton></section>}{confirm && <Modal title="학생 기록 이관 확인" onClose={() => setConfirm(false)}><p>{year}학년도에서 {targetYear}학년도로 선택한 학생 {selected.length}명의 기록을 이관할까요?</p><p>충돌 정책: {policy}</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
+    }}>이관 대상 미리보기</PrimaryButton>{preview && <section className="api-panel"><JsonDetails value={preview} /><PrimaryButton disabled={mutation.busy || preview.valid === false || !!preview.errors?.length} onClick={() => setConfirm(true)}>이관 실행하기</PrimaryButton></section>}{confirm && <Modal title="학생 기록 이관 확인" onClose={() => setConfirm(false)}><p>{year}학년도에서 {targetYear}학년도로 선택한 학생 {selected.length}명의 기록을 이관할까요?</p><p>중복 기록: {{ SKIP: '기존 항목 건너뛰기', CREATE_COPY: '복사본 만들기', OVERWRITE: '기존 항목 덮어쓰기' }[policy]}</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
         const result = await mutation.run('/transfers', {
           body,
           idempotent: true

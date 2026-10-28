@@ -18,5 +18,4 @@ export const notificationSeed = [
   { id: 'review', title: '기록 검토가 필요해요', detail: '기재 요령 확인 결과 · 김민준', meta: '10분 전', path: '/reports/check', read: false },
   { id: 'invite', title: '새 초대를 보냈어요', detail: '교사 계정 초대 · 정다은', meta: '어제', read: false },
   { id: 'timetable', title: '시간표가 바뀌었어요', detail: '1학년 2반 · 수요일 3교시', meta: '10.12', read: false },
-  { id: 'export', title: '기록 내보내기가 완료됐어요', detail: '학생 기록 · CSV', meta: '10.11', path: '/reports/export', read: true },
 ]

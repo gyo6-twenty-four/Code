@@ -1,5 +1,5 @@
 import { Field, PrimaryButton } from '../components/ui';
-import { className, safeDetails } from './model';
+import { className, safeDetails, statusLabel } from './model';
 import { detailError } from './client';
 export function ApiState({
   state,
@@ -81,20 +81,26 @@ const labels = {
   createdAt: '생성 시각',
   results: '결과',
   jobId: '작업 번호',
-  exportId: '내보내기 번호',
   transferId: '이관 번호',
   errorCount: '오류 수',
   warningCount: '경고 수',
   totalElements: '전체 항목 수',
   data: '결과',
   role: '역할',
-  summary: '요약'
+  summary: '요약',
+  className: '학급',
+  studentCount: '학생 수',
+  completedCount: '작성 완료',
+  date: '날짜',
+  count: '건수',
+  email: '이메일',
+  phone: '연락처'
 };
 export function JsonDetails({
   value
 }) {
   const clean = safeDetails(value);
   if (Array.isArray(clean)) return <div className="api-details">{clean.map((item, i) => <div className="api-panel" key={i}><JsonDetails value={item} /></div>)}</div>;
-  if (clean && typeof clean === 'object') return <dl className="api-details">{Object.entries(clean).map(([key, item]) => <div key={key}><dt>{labels[key] || key}</dt><dd><JsonDetails value={item} /></dd></div>)}</dl>;
-  return <span>{clean === true ? '예' : clean === false ? '아니요' : String(clean ?? '—')}</span>;
+  if (clean && typeof clean === 'object') return <dl className="api-details">{Object.entries(clean).map(([key, item]) => <div key={key}><dt>{labels[key] || key}</dt><dd><JsonDetails value={key.endsWith('At') && typeof item === 'string' && !Number.isNaN(Date.parse(item)) ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item)) : item} /></dd></div>)}</dl>;
+  return <span>{clean === true ? '예' : clean === false ? '아니요' : statusLabel(String(clean ?? '—'))}</span>;
 }

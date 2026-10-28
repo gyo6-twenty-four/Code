@@ -15,6 +15,9 @@ export function safeDetails(value) {
   return value;
 }
 export const statusLabel = value => ({
+  CREATE: '추가',
+  UPDATE: '수정',
+  DELETE: '삭제',
   DRAFT: '작성 중',
   SUBMITTED: '작성 완료',
   PASS: '통과',

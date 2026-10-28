@@ -11,7 +11,6 @@ const categories = {
   CAREER: '진로',
   OTHER: '기타'
 };
-const tags = value => value.split(',').map(item => item.trim()).filter(Boolean);
 export function Observation({
   classes,
   classId,
@@ -21,6 +20,7 @@ export function Observation({
   selectStudent,
   notify,
   account,
+  year,
   batch = false,
   timeline = false
 }) {
@@ -28,9 +28,7 @@ export function Observation({
   const mutation = useMutation(notify);
   const [date, setDate] = useState(todayValue),
     [category, setCategory] = useState('CLASS_ATTITUDE'),
-    [content, setContent] = useState(''),
-    [tagText, setTagText] = useState(''),
-    [visibility, setVisibility] = useState('PRIVATE');
+    [content, setContent] = useState('');
   const [selected, setSelected] = useState({}),
     [validated, setValidated] = useState(false),
     [editor, setEditor] = useState(null),
@@ -42,15 +40,14 @@ export function Observation({
     category,
     items: Object.entries(selected).map(([id, text]) => ({
       studentId: id,
-      content: text.trim() || content.trim(),
-      tags: tags(tagText)
+      content: text.trim() || content.trim()
     }))
   } : {
+    classId,
+    schoolYear: year,
     observedAt: date,
     category,
     content: content.trim(),
-    tags: tags(tagText),
-    visibility,
     version: editor ? editor.version : 1
   };
   function changed(fn) {
@@ -104,10 +101,8 @@ export function Observation({
     setDate(record.observedAt);
     setContent(record.content);
     setCategory(record.category);
-    setTagText((record.tags || []).join(', '));
-    setVisibility(record.visibility || 'PRIVATE');
   }
-  const fields = <><Field label="관찰 날짜" type="date" required max={todayValue()} value={date} onChange={e => changed(() => setDate(e.target.value))} /><Field label="관찰 범주" value={category} onChange={e => changed(() => setCategory(e.target.value))}>{Object.entries(categories).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Field><Field label={batch ? '공통 관찰 내용' : '관찰 내용'} multiline required={!batch} maxLength={2000} value={content} onChange={e => changed(() => setContent(e.target.value))} placeholder="확인한 학생의 말과 행동을 기록해 주세요." /><Field label="태그 (쉼표로 구분)" value={tagText} onChange={e => changed(() => setTagText(e.target.value))} />{!batch && <Field label="공개 범위" value={visibility} onChange={e => setVisibility(e.target.value)}><option value="PRIVATE">비공개</option></Field>}</>;
+  const fields = <><Field label="관찰 날짜" type="date" required max={todayValue()} value={date} onChange={e => changed(() => setDate(e.target.value))} /><Field label="관찰 범주" value={category} onChange={e => changed(() => setCategory(e.target.value))}>{Object.entries(categories).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Field><Field label={batch ? '공통 관찰 내용' : '관찰 내용'} multiline required={!batch} maxLength={2000} value={content} onChange={e => changed(() => setContent(e.target.value))} placeholder="확인한 학생의 말과 행동을 기록해 주세요." /></>;
   return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={value => {
         selectClass(value);
         setSelected({});
@@ -130,11 +125,12 @@ export function Observation({
             [student.id]: e.target.value
           }))} />}</div>)}</ApiState><Pagination state={students} /><p>{Object.keys(selected).length}명 선택 · {validated ? '사전 검증 완료' : '저장 전 사전 검증이 필요해요.'}</p>{localError && <p role="alert" className="field-error">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={admin || !classId || !Object.keys(selected).length}>{validated ? '선택한 관찰 저장하기' : '입력 내용 검증하기'}</SaveButton></form> : <>
       {!timeline && !admin && <form className="api-panel api-stack" onSubmit={submit}>{fields}{localError && <p className="field-error" role="alert">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={!studentId}>관찰 저장하기</SaveButton></form>}
-      <ApiState state={list} empty={studentId ? '저장된 관찰이 없어요.' : '학생을 선택해 주세요.'}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel api-stack" key={item.id}><header className="exchange-heading"><strong>{item.observedAt} · {categories[item.category] || item.category}</strong><span>{(item.tags || []).join(' · ')}</span></header><p className="detail-copy">{item.content}</p><div className="exchange-actions"><button className="secondary-button" type="button" onClick={() => edit(item)}>수정</button><button className="text-button danger" type="button" onClick={() => {
+      <ApiState state={list} empty={studentId ? '저장된 관찰이 없어요.' : '학생을 선택해 주세요.'}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel api-stack" key={item.id}><header className="exchange-heading"><strong>{item.observedAt} · {categories[item.category] || item.category}</strong></header><p className="detail-copy">{item.content}</p>{!admin && <div className="exchange-actions"><button className="secondary-button" type="button" onClick={() => edit(item)}>수정</button><button className="text-button danger" type="button" onClick={() => {
               setEditor(item);
               setDeleting(true);
-            }}>삭제</button></div></article>)}</ApiState><Pagination state={list} />
+            }}>삭제</button></div>}</article>)}</ApiState><Pagination state={list} />
       {editor && <Modal title={deleting ? '관찰 삭제' : '관찰 수정'} onClose={() => {
+        if (!deleting) { setContent(''); setDate(todayValue()); setCategory('CLASS_ATTITUDE'); }
         setEditor(null);
         setDeleting(false);
       }}><form onSubmit={async e => {

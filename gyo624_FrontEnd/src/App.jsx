@@ -4,14 +4,13 @@ import { useNotice, useRoute, navigate } from './lib/state';
 import { todayValue } from './components/field-utils';
 import Auth, { Onboarding } from './api/Auth';
 import { Observation, Career } from './api/Records';
-import { Reports, RecordEditor, ExportRecords, Transfer } from './api/Reports';
-import { AdminHome, Teachers, Rosters, Audit, ImportFile } from './api/Admin';
+import { Reports, RecordEditor, Transfer } from './api/Reports';
+import { AdminHome, Teachers, Rosters, Audit } from './api/Admin';
 import Settings, { Notifications } from './api/Settings';
 import Timetable from './api/Timetable';
-import Recording from './screens/Recording';
 import { clearSession, detailError, onSessionExpired, refreshToken, renewSession, request } from './api/client';
 import { usePage, useResource } from './api/hooks';
-import { className, assertUser } from './api/model';
+import { assertUser } from './api/model';
 import './App.css';
 import './components/fields.css';
 import './ux.css';
@@ -26,22 +25,20 @@ const titles = {
   '/career': '진로 기록',
   '/reports': '학생 기록 보드',
   '/reports/edit': '생기부 항목 편집',
-  '/reports/check': '기재 요령 확인',
-  '/reports/export': '나이스 내보내기',
-  '/transfer': '학생 기록 이관',
-  '/recording': '수업 녹음',
+  '/reports/check': '작성 내용 확인',
+  '/admin/transfer': '학생 기록 이관',
   '/notifications': '알림함',
   '/settings': '설정',
   '/admin': '학교 운영 현황',
   '/admin/teachers': '교사 계정 관리',
   '/admin/rosters': '학생 명단 관리',
   '/admin/timetable': '시간표 관리',
-  '/admin/audit': '감사 로그',
+  '/admin/audit': '변경 이력',
   '/admin/settings': '설정',
   '/admin/notifications': '알림함'
 };
-const teacherMenu = [['홈', '/coverage'], ['나의 시간표', '/timetable'], ['학생별 관찰', '/students'], ['학급 일괄 관찰', '/observations/batch'], ['학생 관찰 타임라인', '/timeline'], ['진로', '/career'], ['생기부', '/reports'], ['학생 기록 이관', '/transfer'], ['수업 녹음', '/recording'], ['알림함', '/notifications'], ['설정', '/settings']];
-const adminMenu = [['관리자 홈', '/admin'], ['교사 계정', '/admin/teachers'], ['명단 관리', '/admin/rosters'], ['시간표 관리', '/admin/timetable'], ['감사 로그', '/admin/audit'], ['알림함', '/admin/notifications'], ['설정', '/admin/settings']];
+const teacherMenu = [['홈', '/coverage'], ['나의 시간표', '/timetable'], ['학생별 관찰', '/students'], ['학급 일괄 관찰', '/observations/batch'], ['학생 관찰 타임라인', '/timeline'], ['진로', '/career'], ['생기부', '/reports'], ['알림함', '/notifications'], ['설정', '/settings']];
+const adminMenu = [['관리자 홈', '/admin'], ['교사 계정', '/admin/teachers'], ['명단 관리', '/admin/rosters'], ['시간표 관리', '/admin/timetable'], ['학생 기록 이관', '/admin/transfer'], ['변경 이력', '/admin/audit'], ['알림함', '/admin/notifications'], ['설정', '/admin/settings']];
 export default function App() {
   const location = useRoute(),
     requested = location.split('?')[0] === '/records' ? '/coverage' : location.split('?')[0],
@@ -52,8 +49,8 @@ export default function App() {
     [attempt, setAttempt] = useState(0);
   const [notice, notify] = useNotice(),
     [menu, setMenu] = useState(false);
-  const [dataRevision, setDataRevision] = useState(0);
-  const [year, setYear] = useState(todayValue().slice(0, 4)),
+  const currentYear = todayValue().slice(0, 4);
+  const [year, setYear] = useState(currentYear),
     [classId, setClassId] = useState(''),
     [studentId, setStudentId] = useState('');
   useEffect(() => onSessionExpired(() => {
@@ -178,7 +175,7 @@ export default function App() {
       break;
     case '/timetable':
     case '/admin/timetable':
-      screen = <><Timetable key={dataRevision} {...common} />{adminRoute && <ImportFile kind="timetables" notify={notify} onDone={() => setDataRevision(value => value + 1)} />}</>;
+      screen = <Timetable {...common} />;
       break;
     case '/students':
       screen = <Observation {...common} />;
@@ -199,10 +196,7 @@ export default function App() {
     case '/reports/check':
       screen = <RecordEditor {...common} checkOnly={route.endsWith('/check')} />;
       break;
-    case '/reports/export':
-      screen = account.role === 'TEACHER' ? <ExportRecords {...common} /> : <p>내보내기 작업 생성은 담당 교사 계정에서 진행해 주세요.</p>;
-      break;
-    case '/transfer':
+    case '/admin/transfer':
       screen = <Transfer {...common} />;
       break;
     case '/settings':
@@ -225,21 +219,19 @@ export default function App() {
     case '/admin/audit':
       screen = <Audit notify={notify} />;
       break;
-    case '/recording':
-      screen = <Recording settings={{
-        grade: '',
-        classroom: ''
-      }} classroomLabel={className(classes.data?.find(item => item.id === classId))} />;
-      break;
     default:
       screen = <p>현재 이용할 수 없는 메뉴예요. <a href={`#${admin ? '/admin' : '/coverage'}`}>홈으로 이동</a></p>;
   }
   return <div className={`app-shell ${adminRoute ? 'admin-shell' : ''}`}><a className="skip-link" href="#main-content" onClick={e => {
       e.preventDefault();
       document.getElementById('main-content')?.focus();
-    }}>본문으로 이동</a><aside className="sidebar"><Brand /><div className="sidebar-scroll">{nav}</div><a className="profile-button" href={`#${adminRoute ? '/admin/settings' : '/settings'}`}>{account.name} {admin ? '관리자' : '선생님'}</a></aside><header className="topbar"><span>{account.school?.name || account.schoolName || '교육24'} · {year}학년도</span><span>{account.name}</span></header><div className="workspace"><header className="mobile-brand"><Brand onClick={() => setMenu(true)} /></header><main id="main-content" tabIndex={-1} className="screen"><div className="screen-heading"><h1>{titles[route] || '메뉴 안내'}</h1>{route === '/coverage' && <a className="primary-button" href="#/timetable">시간표 보기</a>}</div><div className="api-toolbar api-context-toolbar"><Field label="학년도" type="number" min={2000} max={2100} value={year} onChange={e => {
+    }}>본문으로 이동</a><aside className="sidebar"><Brand /><div className="sidebar-scroll">{nav}</div><a className="profile-button" href={`#${adminRoute ? '/admin/settings' : '/settings'}`}>{account.name} {admin ? '관리자' : '선생님'}</a></aside><header className="topbar"><span>{account.school?.name || account.schoolName || '교육24'} · {year}학년도</span><span>{account.name}</span></header><div className="workspace"><header className="mobile-brand"><Brand onClick={() => setMenu(true)} /></header><main id="main-content" tabIndex={-1} className="screen"><div className="screen-heading"><h1>{titles[route] || '메뉴 안내'}</h1>{route === '/coverage' && <a className="primary-button" href="#/timetable">시간표 보기</a>}</div><div className="api-toolbar api-context-toolbar"><div className="api-year-controls"><Field label="학년도" type="number" min={2000} max={2100} value={year} onChange={e => {
             setYear(e.target.value);
             classes.setPage(1);
             selectClass('');
-          }} />{!adminRoute && <a href="#/reports/export">기록 내보내기</a>}</div><div key={`${account.id}:${route}:${classId}:${studentId}:${year}`}>{screen}</div></main><footer className="mobile-footer"><nav className="bottom-nav" aria-label="하단 메뉴"><a href={`#${adminRoute ? '/admin' : '/coverage'}`}>홈</a><a href={`#${adminRoute ? '/admin/rosters' : '/students'}`}>학생</a><a href={`#${adminRoute ? '/admin/notifications' : '/notifications'}`}>알림 {count > 0 ? count : ''}</a><button type="button" onClick={() => setMenu(true)}>더보기</button></nav></footer></div>{menu && <Modal title="전체 메뉴" className="navigation-drawer" onClose={() => setMenu(false)}>{nav}</Modal>}<div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></div>;
+          }} /><button type="button" className="year-today-button" aria-label={`올해(${currentYear}년)로 돌아가기`} disabled={String(year) === currentYear} onClick={() => {
+            setYear(currentYear);
+            classes.setPage(1);
+            selectClass('');
+          }}>올해</button></div></div><div key={`${account.id}:${route}:${classId}:${studentId}:${year}`}>{screen}</div></main><footer className="mobile-footer"><nav className="bottom-nav" aria-label="하단 메뉴"><a href={`#${adminRoute ? '/admin' : '/coverage'}`}>홈</a><a href={`#${adminRoute ? '/admin/rosters' : '/students'}`}>학생</a><a href={`#${adminRoute ? '/admin/notifications' : '/notifications'}`}>알림 {count > 0 ? count : ''}</a><button type="button" onClick={() => setMenu(true)}>더보기</button></nav></footer></div>{menu && <Modal title="전체 메뉴" className="navigation-drawer" onClose={() => setMenu(false)}>{nav}</Modal>}<div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></div>;
 }

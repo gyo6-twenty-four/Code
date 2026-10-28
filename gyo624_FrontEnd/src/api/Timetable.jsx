@@ -17,7 +17,7 @@ export default function Timetable({
   notify,
   home = false
 }) {
-  const [semester, setSemester] = useState('2'),
+  const [semester, setSemester] = useState(new Date().getMonth() < 7 ? '1' : '2'),
     [selected, setSelected] = useState(todayValue),
     [month, setMonth] = useState(todayValue().slice(0, 7));
   const [draft, setDraft] = useState(null),
@@ -58,7 +58,7 @@ export default function Timetable({
     });
     if (item?.id) {/* GET entry is not defined; editing uses the current list version. */}
   }
-  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={selectClass} /><Field label="학기" value={semester} onChange={e => setSemester(e.target.value)}><option value="1">1학기</option><option value="2">2학기</option></Field>{admin && <PrimaryButton onClick={() => edit(null)}>수업 추가</PrimaryButton>}{!admin && <p className="dialog-hint">시간표 변경은 학교 관리자에게 요청해 주세요.</p>}</div><ApiState state={state} empty="등록된 시간표가 없어요." />
+  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={selectClass} /><Field label="학기" value={semester} onChange={e => setSemester(e.target.value)}><option value="1">1학기</option><option value="2">2학기</option></Field>{admin && <PrimaryButton onClick={() => edit(null)}>수업 추가</PrimaryButton>}{!admin && <p className="dialog-hint">시간표 변경은 학교 관리자에게 요청해 주세요.</p>}</div><ApiState state={state} empty={admin && !classId ? '시간표를 확인할 학급을 선택해 주세요.' : '등록된 시간표가 없어요.'} />
     {home ? <div className="dashboard-calendar"><div className="home-calendar-panel"><header className="home-calendar-heading"><h2>{yy}년 {mm}월</h2><div className="calendar-month-controls"><button type="button" aria-label="이전 달" onClick={() => move(-1)}>‹</button><button type="button" className="calendar-today" onClick={() => {
               setMonth(todayValue().slice(0, 7));
               setSelected(todayValue());
@@ -99,7 +99,7 @@ export default function Timetable({
           })} /><ApiState state={teachers} /><Field label="담당 교사" required value={draft.teacherId} onChange={e => setDraft({
             ...draft,
             teacherId: e.target.value
-          })}><option value="">교사 선택</option>{teachers.data?.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Field><Pagination state={teachers} /><Field label="요일" value={draft.dayOfWeek} onChange={e => setDraft({
+          })}><option value="">교사 선택</option>{teachers.data?.filter(item => item.role === 'TEACHER' && item.status === 'ACTIVE').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Field><Pagination state={teachers} /><Field label="요일" value={draft.dayOfWeek} onChange={e => setDraft({
             ...draft,
             dayOfWeek: e.target.value
           })}>{days.map((day, i) => <option key={day} value={day}>{labels[i]}</option>)}</Field><Field label="교시" value={draft.period} onChange={e => setDraft({

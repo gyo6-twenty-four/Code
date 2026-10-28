@@ -1,6 +1,6 @@
 /* Common components follow the dimensions and tokens of the Figma library. */
+.brand-logo { display: block; width: auto; height: 100%; max-width: 100%; object-fit: contain; }
 .brand { display: flex; align-items: center; gap: 12px; height: 34px; padding: 0; border: 0; background: transparent; font-size: 13px; line-height: 18px; text-align: left; }
-.brand-mark { display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; background: var(--brand); border-radius: 12px; color: #fff; font-size: 12px; line-height: 17px; }
 .primary-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; border-radius: 16px; background: var(--brand); color: #fff; font-size: 17px; font-weight: 700; line-height: 22px; letter-spacing: -.085px; }
 .primary-button:active { background: #2272e6; }
 .settings-list { display: grid; align-content: start; gap: 8px; min-width: 0; }
@@ -79,7 +79,6 @@ button:disabled { color: #8b95a1; cursor: default; }
 .auth-page { min-height: 100svh; background: var(--bg-primary); }
 .auth-card { display: flex; flex-direction: column; width: 100%; max-width: 390px; min-height: max(844px, 100svh); margin: 0 auto; padding: 30px 24px 44px; }
 .auth-card .brand { height: 36px; font-size: 18px; font-weight: 600; line-height: 26px; }
-.auth-card .brand-mark { width: 36px; height: 36px; }
 .auth-step { margin-top: 34px; color: var(--brand); font-size: 12px; line-height: 18px; }
 .auth-card h1 { height: 64px; margin-top: 14px; font-size: 28px; font-weight: 700; line-height: 37px; letter-spacing: -.56px; }
 .auth-description { min-height: 48px; margin-top: 6px; color: var(--fg-secondary); font-size: 15px; line-height: 23px; }
@@ -167,7 +166,6 @@ button:disabled { color: #8b95a1; cursor: default; }
   .auth-page { min-height: max(960px, 100svh); padding: 125px 24px 80px; background: #f9fafb; }
   .auth-card { max-width: 480px; min-height: 690px; padding: 31px 31px 6px; border: 1px solid var(--line); border-radius: 16px; background: white; }
   .auth-card .brand { height: 38px; gap: 14px; }
-  .auth-card .brand-mark { width: 38px; height: 38px; font-size: 13px; }
   .auth-step { margin-top: 32px; }
   .auth-card h1 { height: 68px; margin-top: 16px; }
   .auth-description { margin-top: 6px; }
@@ -235,22 +233,7 @@ button:disabled { color: #8b95a1; cursor: default; }
 .validation-banner h2 { margin-top: 10px; font-size: 18px; font-weight: 600; line-height: 26px; }
 .validation-banner span { display: block; margin-top: 10px; color: var(--fg-secondary); font-size: 12px; line-height: 17px; }
 .validation-list { margin-top: 16px; }
-.recording-columns { margin-top: 18px; }
-.recording-card { display: flex; flex-direction: column; min-height: 568px; }
-.recording-context { min-height: 126px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--brand-weak); }
 .status-badge { display: inline-block; min-width: 92px; padding: 4px 12px; border-radius: 999px; color: var(--fg-secondary); background: var(--bg-secondary); text-align: center; font-size: 12px; line-height: 17px; }
-.recording-context h2 { margin-top: 10px; font-size: 18px; font-weight: 600; line-height: 26px; }
-.recording-context p { margin-top: 10px; color: var(--fg-secondary); font-size: 12px; line-height: 17px; }
-.recording-time { margin-top: 22px; text-align: center; font-size: 28px; font-weight: 700; line-height: 37px; letter-spacing: -.56px; font-variant-numeric: tabular-nums; }
-.recording-caption { margin-top: 10px; text-align: center; color: var(--fg-tertiary); font-size: 12px; line-height: 17px; }
-.waveform { display: flex; align-items: center; gap: 4px; height: 32px; margin: 22px 8px 0; }
-.waveform span { flex: 1; border-radius: 999px; background: var(--line); }
-.waveform span:nth-child(-n+2) { background: var(--brand); }
-.is-running .waveform span { animation: wave 1s ease-in-out infinite alternate; animation-delay: var(--delay); }
-@keyframes wave { to { transform: scaleY(.4); } }
-.recording-permission { margin-top: 20px; color: var(--fg-secondary); font-size: 12px; line-height: 17px; }
-.recording-action { margin-top: auto; }
-.recording-after { margin-top: 10px; color: var(--fg-tertiary); text-align: center; font-size: 12px; line-height: 17px; }
 .screen-T18 + .mobile-footer { padding-top: 0; }
 @media (min-width: 900px) {
   .mobile-only { display: none; }
@@ -267,22 +250,10 @@ button:disabled { color: #8b95a1; cursor: default; }
   .validation-results { margin-top: 37px; }
   .validation-banner { min-height: 142px; padding: 20px; }
   .validation-list { width: calc((100% - 20px) * 700 / 1104); }
-  .recording-columns { margin-top: 37px; grid-template-columns: minmax(0, 720fr) minmax(240px, 384fr); }
-  .recording-card { min-height: 448px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: white; }
-  .recording-context { min-height: 112px; padding: 0; border: 0; border-radius: 0; background: transparent; }
-  .recording-context h2 { margin-top: 18px; }
-  .recording-context p { margin-top: 10px; }
-  .recording-time { margin-top: 18px; }
-  .recording-caption { margin-top: 12px; }
-  .waveform { margin: 44px 16px 0; }
-  .recording-action { min-height: 56px; margin-top: 34px; }
-  .recording-info { height: 448px; }
-  .recording-after { margin-top: 10px; }
   .content-columns .admin-guide { height: 180px; margin-top: 12px; background: var(--brand-weak); }
   .content-columns .admin-guide p::before { content: none; }
   .login-page .forgot-link { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .is-running .waveform span { animation: none; } }
 @media (min-width: 900px) {
   .login-page .auth-hint { order: 0 !important; margin: 12px 0 0 !important; }
 }
@@ -293,7 +264,6 @@ button:disabled { color: #8b95a1; cursor: default; }
   .teacher-dashboard .admin-recent { margin-top: 0; }
 }
 @media (min-width: 900px) {
-  .recording-context p .desktop-only { display: inline; }
 }
 .export-info-column > .admin-guide { margin-top: 20px; }
 @media (max-width: 359px) { .teacher-dashboard .metric-card { height: auto; min-height: 112px; } }

@@ -4,6 +4,8 @@ import { navigate } from '../lib/state';
 import { clearSession, establishSession, request } from './client';
 import { useResource, useMutation } from './hooks';
 import { ApiState, MutationError, SaveButton } from './shared';
+import PhoneField from '../components/PhoneField';
+import { invitationEmailMatches, phoneDigits } from '../lib/phone';
 export default function Auth({
   route,
   query,
@@ -17,7 +19,7 @@ export default function Auth({
     [password, setPassword] = useState(''),
     [confirmation, setConfirmation] = useState(''),
     [terms, setTerms] = useState(false),
-    [done, setDone] = useState(false);
+    [resetPath, setResetPath] = useState('');
   const invite = route === '/invite' || route === '/set-password',
     reset = route === '/reset-password' && !!checkedToken;
   const details = useResource(checkedToken && (invite || reset) ? invite ? `/invitations/${encodeURIComponent(checkedToken)}` : `/auth/password/reset/${encodeURIComponent(checkedToken)}` : null, true);
@@ -55,6 +57,10 @@ export default function Auth({
       return;
     }
     if (invite || reset) {
+      if (invite && !invitationEmailMatches(email, details.data?.email)) {
+        setLoginError('초대받은 학교 이메일과 같은 주소를 입력해 주세요.');
+        return;
+      }
       if (password !== confirmation) {
         setLoginError('비밀번호 확인이 일치하지 않아요.');
         return;
@@ -80,15 +86,17 @@ export default function Auth({
           email
         }
       });
-      if (result) setDone(true);
+      if (result) setResetPath(result.data.resetPath);
     }
   }
   return <main className="auth-page login-page"><form className="auth-card" onSubmit={submit}><Brand /><p className="auth-step">학교 계정</p><h1>{invite ? '초대받은 학교에 합류해요' : reset ? '새 비밀번호를 설정해요' : route === '/login' ? '수업과 학생 기록을 한곳에서 관리해요' : '비밀번호를 다시 설정해요'}</h1><div className="auth-fields">
     {invite ? <><Field label="초대 토큰" required value={token} onChange={e => {
             setToken(e.target.value);
             setCheckedToken('');
-          }} placeholder="초대 링크의 토큰을 입력해 주세요" />{checkedToken && <ApiState state={details}><p className="dialog-hint">{details.data?.schoolName || details.data?.school?.name} · {details.data?.email}</p></ApiState>}{details.data && <><Field label="이름" required value={name} onChange={e => setName(e.target.value)} /><Field label="비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /><label className="api-check"><input type="checkbox" required checked={terms} onChange={e => setTerms(e.target.checked)} />학교에서 안내한 서비스 이용약관에 동의합니다.</label></>}</> : reset ? <><ApiState state={details} /><Field label="새 비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></> : <><Field label="학교 이메일" type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />{route === '/login' && <Field label="비밀번호" type="password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />}</>}
-    {done && <p role="status">입력한 이메일로 재설정 안내를 요청했어요. 안내 메일을 확인해 주세요.</p>}{loginError && <p className="field-error" role="alert">{loginError}</p>}<MutationError mutation={mutation} />
+            setEmail('');
+            setLoginError('');
+          }} placeholder="초대 링크의 토큰을 입력해 주세요" />{checkedToken && <ApiState state={details}><p className="dialog-hint">{details.data?.schoolName || details.data?.school?.name} · {details.data?.email}</p></ApiState>}{details.data && <><Field label="학교 이메일" type="email" required autoComplete="email" placeholder="초대받은 이메일을 입력해 주세요" value={email} onChange={e => { setEmail(e.target.value); setLoginError(''); }} /><p className="dialog-hint">초대받은 이메일을 확인해 주세요. 이 주소가 로그인에 사용돼요.</p><Field label="이름" required value={name} onChange={e => setName(e.target.value)} /><Field label="비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /><label className="api-check"><input type="checkbox" required checked={terms} onChange={e => setTerms(e.target.checked)} />학교에서 안내한 서비스 이용약관에 동의합니다.</label></>}</> : reset ? <><ApiState state={details} /><Field label="새 비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></> : <><Field label="학교 이메일" type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />{route === '/login' && <Field label="비밀번호" type="password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />}</>}
+    {resetPath && <a className="secondary-button" href={`#${resetPath}`}>새 비밀번호 설정하기</a>}{loginError && <p className="field-error" role="alert">{loginError}</p>}<MutationError mutation={mutation} />
     <PrimaryButton type="submit" disabled={busy || mutation.busy || reset && (!details.data || details.loading) || invite && !!checkedToken && !details.data}>{busy || mutation.busy ? '처리 중…' : invite ? details.data ? '비밀번호 설정하고 가입 완료' : '초대 확인하기' : reset ? '비밀번호 변경하기' : route === '/login' ? '로그인' : '재설정 안내 보내기'}</PrimaryButton>
     {route === '/login' ? <><a href="#/reset-password">비밀번호를 잊으셨나요?</a><a href="#/invite">학교 초대로 가입하기</a></> : <a href="#/login">로그인으로 돌아가기</a>}
   </div></form></main>;
@@ -109,7 +117,7 @@ function OnboardingDraft({
 }) {
   const mutation = useMutation(notify);
   const [name, setName] = useState(initial.profile?.displayName || account.name || ''),
-    [phone, setPhone] = useState(initial.profile?.phone || ''),
+    [phone, setPhone] = useState(phoneDigits(initial.profile?.phone || '')),
     [email, setEmail] = useState(initial.preferences?.notificationEmail ?? true),
     [app, setApp] = useState(initial.preferences?.notificationInApp ?? true);
   async function submit(event) {
@@ -132,5 +140,5 @@ function OnboardingDraft({
       body: {}
     }, '사용 환경을 저장했어요.')) onComplete();
   }
-  return <form className="api-stack" onSubmit={submit}><Field label="표시 이름" required value={name} onChange={e => setName(e.target.value)} /><Field label="연락처" type="tel" value={phone} onChange={e => setPhone(e.target.value)} /><label className="api-check"><input type="checkbox" checked={email} onChange={e => setEmail(e.target.checked)} />이메일 알림</label><label className="api-check"><input type="checkbox" checked={app} onChange={e => setApp(e.target.checked)} />서비스 내 알림</label><SaveButton mutation={mutation}>설정 완료하기</SaveButton></form>;
+  return <form className="api-stack" onSubmit={submit}><Field label="학교 이메일" type="email" value={account.email || ''} readOnly autoComplete="email" /><Field label="표시 이름" required value={name} onChange={e => setName(e.target.value)} /><PhoneField value={phone} onChange={setPhone} /><label className="api-check"><input type="checkbox" checked={email} onChange={e => setEmail(e.target.checked)} />이메일 알림</label><label className="api-check"><input type="checkbox" checked={app} onChange={e => setApp(e.target.checked)} />서비스 내 알림</label><SaveButton mutation={mutation}>설정 완료하기</SaveButton></form>;
 }
