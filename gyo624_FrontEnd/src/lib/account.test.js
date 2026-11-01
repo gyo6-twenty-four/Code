@@ -7,11 +7,11 @@ test('로그인 이메일로 계정을 찾아 저장된 역할에 맞는 홈을 
   assert.equal(accountHome(findAccountByEmail([teacher, admin], ' ADMIN@school.kr ')), '/admin')
   assert.equal(accountHome(findAccountByEmail([teacher, admin], teacher.email)), '/coverage')
 })
-test('교사·없는 계정·비활성 관리자는 관리자 화면에 접근할 수 없다', () => {
+test('교사, 없는 계정, 비활성 관리자는 관리자 화면에 접근할 수 없다', () => {
   for (const account of [teacher, null, undefined, { ...admin, status: '비활성' }, { ...teacher, status: '관리자' }]) assert.equal(canAccessAdmin(account), false)
   assert.equal(canAccessAdmin(admin), true)
 })
-test('미등록·대기·비활성 계정의 로그인 미리보기를 거부한다', () => {
+test('미등록, 대기, 비활성 계정의 로그인 미리보기를 거부한다', () => {
   assert.equal(findAccountByEmail([teacher, admin], 'unknown@school.kr'), null)
   for (const status of ['대기', '비활성']) assert.equal(findAccountByEmail([{ ...admin, status }], admin.email), null)
 })

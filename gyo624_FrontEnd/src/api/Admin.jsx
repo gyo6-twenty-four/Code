@@ -1,9 +1,9 @@
-import { className, statusLabel } from './model';
+import { RECORD_TYPES, assignedRecordTypes, className, recordTypeLabel, statusLabel } from './model';
 import { useState } from 'react';
 import { Field, Modal, PrimaryButton } from '../components/ui';
 import { resource } from './client';
 import { useMutation, usePage, useResource } from './hooks';
-import { ApiState, ClassSelect, JsonDetails, MutationError, Pagination, SaveButton } from './shared';
+import { ApiState, ClassSelect, JsonDetails, MutationError, Pagination, SaveButton, StatusBoard, UsageMonths } from './shared';
 export function AdminHome({
   year
 }) {
@@ -13,10 +13,16 @@ export function AdminHome({
     completion = useResource(resource('/admin/dashboard/completion', {
       schoolYear: year
     })),
+    usage = useResource(resource('/admin/dashboard/usage', {
+      schoolYear: year
+    })),
     activity = useResource(resource('/admin/dashboard/activity', {
       schoolYear: year
     }));
-  return <section className="api-stack"><ApiState state={summary}><div className="metric-grid">{[['교사', 'teacherCount'], ['학급', 'classCount'], ['학생', 'studentCount'], ['작성률 (%)', 'recordCompletionRate'], ['초대 대기', 'pendingInvitations'], ['내용 확인 필요', 'gateFailureCount']].map(([label, key]) => <article className="metric-card" key={key}><h2>{label}</h2><p className="metric-value">{summary.data?.[key] ?? '—'}</p></article>)}</div></ApiState><section className="api-panel"><h2>학급별 작성 현황</h2><ApiState state={completion}><JsonDetails value={completion.data} /></ApiState></section><section className="api-panel"><h2>최근 변경 현황</h2><ApiState state={activity}><JsonDetails value={activity.data} /></ApiState></section></section>;
+  return <section className="api-stack"><ApiState state={summary}><div className="metric-grid">{[['교사', 'teacherCount'], ['학급', 'classCount'], ['학생', 'studentCount'], ['작성률 (%)', 'recordCompletionRate'], ['초대 대기', 'pendingInvitations'], ['내용 확인 필요', 'gateFailureCount']].map(([label, key]) => <article className="metric-card" key={key}><h2>{label}</h2><p className="metric-value">{summary.data?.[key] ?? '—'}</p></article>)}</div></ApiState><ApiState state={completion} empty="이 학년도에 등록된 학급이 없어요."><StatusBoard title="학급별 작성 현황" rows={completion.data} /></ApiState><ApiState state={usage}><UsageMonths months={usage.data} /></ApiState><section className="api-panel"><h2>최근 변경</h2><ApiState state={activity}>{Array.isArray(activity.data) && <ul className="status-board">{activity.data.map((item, index) => <li key={`${item.occurredAt}-${index}`}><div className="status-copy"><strong>{item.name}</strong><span>{statusLabel(item.action)}, {item.occurredAt ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.occurredAt)) : ''}</span></div></li>)}</ul>}</ApiState></section></section>;
+}
+function RecordTypeFields({ value = [], onChange }) {
+  return <fieldset className="type-picker"><legend>작성할 수 있는 생기부</legend>{RECORD_TYPES.map(([id, label]) => <label className="api-check" key={id}><input type="checkbox" checked={value.includes(id)} onChange={event => onChange(event.target.checked ? [...value, id] : value.filter(item => item !== id))} />{label}</label>)}</fieldset>;
 }
 export function Teachers({
   classes,
@@ -44,7 +50,10 @@ export function Teachers({
     })} /><Field label="역할" value={draft?.role || 'TEACHER'} onChange={e => setDraft({
       ...draft,
       role: e.target.value
-    })}><option value="TEACHER">교사</option><option value="ADMIN">관리자</option></Field><p className="dialog-hint">담당 학급은 여러 개 선택할 수 있어요.</p>{classes.data?.map(item => <label className="api-check" key={item.id}><input type="checkbox" checked={draft?.classIds?.includes(item.id) || false} onChange={e => setDraft({
+    })}><option value="TEACHER">교사</option><option value="ADMIN">관리자</option></Field><RecordTypeFields value={draft?.recordTypes || []} onChange={recordTypes => setDraft({
+      ...draft,
+      recordTypes
+    })} /><p className="dialog-hint">담당 학급은 여러 개 선택할 수 있어요.</p>{classes.data?.map(item => <label className="api-check" key={item.id}><input type="checkbox" checked={draft?.classIds?.includes(item.id) || false} onChange={e => setDraft({
         ...draft,
         classIds: e.target.checked ? [...(draft.classIds || []), item.id] : draft.classIds.filter(id => id !== item.id)
       })} />{className(item)}</label>)}</>;
@@ -56,13 +65,17 @@ export function Teachers({
         name: '',
         email: '',
         role: 'TEACHER',
-        classIds: []
-      })}>교사 초대</PrimaryButton><button type="button" className="secondary-button" onClick={() => setBulk(true)}>일괄 초대</button></div><ApiState state={list}>{list.data?.map(item => <article className="api-panel" key={item.id}><h2>{item.name}</h2><p>{item.email} · {item.role === 'ADMIN' ? '관리자' : '교사'} · {statusLabel(item.status)}</p><button type="button" className="text-button" onClick={async () => {
+        classIds: [],
+        recordTypes: [...assignedRecordTypes({})]
+      })}>교사 초대</PrimaryButton><button type="button" className="secondary-button" onClick={() => setBulk(true)}>일괄 초대</button></div><ApiState state={list}>{list.data?.map(item => <article className="api-panel" key={item.id}><h2>{item.name}</h2><p>{item.email}, {item.role === 'ADMIN' ? '관리자' : '교사'}, {statusLabel(item.status)}</p><div className="type-pills">{assignedRecordTypes(item).map(id => <span key={id}>{recordTypeLabel(id)}</span>)}</div><button type="button" className="text-button" onClick={async () => {
           const result = await mutation.run(`/admin/teachers/${item.id}`, {
             method: 'GET'
           });
           if (result) {
-            setDraft(result.data);
+            setDraft({
+              ...result.data,
+              recordTypes: assignedRecordTypes(result.data)
+            });
             setConfirm(false);
           }
         }} disabled={item.status === 'INVITED'}>계정 관리</button>{item.invitationId && <button type="button" className="text-button" disabled={mutation.busy} onClick={async () => {
@@ -77,13 +90,18 @@ export function Teachers({
           notify('현재 로그인한 관리자 자신의 권한은 이 화면에서 해제할 수 없어요.');
           return;
         }
+        if (!draft.recordTypes?.length) {
+          notify('작성할 생기부 유형을 하나 이상 선택해 주세요.');
+          return;
+        }
         const result = await mutation.run(draft.id ? `/admin/teachers/${draft.id}` : '/admin/teachers/invitations', {
           method: draft.id ? 'PATCH' : 'POST',
           body: {
             email: draft.email,
             name: draft.name,
             role: draft.role,
-            classIds: draft.classIds || []
+            classIds: draft.classIds || [],
+            recordTypes: draft.recordTypes
           },
           idempotent: !draft.id
         }, draft.id ? '계정 정보를 변경했어요.' : '초대를 생성했어요.');
@@ -118,7 +136,8 @@ export function Teachers({
             email,
             name,
             role: 'TEACHER',
-            classIds: []
+            classIds: [],
+            recordTypes: [...assignedRecordTypes({})]
           };
         });
         if (invitations.some(item => !item.name || !item.email?.includes('@'))) {
@@ -163,7 +182,7 @@ export function Rosters({
       }}>학급 수정</button><button className="secondary-button" type="button" disabled={!classId} onClick={() => setStudentDraft({
         name: '',
         number: ''
-      })}>학생 등록</button></div><ApiState state={students}>{students.data?.map(item => <article className="api-panel" key={item.id}><strong>{item.number}번 · {item.name}</strong><button type="button" className="text-button" onClick={() => setStudentDraft(item)}>학생 정보 수정</button></article>)}</ApiState><Pagination state={students} />
+      })}>학생 등록</button></div><ApiState state={students}>{students.data?.map(item => <article className="api-panel" key={item.id}><strong>{item.number}번, {item.name}</strong><button type="button" className="text-button" onClick={() => setStudentDraft(item)}>학생 정보 수정</button></article>)}</ApiState><Pagination state={students} />
     {draft && <Modal title={remove ? '학급 삭제' : '학급 정보'} onClose={() => setDraft(null)}><form onSubmit={async e => {
         e.preventDefault();
         const body = {
@@ -230,7 +249,7 @@ export function Audit({
         from: from ? `${from}T00:00:00+09:00` : '',
         to: to ? `${to}T23:59:59+09:00` : ''
       });
-    }}><Field label="작업" value={action} onChange={e => setAction(e.target.value)}><option value="">전체</option><option value="CREATE">생성</option><option value="UPDATE">수정</option><option value="DELETE">삭제</option></Field><Field label="작업자" value={actor} onChange={e => setActor(e.target.value)}><option value="">전체</option>{people.data?.filter(person => person.status !== 'INVITED').map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</Field><Field label="시작 날짜" type="date" value={from} onChange={e => setFrom(e.target.value)} /><Field label="종료 날짜" type="date" value={to} onChange={e => setTo(e.target.value)} /><PrimaryButton type="submit">검색</PrimaryButton></form><ApiState state={list}>{list.data?.map(item => <article className="api-panel" key={item.id}><h2>{item.actor?.name} · {statusLabel(item.action)}</h2><p>{item.occurredAt} · {item.resourceType}</p><button type="button" className="text-button" onClick={async () => {
+    }}><Field label="작업" value={action} onChange={e => setAction(e.target.value)}><option value="">전체</option><option value="CREATE">생성</option><option value="UPDATE">수정</option><option value="DELETE">삭제</option></Field><Field label="작업자" value={actor} onChange={e => setActor(e.target.value)}><option value="">전체</option>{people.data?.filter(person => person.status !== 'INVITED').map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</Field><Field label="시작 날짜" type="date" value={from} onChange={e => setFrom(e.target.value)} /><Field label="종료 날짜" type="date" value={to} onChange={e => setTo(e.target.value)} /><PrimaryButton type="submit">검색</PrimaryButton></form><ApiState state={list}>{list.data?.map(item => <article className="api-panel" key={item.id}><h2>{item.actor?.name}, {statusLabel(item.action)}</h2><p>{item.occurredAt}, {item.resourceType}</p><button type="button" className="text-button" onClick={async () => {
           const result = await mutation.run(`/admin/audit-logs/${item.id}`, {
             method: 'GET'
           });

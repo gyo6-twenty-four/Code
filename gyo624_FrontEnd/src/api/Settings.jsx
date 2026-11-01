@@ -6,6 +6,7 @@ import { useMutation, useResource, usePage } from './hooks';
 import { ApiState, JsonDetails, MutationError, Pagination, SaveButton } from './shared';
 import PhoneField from '../components/PhoneField';
 import { phoneDigits } from '../lib/phone';
+import NeisConnect from './NeisConnect';
 export default function Settings({
   account,
   notify,
@@ -24,7 +25,7 @@ export default function Settings({
       ...value
     });
   }
-  return <section className="api-stack"><ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name} · {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름·연락처 변경</button></article></ApiState><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일 · 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState>{account.role === 'ADMIN' && <ApiState state={school}><article className="api-panel"><h2>학교 정보</h2><JsonDetails value={school.data} /><button className="text-button" type="button" onClick={() => edit('school', school.data)}>학교 정보 변경</button></article></ApiState>}<PrimaryButton onClick={() => edit('password/change', {
+  return <section className="api-stack"><NeisConnect notify={notify} /><ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name}, {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름, 연락처 변경</button></article></ApiState><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일, 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState>{account.role === 'ADMIN' && <ApiState state={school}><article className="api-panel"><h2>학교 정보</h2><JsonDetails value={school.data} /><button className="text-button" type="button" onClick={() => edit('school', school.data)}>학교 정보 변경</button></article></ApiState>}<PrimaryButton onClick={() => edit('password/change', {
       currentPassword: '',
       newPassword: '',
       passwordConfirmation: ''
@@ -57,7 +58,7 @@ export default function Settings({
           profile.reload();
           notifications.reload();
           school.reload();
-          if (kind === 'profile') updateProfile();
+          if (kind === 'profile' || kind === 'school') updateProfile();
         }
       }}>{kind === 'profile' ? <><Field label="이름" required value={draft.name || ''} onChange={e => setDraft({
             ...draft,

@@ -35,7 +35,7 @@ describe('수업 교체 요청과 알림', () => {
       assert.equal(next.notices[0].userId, receiver.id)
     }
   })
-  it('수신자만 수락·거절하고 발신자만 취소할 수 있으며 중복 응답을 차단한다', () => {
+  it('수신자만 수락, 거절하고 발신자만 취소할 수 있으며 중복 응답을 차단한다', () => {
     assert.throws(() => respondExchange(send(state()), 'request', 'accepted', actor, today, 'now'), /권한/)
     assert.throws(() => respondExchange(send(state()), 'request', 'cancelled', recipient, today, 'now'), /권한/)
     assert.throws(() => accept(accept(send(state()))), /이미 처리/)
@@ -46,7 +46,7 @@ describe('수업 교체 요청과 알림', () => {
     assert.match(exchangeError(state(), { ...draft.from, date: '2026-10-19' }, draft.to, today), /오늘 이후/)
     assert.match(exchangeError(state(), draft.from, draft.from, today), /서로 다른/)
   })
-  it('요청 후 수업 수정·삭제 시 오래된 요청을 수락할 수 없다', () => {
+  it('요청 후 수업 수정, 삭제 시 오래된 요청을 수락할 수 없다', () => {
     const pending = send(state())
     for (const lessons of [pending.lessons.map(item => item.id === first.id ? { ...item, subject: '수학' } : item), pending.lessons.filter(item => item.id !== first.id)]) assert.throws(() => accept({ ...pending, lessons }), /요청 이후 수업이 변경/)
   })
@@ -70,12 +70,12 @@ describe('수업 교체 요청과 알림', () => {
 })
 
 describe('시간표 변경의 교체 일정 보호', () => {
-  it('다른 교사의 수업 변경을 막고 9교시·직접 입력 과목을 저장한다', () => {
+  it('다른 교사의 수업 변경을 막고 9교시, 직접 입력 과목을 저장한다', () => {
     assert.throws(() => saveWeeklyLesson(state(), { ...second, subject: '수학' }, actor, false, today), /본인/)
     const next = saveWeeklyLesson(state(), { ...first, period: '9', subject: '진로 탐색' }, actor, false, today)
     assert.equal(next.lessons[0].period, '9')
   })
-  it('교체 확정된 수업의 기본 시간표 수정·삭제를 막는다', () => {
+  it('교체 확정된 수업의 기본 시간표 수정, 삭제를 막는다', () => {
     const approved = accept(send(state()))
     assert.throws(() => saveWeeklyLesson(approved, { ...first, period: '9' }, actor, false, today), /교체가 확정/)
     assert.throws(() => deleteWeeklyLesson(approved, first.id, actor, false, today), /교체가 확정/)

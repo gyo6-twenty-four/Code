@@ -1,13 +1,10 @@
-import { blocksGate, hasWarnings, statusLabel } from './model';
+import { RECORD_TYPES, assignedRecordTypes, blocksGate, hasWarnings, recordTypeLabel, statusLabel } from './model';
 import { useEffect, useState } from 'react';
 import { Field, Modal, PrimaryButton } from '../components/ui';
 import { navigate } from '../lib/state';
 import { resource } from './client';
 import { useMutation, usePage, useResource } from './hooks';
-import { ApiState, ClassSelect, StudentSelect, JsonDetails, MutationError, Pagination, SaveButton } from './shared';
-const types = {
-  BEHAVIOR_AND_OVERALL_OPINION: '행동 특성 및 종합 의견'
-};
+import { ApiState, ClassSelect, StudentSelect, JsonDetails, MutationError, Pagination, SaveButton, StatusBoard } from './shared';
 export function Reports({
   classes,
   classId,
@@ -28,10 +25,11 @@ export function Reports({
   const list = useResource(studentId ? resource(`/students/${studentId}/record-items`, {
     schoolYear: year
   }) : null);
+  const allowed = assignedRecordTypes(account);
   const [create, setCreate] = useState(false),
-    [type, setType] = useState('BEHAVIOR_AND_OVERALL_OPINION');
+    [type, setType] = useState(allowed[0] || '');
   const mutation = useMutation(notify);
-  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={selectClass} /><StudentSelect students={students} value={studentId} onChange={selectStudent} /></div><ApiState state={board}><section className="api-panel"><h2>학급 작성 현황</h2><JsonDetails value={board.data} /></section></ApiState><ApiState state={studentBoard}><section className="api-panel"><h2>선택한 학생 작성 현황</h2><JsonDetails value={studentBoard.data} /></section></ApiState><ApiState state={list} empty="학생을 선택하거나 생기부 항목을 추가해 주세요.">{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{types[item.type] || item.type}</h2><p>{statusLabel(item.status)} · {item.characterCount ?? item.content?.length ?? 0}자</p><a href={`#/reports/edit?id=${item.id}&studentId=${studentId}`}>항목 열기 →</a></article>)}</ApiState>{account.role === 'TEACHER' && <PrimaryButton disabled={!studentId} onClick={() => setCreate(true)}>생기부 항목 추가</PrimaryButton>}{create && <Modal title="생기부 항목 추가" onClose={() => setCreate(false)}><form onSubmit={async e => {
+  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={selectClass} /><StudentSelect students={students} value={studentId} onChange={selectStudent} /></div><ApiState state={board} empty="학급을 선택하면 작성 현황이 보여요."><StatusBoard title="학급별 작성 현황" rows={board.data} /></ApiState><ApiState state={studentBoard} empty="학생을 선택하면 작성 현황이 보여요."><StatusBoard title="선택한 학생 작성 현황" rows={studentBoard.data} /></ApiState><ApiState state={list} empty="학생을 선택하거나 생기부 항목을 추가해 주세요.">{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{recordTypeLabel(item.type)}</h2><p>{statusLabel(item.status)}, {item.characterCount ?? item.content?.length ?? 0}자</p><a href={`#/reports/edit?id=${item.id}&studentId=${studentId}`}>항목 열기 →</a></article>)}</ApiState>{account.role === 'TEACHER' && <PrimaryButton disabled={!studentId || !allowed.length} onClick={() => { setType(allowed[0] || ''); setCreate(true); }}>생기부 항목 추가</PrimaryButton>}{create && <Modal title="생기부 항목 추가" onClose={() => setCreate(false)}><form onSubmit={async e => {
         e.preventDefault();
         const result = await mutation.run(`/students/${studentId}/record-items`, {
           body: {
@@ -48,7 +46,7 @@ export function Reports({
           setCreate(false);
           list.reload();
         }
-      }}><Field label="항목" value={type} onChange={e => setType(e.target.value)}>{Object.entries(types).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</Field><SaveButton mutation={mutation}>항목 추가하기</SaveButton></form></Modal>}</section>;
+      }}><Field label="항목" value={type} onChange={e => setType(e.target.value)}>{RECORD_TYPES.filter(([key]) => allowed.includes(key)).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</Field><SaveButton mutation={mutation} disabled={!allowed.includes(type)}>항목 추가하기</SaveButton></form></Modal>}</section>;
 }
 export function RecordEditor({
   query,
@@ -105,7 +103,7 @@ function RecordDraft({
       }
     }, '임시 저장했어요.')) reload();
   }
-  return <section className="api-panel api-stack"><h2>{types[initial.type] || initial.type}</h2><p>상태: {statusLabel(initial.status)} · 버전 {initial.version}</p><form className="api-stack" onSubmit={save}><Field label="기록 내용" multiline required readOnly={!teacher || checkOnly} maxLength={initial.maxCharacterCount || undefined} value={content} onChange={e => {
+  return <section className="api-panel api-stack"><h2>{recordTypeLabel(initial.type)}</h2><p>상태: {statusLabel(initial.status)}, 버전 {initial.version}</p><form className="api-stack" onSubmit={save}><Field label="기록 내용" multiline required readOnly={!teacher || checkOnly} maxLength={initial.maxCharacterCount || undefined} value={content} onChange={e => {
         setContent(e.target.value);
         setGate(null);
         setAck(false);
@@ -118,7 +116,7 @@ function RecordDraft({
           setCheckedVersion(null);
           setAck(false);
         }
-      }}>최근 검사 결과</button><button type="button" className="secondary-button" onClick={() => setVersionsOpen(true)}>변경 이력</button><button type="button" className="text-button" onClick={() => setRulesOpen(true)}>작성 기준</button><button type="button" className="text-button" onClick={reload}>최신 내용 불러오기</button></div>{dirty && <p className="dialog-hint">변경 내용을 저장한 뒤 확인·완료 처리할 수 있어요.</p>}{gate && <section className="api-stack"><h3>검사 결과 · {statusLabel(gate.status)}</h3><p>확인 항목 {gate.ruleVersion} · {gate.checkedAt}</p>{gate.issues?.map((issue, i) => <article className="api-panel" key={i}><strong>{statusLabel(issue.severity)} · {issue.message}</strong><p>{issue.start}~{issue.end} 위치</p>{Number.isInteger(issue.start) && Number.isInteger(issue.end) && <p><mark>{content.slice(issue.start, issue.end)}</mark></p>}<p>{issue.suggestion}</p></article>)}{warning && <label className="api-check"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />경고 내용을 확인했어요.</label>}</section>}{teacher && <PrimaryButton disabled={mutation.busy || dirty || !gate || checkedVersion !== initial.version || blocksGate(gate) || warning && !ack} onClick={async () => {
+      }}>최근 검사 결과</button><button type="button" className="secondary-button" onClick={() => setVersionsOpen(true)}>변경 이력</button><button type="button" className="text-button" onClick={() => setRulesOpen(true)}>작성 기준</button><button type="button" className="text-button" onClick={reload}>최신 내용 불러오기</button></div>{dirty && <p className="dialog-hint">변경 내용을 저장한 뒤 확인, 완료 처리할 수 있어요.</p>}{gate && <section className="api-stack"><h3>검사 결과, {statusLabel(gate.status)}</h3><p>확인 항목 {gate.ruleVersion}, {gate.checkedAt}</p>{gate.issues?.map((issue, i) => <article className="api-panel" key={i}><strong>{statusLabel(issue.severity)}, {issue.message}</strong><p>{issue.start}~{issue.end} 위치</p>{Number.isInteger(issue.start) && Number.isInteger(issue.end) && <p><mark>{content.slice(issue.start, issue.end)}</mark></p>}<p>{issue.suggestion}</p></article>)}{warning && <label className="api-check"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />경고 내용을 확인했어요.</label>}</section>}{teacher && <PrimaryButton disabled={mutation.busy || dirty || !gate || checkedVersion !== initial.version || blocksGate(gate) || warning && !ack} onClick={async () => {
       if (await mutation.run(`/record-items/${initial.id}/submit`, {
         body: {
           version: initial.version,
@@ -128,7 +126,7 @@ function RecordDraft({
     }}>작성 완료하기</PrimaryButton>}<MutationError mutation={mutation} />{rulesOpen && <Modal title="작성 기준" onClose={() => setRulesOpen(false)}><ApiState state={rules}><JsonDetails value={rules.data} /></ApiState></Modal>}{versionsOpen && <Modal title="변경 이력" onClose={() => {
       setVersionsOpen(false);
       setRestoreId('');
-    }}><ApiState state={versions}>{Array.isArray(versions.data) && versions.data.map(item => <article className="api-panel" key={item.id}><p>버전 {item.version} · {item.createdAt}</p><p className="detail-copy">{item.content}</p>{teacher && <button type="button" className="secondary-button" onClick={() => setRestoreId(item.id)}>이 버전 복원 선택</button>}</article>)}</ApiState>{restoreId && <><p>선택한 버전을 복원할까요? 편집 중인 내용은 먼저 보관해 주세요.</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
+    }}><ApiState state={versions}>{Array.isArray(versions.data) && versions.data.map(item => <article className="api-panel" key={item.id}><p>버전 {item.version}, {item.createdAt}</p><p className="detail-copy">{item.content}</p>{teacher && <button type="button" className="secondary-button" onClick={() => setRestoreId(item.id)}>이 버전 복원 선택</button>}</article>)}</ApiState>{restoreId && <><p>선택한 버전을 복원할까요? 편집 중인 내용은 먼저 보관해 주세요.</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
           if (await mutation.run(`/record-items/${initial.id}/versions/${restoreId}/restore`, {
             body: {
               version: initial.version

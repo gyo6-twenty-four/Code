@@ -21,8 +21,7 @@ export function Observation({
   notify,
   account,
   year,
-  batch = false,
-  timeline = false
+  batch = false
 }) {
   const list = usePage(studentId && !batch ? `/students/${studentId}/observations` : null);
   const mutation = useMutation(notify);
@@ -123,9 +122,9 @@ export function Observation({
             }))} />{student.name}</label>{Object.hasOwn(selected, student.id) && <Field label={`${student.name} 개별 관찰 (공통 내용 대신 적용)`} multiline value={selected[student.id]} onChange={e => changed(() => setSelected({
             ...selected,
             [student.id]: e.target.value
-          }))} />}</div>)}</ApiState><Pagination state={students} /><p>{Object.keys(selected).length}명 선택 · {validated ? '사전 검증 완료' : '저장 전 사전 검증이 필요해요.'}</p>{localError && <p role="alert" className="field-error">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={admin || !classId || !Object.keys(selected).length}>{validated ? '선택한 관찰 저장하기' : '입력 내용 검증하기'}</SaveButton></form> : <>
-      {!timeline && !admin && <form className="api-panel api-stack" onSubmit={submit}>{fields}{localError && <p className="field-error" role="alert">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={!studentId}>관찰 저장하기</SaveButton></form>}
-      <ApiState state={list} empty={studentId ? '저장된 관찰이 없어요.' : '학생을 선택해 주세요.'}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel api-stack" key={item.id}><header className="exchange-heading"><strong>{item.observedAt} · {categories[item.category] || item.category}</strong></header><p className="detail-copy">{item.content}</p>{!admin && <div className="exchange-actions"><button className="secondary-button" type="button" onClick={() => edit(item)}>수정</button><button className="text-button danger" type="button" onClick={() => {
+          }))} />}</div>)}</ApiState><Pagination state={students} /><p>{Object.keys(selected).length}명 선택, {validated ? '사전 검증 완료' : '저장 전 사전 검증이 필요해요.'}</p>{localError && <p role="alert" className="field-error">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={admin || !classId || !Object.keys(selected).length}>{validated ? '선택한 관찰 저장하기' : '입력 내용 검증하기'}</SaveButton></form> : <>
+      {!admin && <form className="api-panel api-stack" onSubmit={submit}>{fields}{localError && <p className="field-error" role="alert">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={!studentId}>관찰 저장하기</SaveButton></form>}
+      <ApiState state={list} empty={studentId ? '저장된 관찰이 없어요.' : '학생을 선택해 주세요.'}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel api-stack" key={item.id}><header className="exchange-heading"><strong>{item.observedAt}, {categories[item.category] || item.category}</strong></header><p className="detail-copy">{item.content}</p>{!admin && <div className="exchange-actions"><button className="secondary-button" type="button" onClick={() => edit(item)}>수정</button><button className="text-button danger" type="button" onClick={() => {
               setEditor(item);
               setDeleting(true);
             }}>삭제</button></div>}</article>)}</ApiState><Pagination state={list} />
@@ -178,7 +177,7 @@ export function Career({
         content: '',
         interests: []
       });
-    }}>진로 기록 추가</PrimaryButton>}<ApiState state={list}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{item.title}</h2><p>{item.activityDate} · {(item.interests || []).join(', ')}</p><p className="detail-copy">{item.content}</p>{account.role === 'TEACHER' && <button type="button" className="text-button" onClick={() => {
+    }}>진로 기록 추가</PrimaryButton>}<ApiState state={list}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{item.title}</h2><p>{item.activityDate}, {(item.interests || []).join(', ')}</p><p className="detail-copy">{item.content}</p>{account.role === 'TEACHER' && <button type="button" className="text-button" onClick={() => {
           setRemove(false);
           setDraft(item);
         }}>수정</button>}<button type="button" className="text-button danger" onClick={() => {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 export const settingsKey = 'classroom-record-settings'
-export const defaultSettings = { name: '김지현', email: 'name@school.kr', notifications: true, year: '2026', grade: '1', classroom: '2', school: '서울 한빛초등학교' }
+export const defaultSettings = { name: '', email: '', notifications: true, year: '2026', grade: '1', classroom: '1', school: '' }
 export function readSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(settingsKey))

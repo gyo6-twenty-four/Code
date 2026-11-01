@@ -22,7 +22,7 @@ export const pages = {
   '/admin/audit': { code: 'A24', title: '감사 로그', description: '계정과 학급 정보의 주요 변경 내역을 확인해요.', group: 'admin-more' },
 }
 export const teacherMenu = [
-  ['홈', '/coverage'], ['나의 시간표', '/timetable'], ['학생별 관찰', '/students'], ['학급 일괄 관찰', '/observations/batch'], ['타임라인 · 수업 메모', '/timeline'],
+  ['홈', '/coverage'], ['나의 시간표', '/timetable'], ['학생별 관찰', '/students'], ['학급 일괄 관찰', '/observations/batch'], ['타임라인, 수업 메모', '/timeline'],
   ['평가', '/evaluations'], ['진로', '/career'], ['생기부', '/reports'], ['학생 기록 이관', '/transfer'], ['알림함', '/notifications'], ['설정', '/settings'],
 ]
 export const adminMenu = [['관리자 홈', '/admin'], ['교사 계정', '/admin/teachers'], ['명단 관리', '/admin/rosters'], ['시간표 관리', '/admin/timetable'], ['알림함', '/admin/notifications'], ['감사 로그', '/admin/audit'], ['설정', '/admin/settings']]

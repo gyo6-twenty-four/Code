@@ -6,7 +6,7 @@ import { finishSignup, pendingSignup, previewAccounts, startSignup, verifyPrevie
 const canSettingsReturn = account => accountHome(account) === '/admin' ? '/admin/settings' : '/settings'
 const copy = {
   '/login': ['학교 계정 로그인', '수업과 학생 기록을 한곳에서 관리해요', '학교 이메일로 시작해요.', '로그인'],
-  '/invite': ['초대 가입', '초대받은 학교에 합류해요', '초대 정보를 확인한 뒤 비밀번호를 설정해요.', '다음 · 비밀번호 설정'],
+  '/invite': ['초대 가입', '초대받은 학교에 합류해요', '초대 정보를 확인한 뒤 비밀번호를 설정해요.', '다음, 비밀번호 설정'],
   '/reset-password': ['계정 복구', '비밀번호를 다시 설정해요', '가입한 학교 이메일로 재설정 안내를 보내요.', '재설정 안내 보내기'],
   '/set-password': ['비밀번호 설정', '사용할 비밀번호를 설정해요', '가입을 완료하려면 비밀번호를 설정해 주세요.', '비밀번호 설정하고 가입 완료'],
 }
@@ -43,7 +43,7 @@ export function Auth({ route, notify, onLogin }) {
     {settingPassword && !pending ? <div className="auth-fields"><p className="field-error" role="alert">먼저 초대 가입 정보를 입력해 주세요. 가입 정보는 30분 동안 유지돼요.</p><a className="inline-link" href="#/invite">초대 가입으로 이동 →</a></div> : <>
       <div className="auth-fields">
         {route === '/invite' && <><Field label="초대 코드" name="code" required placeholder="학교에서 받은 초대 코드를 입력해 주세요" /><Field label="이름" name="name" required pattern=".*\S.*" autoComplete="name" placeholder="선생님 이름" /></>}
-        {settingPassword ? <><p className="signup-identity"><strong>{pending.name}</strong><span>{pending.email}</span></p><Field label="새 비밀번호" name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" placeholder="영문·숫자 포함 8자 이상" /><Field label="비밀번호 확인" name="confirmation" type="password" required minLength={8} maxLength={128} autoComplete="new-password" placeholder="비밀번호를 한 번 더 입력해 주세요" /></> : <Field label="학교 이메일" name="email" type="email" value={email} onChange={event => { setEmail(event.target.value); setError('') }} required autoComplete="email" placeholder="name@school.kr" />}
+        {settingPassword ? <><p className="signup-identity"><strong>{pending.name}</strong><span>{pending.email}</span></p><Field label="새 비밀번호" name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" placeholder="영문, 숫자 포함 8자 이상" /><Field label="비밀번호 확인" name="confirmation" type="password" required minLength={8} maxLength={128} autoComplete="new-password" placeholder="비밀번호를 한 번 더 입력해 주세요" /></> : <Field label="학교 이메일" name="email" type="email" value={email} onChange={event => { setEmail(event.target.value); setError('') }} required autoComplete="email" placeholder="name@school.kr" />}
         {route === '/login' && <><Field label="비밀번호" name="password" type="password" required autoComplete="current-password" placeholder="비밀번호를 입력해 주세요" /><a className="forgot-link" href="#/reset-password">비밀번호를 잊으셨나요?</a></>}
       </div>
       {error && <p className="field-error auth-error" role="alert">{error}</p>}

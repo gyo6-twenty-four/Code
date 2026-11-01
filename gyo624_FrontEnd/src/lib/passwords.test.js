@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createPasswordRecord, passwordError, verifyPasswordRecord } from './passwords.js'
-test('초기 비밀번호의 길이·영문/숫자와 확인 일치를 검사한다', () => {
+test('초기 비밀번호의 길이, 영문/숫자와 확인 일치를 검사한다', () => {
   assert.ok(passwordError('abc123', 'abc123'))
   assert.ok(passwordError('abcdefgh', 'abcdefgh'))
   assert.ok(passwordError('NewPassword12!', 'Different12!'))

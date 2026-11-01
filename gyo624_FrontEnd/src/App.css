@@ -154,7 +154,7 @@ button:disabled { color: #8b95a1; cursor: default; }
   .info-panel h2 { font-size: 18px; font-weight: 600; line-height: 26px; letter-spacing: -.18px; }
   .info-panel p { min-height: 36px; margin-top: 12px; font-size: 13px; line-height: 18px; }
   .info-panel p:first-of-type { margin-top: 20px; }
-  .info-panel p::before { content: '· '; }
+  .info-panel p::before { content: none; }
   .content-columns .info-panel p:not(:first-of-type) { display: block; }
   .observation-columns { margin-top: 37px; }
   .observation-form { min-height: 520px; padding: 21px; border: 1px solid var(--line); border-radius: 16px; background: white; }

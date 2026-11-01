@@ -7,7 +7,18 @@ export function Brand({ onClick, label = '교육24' }) {
   const copy = <img className="brand-logo" src={education24Logo} width="92" height="32" alt={label} />
   return onClick ? <button type="button" className="brand" onClick={onClick} aria-label="메뉴 열기">{copy}</button> : <div className="brand">{copy}</div>
 }
-export function PrimaryButton({ children, className = '', ...props }) { return <button type="button" className={`primary-button ${className}`} {...props}>{children}</button> }
+export function SchoolBrand({ name, onClick, href }) {
+  const label = name?.trim() || ''
+  const copy = <><span className="school-mark" aria-hidden="true">{label ? [...label][0] : '학'}</span><span className="school-name">{label || '학교 연결'}</span></>
+  const className = `brand school-brand${label ? '' : ' is-empty'}`
+  if (onClick) return <button type="button" className={className} onClick={onClick}>{copy}<span className="sr-only">메뉴 열기</span></button>
+  if (!label && href) return <a className={className} href={href}>{copy}</a>
+  return <div className={className}>{copy}</div>
+}
+export function PrimaryButton({ children, className = '', busy = false, disabled, ...props }) {
+  const loading = !!busy
+  return <button type="button" {...props} className={`primary-button${loading ? ' is-loading' : ''} ${className}`} aria-busy={loading || undefined} disabled={disabled || loading}>{children}</button>
+}
 export function ListRow({ title, detail, meta, onClick, href, selected, className = '' }) {
   const copy = <><img className="row-mark" src={rowMark} width="36" height="36" alt="" /><span className="row-copy"><span className="row-title">{title}</span><span className="row-detail">{detail}</span></span><span className="row-meta">{meta}</span></>
   if (href) return <a className={`settings-row ${className}`} href={`#${href}`}>{copy}</a>

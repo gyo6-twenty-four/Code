@@ -8,25 +8,32 @@
 
 :root {
   font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-  color: #191f28;
-  background: #fff;
+  color: #1c1e21;
+  background: #f4f7fb;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --bg-primary: #fff;
-  --bg-secondary: #f2f4f6;
-  --brand: #3182f6;
-  --brand-weak: #e8f3ff;
-  --line: #e5e8eb;
-  --fg-primary: #191f28;
-  --fg-secondary: #4e5968;
-  --fg-tertiary: #6b7684;
+  --bg-secondary: #f3f6fa;
+  --bg-canvas: #f4f7fb;
+  --ink: #1c1e21;
+  --brand: #1e4d8c;
+  --brand-weak: #e7eef6;
+  --positive: #0f6e56;
+  --negative: #b42318;
+  --line: #e3e5e2;
+  --fg-primary: #1c1e21;
+  --fg-secondary: #3f4652;
+  --fg-tertiary: #5c6570;
+  --shadow: none;
+  --radius: 8px;
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 280px; }
 button, input, select { font: inherit; touch-action: manipulation; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; color: inherit; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 h1, h2, p { margin: 0; }
-@media (min-width: 600px) { :root { background: #f2f4f6; } }
+::selection { background: #d5e0ee; }
+@media (min-width: 600px) { :root { background: var(--bg-canvas); } }

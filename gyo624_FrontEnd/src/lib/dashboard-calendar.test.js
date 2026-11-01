@@ -12,7 +12,7 @@ test('선택한 날짜의 담당 교사 수업을 여러 학급에서 모아 교
   assert.equal(lessonsForDate(lessons, '2026-02-30', '김지현').length, 0)
 })
 test('관찰과 담당 학급 메모를 선택 날짜에 맞춰 집계한다', () => {
-  const records = [{ id: 'r', student: '김민준 · 1학년 2반', date: '2026-10-21' }]
+  const records = [{ id: 'r', student: '김민준, 1학년 2반', date: '2026-10-21' }]
   const memos = [{ id: 'm', classroom: '1학년 2반', date: '2026-10-21' }, { id: 'other', classroom: '6학년 1반', date: '2026-10-21' }]
   assert.deepEqual(recordsForDate(records, memos, '2026-10-21', ['1학년 2반']).map(item => item.kind), ['학생 관찰', '수업 메모'])
   assert.equal(recordsForDate(records, memos, '2026-10-22', ['1학년 2반']).length, 0)

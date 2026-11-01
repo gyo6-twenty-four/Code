@@ -1,7 +1,13 @@
 import { observationDateError } from '../lib/observations.js';
+import { ALL_RECORD_TYPES, assignedRecordTypes, sanitizeRecordTypes } from '../api/model.js';
 // Browser-only workspace. No HTTP requests or production credentials are used here.
 const STORE_KEY = 'education24-ui-workspace-v1';
 export const LOCAL_PASSWORD = 'Edu24!2026';
+export const TEST_SCHOOL_ACCOUNT = {
+  name: '테스트학교',
+  email: 'school@education24.local',
+  role: 'ADMIN'
+};
 export class LocalError extends Error {
   constructor(message, status = 400, code = '') {
     super(message);
@@ -14,7 +20,75 @@ const clone = value => structuredClone(value);
 const requireValue = (condition, message, status = 400) => {
   if (!condition) throw new LocalError(message, status);
 };
+function cleanRecordTypes(value) {
+  const types = sanitizeRecordTypes(value) ?? [...ALL_RECORD_TYPES];
+  requireValue(types.length, '작성할 생기부 유형을 하나 이상 선택해 주세요.');
+  return types;
+}
 const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))).map(n => n.toString(16).padStart(2, '0')).join('');
+function completeUser(user, passwordHash, classIds) {
+  return {
+    id: user.id || uuid(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    passwordHash,
+    status: 'ACTIVE',
+    onboardingCompleted: true,
+    phone: '',
+    classIds: [...classIds],
+    preferences: {
+      notificationEmail: true,
+      notificationInApp: true
+    },
+    recordTypes: [...ALL_RECORD_TYPES]
+  };
+}
+async function ensureTestSchoolAccount(db) {
+  if (!Array.isArray(db?.users) || db.users.some(user => user.email === TEST_SCHOOL_ACCOUNT.email)) return false;
+  db.users.push(completeUser(TEST_SCHOOL_ACCOUNT, await digest(LOCAL_PASSWORD), (db.classes || []).map(c => c.id)));
+  return true;
+}
+const DUMMY_STUDENT_NAMES = ['김민준', '박서연', '이도윤', '정하린'];
+function removeSeededDemo(db) {
+  let changed = false;
+  const schoolWasDemo = db.school?.name === '한빛학교';
+  if (schoolWasDemo) {
+    db.school.name = '';
+    changed = true;
+  }
+  if (Array.isArray(db.notifications)) {
+    const notifications = db.notifications.filter(item => item.title !== '새 학기 수업 준비' || item.message !== '담당 학급과 시간표를 확인해 주세요.');
+    if (notifications.length !== db.notifications.length) {
+      db.notifications = notifications;
+      changed = true;
+    }
+  }
+  const classes = Array.isArray(db.classes) ? db.classes : [];
+  const students = Array.isArray(db.students) ? db.students : [];
+  const removedStudents = new Set();
+  const removedClasses = new Set();
+  for (const entry of classes) {
+    if (![1, 2, 3].includes(entry.grade) || entry.classNumber !== 1 || entry.name !== `${entry.grade}학년 1반`) continue;
+    const members = students.filter(student => student.classId === entry.id);
+    const dummy = members.filter(student => DUMMY_STUDENT_NAMES.includes(student.name));
+    dummy.forEach(student => removedStudents.add(student.id));
+    if (members.length === dummy.length && (dummy.length > 0 || schoolWasDemo)) removedClasses.add(entry.id);
+  }
+  if (!removedStudents.size && !removedClasses.size) return changed;
+  const removedRecords = new Set();
+  for (const key of ['observations', 'careers', 'records']) {
+    for (const item of db[key] || []) if (removedStudents.has(item.studentId) || removedClasses.has(item.classId)) removedRecords.add(item.id);
+    db[key] = (db[key] || []).filter(item => !removedStudents.has(item.studentId) && !removedClasses.has(item.classId));
+  }
+  db.students = students.filter(student => !removedStudents.has(student.id) && !removedClasses.has(student.classId));
+  db.classes = classes.filter(entry => !removedClasses.has(entry.id));
+  db.timetables = (db.timetables || []).filter(item => !removedClasses.has(item.classId));
+  db.versions = (db.versions || []).filter(item => !removedRecords.has(item.recordId));
+  for (const id of removedRecords) delete db.gates?.[id];
+  for (const user of db.users || []) if (Array.isArray(user.classIds)) user.classIds = user.classIds.filter(id => !removedClasses.has(id));
+  return true;
+}
 const dateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 export function createLocalStore({
   storage,
@@ -33,17 +107,10 @@ export function createLocalStore({
         } catch {
           throw new LocalError('저장된 화면 데이터를 읽지 못했어요. 브라우저 저장소를 확인해 주세요.');
         }
+        if (removeSeededDemo(database) || (await ensureTestSchoolAccount(database))) persist();
         return database;
       }
-      const year = now().getFullYear();
       const passwordHash = await digest(LOCAL_PASSWORD);
-      const classes = [year, year + 1].flatMap(schoolYear => [1, 2, 3].map(grade => ({
-        id: uuid(),
-        schoolYear,
-        grade,
-        classNumber: 1,
-        name: `${grade}학년 1반`
-      })));
       const users = [{
         id: uuid(),
         name: '김지현',
@@ -59,45 +126,15 @@ export function createLocalStore({
         name: '이서연',
         email: 'teacher2@education24.local',
         role: 'TEACHER'
-      }].map(user => ({
-        ...user,
-        passwordHash,
-        status: 'ACTIVE',
-        onboardingCompleted: true,
-        phone: '',
-        classIds: classes.map(c => c.id),
-        preferences: {
-          notificationEmail: true,
-          notificationInApp: true
-        }
-      }));
-      const names = ['김민준', '박서연', '이도윤', '정하린'];
-      const students = classes.filter(c => c.schoolYear === year).flatMap(c => names.map((name, i) => ({
-        id: uuid(),
-        classId: c.id,
-        schoolYear: year,
-        name,
-        number: i + 1
-      })));
-      const today = dateKey(now());
-      const observations = students.slice(0, 4).map((student, i) => ({
-        id: uuid(),
-        studentId: student.id,
-        classId: student.classId,
-        schoolYear: year,
-        observedAt: today,
-        category: 'CLASS_ATTITUDE',
-        content: ['모둠 활동에서 친구의 의견을 듣고 자신의 생각을 설명했어요.', '읽은 글의 핵심 내용을 문장으로 정리했어요.', '문제 풀이 과정을 차례대로 설명했어요.', '활동에 필요한 준비물을 스스로 챙겼어요.'][i],
-        version: 1
-      }));
+      }, TEST_SCHOOL_ACCOUNT].map(user => completeUser(user, passwordHash, []));
       database = {
         school: {
-          name: '한빛학교'
+          name: ''
         },
         users,
-        classes,
-        students,
-        observations,
+        classes: [],
+        students: [],
+        observations: [],
         careers: [],
         records: [],
         versions: [],
@@ -106,28 +143,8 @@ export function createLocalStore({
         invitations: [],
         resets: [],
         logs: [],
-        notifications: users.map(user => ({
-          id: uuid(),
-          userId: user.id,
-          title: '새 학기 수업 준비',
-          message: '담당 학급과 시간표를 확인해 주세요.',
-          type: 'NOTICE',
-          read: false,
-          createdAt: now().toISOString()
-        })),
-        timetables: classes.filter(c => c.schoolYear === year).flatMap((c, ci) => ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'].map(dayOfWeek => ({
-          id: uuid(),
-          classId: c.id,
-          teacherId: users[0].id,
-          className: c.name,
-          schoolYear: year,
-          semester: now().getMonth() < 7 ? 1 : 2,
-          dayOfWeek,
-          period: ci + 1,
-          subject: ['국어', '수학', '과학'][ci],
-          room: `${c.grade}학년 교실`,
-          version: 1
-        })))
+        notifications: [],
+        timetables: []
       };
       persist();
       return database;
@@ -241,6 +258,7 @@ export function createLocalStore({
         role: invite.role,
         status: 'ACTIVE',
         classIds: invite.classIds,
+        recordTypes: sanitizeRecordTypes(invite.recordTypes)?.length ? sanitizeRecordTypes(invite.recordTypes) : [...ALL_RECORD_TYPES],
         onboardingCompleted: false,
         passwordHash: await digest(body.password),
         preferences: {}
@@ -369,6 +387,7 @@ export function createLocalStore({
       }[parts[2]];
       if (method === 'GET') return page(db[key].filter(r => r.studentId === id && (!q.get('schoolYear') || Number(r.schoolYear) === Number(q.get('schoolYear')))), q);
       requireValue(!admin, '교사 계정에서 작성해 주세요.', 403);
+      if (key === 'records') requireValue(assignedRecordTypes(user).includes(body.type), '이 계정에 허용되지 않은 생기부 유형이에요.', 403);
       if (key === 'observations') validateObservation(body);
       const item = {
         ...body,
@@ -380,6 +399,9 @@ export function createLocalStore({
         createdAt: now().toISOString(),
         maxCharacterCount: key === 'records' ? 1500 : undefined
       };
+      delete item.tags;
+      delete item.tagIds;
+      delete item.visibility;
       db[key].unshift(item);
       return save(item, '학생 기록');
     }
@@ -426,13 +448,21 @@ export function createLocalStore({
           return save(null, '학생 기록');
         }
         if (Number(body.version) !== item.version) throw new LocalError('최신 기록을 다시 확인해 주세요.', 409, 'VERSION_CONFLICT');
-        if (key === 'observations') validateObservation(body);
-        if (key === 'records') db.versions.unshift({
-          ...clone(item),
-          id: uuid(),
-          recordId: item.id,
-          createdAt: now().toISOString()
-        });
+        if (key === 'observations') {
+          validateObservation(body);
+          delete body.tags;
+          delete body.tagIds;
+          delete body.visibility;
+        }
+        if (key === 'records') {
+          requireValue(assignedRecordTypes(user).includes(body.type || item.type), '이 계정에 허용되지 않은 생기부 유형이에요.', 403);
+          db.versions.unshift({
+            ...clone(item),
+            id: uuid(),
+            recordId: item.id,
+            createdAt: now().toISOString()
+          });
+        }
         Object.assign(item, body, {
           version: item.version + 1,
           updatedAt: now().toISOString()
@@ -561,8 +591,16 @@ export function createLocalStore({
       if (parts[2] === 'completion') return result(classes.map(c => ({
         className: c.name,
         studentCount: db.students.filter(s => s.classId === c.id).length,
-        recordCount: db.records.filter(r => r.classId === c.id).length
+        recordCount: db.records.filter(r => r.classId === c.id).length,
+        completedCount: db.records.filter(r => r.classId === c.id && r.status === 'SUBMITTED').length
       })));
+      if (parts[2] === 'usage') return result(Array.from({ length: 12 }, (_, index) => {
+        const month = `${year}-${String(index + 1).padStart(2, '0')}`;
+        const observations = db.observations.filter(item => item.schoolYear === year && String(item.observedAt || '').startsWith(month)).length;
+        const records = db.records.filter(item => Number(item.schoolYear) === year && String(item.updatedAt || item.createdAt || '').startsWith(month)).length;
+        const careers = db.careers.filter(item => Number(item.schoolYear) === year && String(item.activityDate || '').startsWith(month)).length;
+        return { month, observations, records, careers, total: observations + records + careers };
+      }));
       return result(db.logs.slice(0, 5).map(log => ({
         name: log.actor.name,
         action: log.action,
@@ -581,6 +619,7 @@ export function createLocalStore({
             token: uuid(),
             role: input.role || 'TEACHER',
             classIds: input.classIds || [],
+            recordTypes: cleanRecordTypes(input.recordTypes),
             accepted: false
           };
         });
@@ -604,7 +643,10 @@ export function createLocalStore({
       const teacher = find('users', parts[2]);
       if (method === 'GET') return result(userView(teacher));
       requireValue(teacher.id !== user.id || method === 'PATCH' && body.role === 'ADMIN' && !body.status, '자신의 관리자 권한은 유지해야 해요.');
-      if (method === 'DELETE') teacher.status = 'INACTIVE';else Object.assign(teacher, body);
+      if (method === 'DELETE') teacher.status = 'INACTIVE';else {
+        if (body.recordTypes !== undefined) body.recordTypes = cleanRecordTypes(body.recordTypes);
+        Object.assign(teacher, body);
+      }
       return save(userView(teacher), '교사 계정');
     }
     if (parts[0] === 'admin' && parts[1] === 'classes') {

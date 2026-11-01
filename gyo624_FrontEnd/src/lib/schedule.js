@@ -24,7 +24,7 @@ export function exchangeError(state, first, second, today) {
     const next = dateLessons(state, date).map(item => date === first.date && item.id === a.id ? { ...item, teacherId: b.teacherId, teacher: b.teacher } : date === second.date && item.id === b.id ? { ...item, teacherId: a.teacherId, teacher: a.teacher } : item)
     for (const item of next.filter(item => date === first.date && item.id === a.id || date === second.date && item.id === b.id)) {
       const error = timetableError(item, next)
-      if (error) return `${date} · ${error}`
+      if (error) return `${date}, ${error}`
     }
   }
   return ''

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLocalStore, LOCAL_PASSWORD } from './local-store.js';
+import { createLocalStore, LOCAL_PASSWORD, TEST_SCHOOL_ACCOUNT } from './local-store.js';
 function setup() {
   const memory = new Map();
   const storage = {
@@ -24,19 +24,42 @@ async function login(store, role = 'teacher') {
     }
   })).data.accessToken;
 }
+async function addClass(store, adminId, schoolYear, grade = 1, classNumber = 1) {
+  return (await store.handle('/admin/classes', {
+    actorId: adminId,
+    method: 'POST',
+    body: { schoolYear, grade, classNumber }
+  })).data;
+}
+async function addStudent(store, adminId, classId, name = '새 학생', number = 1) {
+  return (await store.handle(`/admin/classes/${classId}/students`, {
+    actorId: adminId,
+    method: 'POST',
+    body: { name, number }
+  })).data;
+}
+async function grant(store, adminId, teacherId, classId) {
+  const teacher = (await store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId })).data;
+  await store.handle(`/admin/teachers/${teacherId}`, {
+    actorId: adminId,
+    method: 'PATCH',
+    body: { classIds: [...new Set([...(teacher.classIds || []), classId])] }
+  });
+}
 describe('Standalone UI workspace', () => {
-  it('opens a populated teacher workspace without network and preserves writes after reload', async () => {
+  it('starts without demo school data and preserves writes after reload', async () => {
     const {
       store,
       storage
     } = setup();
+    const adminId = await login(store, 'admin');
+    assert.equal((await store.handle('/me', { actorId: adminId })).data.school.name, '');
+    assert.equal((await store.handle('/classes?schoolYear=2026', { actorId: adminId })).data.length, 0);
+    assert.equal((await store.handle('/timetables?schoolYear=2026', { actorId: adminId })).data.length, 0);
     const actorId = await login(store);
-    const classes = (await store.handle('/classes?schoolYear=2026', {
-      actorId
-    })).data;
-    const students = (await store.handle(`/classes/${classes[0].id}/students`, {
-      actorId
-    })).data;
+    const classroom = await addClass(store, adminId, 2026);
+    await grant(store, adminId, actorId, classroom.id);
+    const students = [(await addStudent(store, adminId, classroom.id))];
     const item = (await store.handle(`/students/${students[0].id}/observations`, {
       actorId,
       method: 'POST',
@@ -90,24 +113,48 @@ describe('Standalone UI workspace', () => {
     }), e => e.code === 'UNSUPPORTED_ACTION');
     assert.equal(storage.getItem('education24-refresh-token-v1'), undefined);
   });
+  it('adds a test school admin account to existing workspaces', async () => {
+    const { store, storage } = setup();
+    await login(store, 'admin');
+    const saved = JSON.parse(storage.getItem('education24-ui-workspace-v1'));
+    saved.users = saved.users.filter(user => user.email !== TEST_SCHOOL_ACCOUNT.email);
+    storage.setItem('education24-ui-workspace-v1', JSON.stringify(saved));
+    const restored = createLocalStore({ storage, now: () => new Date(2026, 9, 28, 12) });
+    const actorId = (await restored.handle('/auth/login', {
+      method: 'POST',
+      body: { email: TEST_SCHOOL_ACCOUNT.email, password: LOCAL_PASSWORD }
+    })).data.accessToken;
+    const me = (await restored.handle('/me', { actorId })).data;
+    assert.equal(me.name, TEST_SCHOOL_ACCOUNT.name);
+    assert.equal(me.role, 'ADMIN');
+  });
   it('blocks timetable conflicts across different classes and teachers', async () => {
     const {
       store
     } = setup();
     const actorId = await login(store, 'admin');
-    const classes = (await store.handle('/classes?schoolYear=2026', {
-      actorId
+    const teacherId = await login(store);
+    const firstClass = await addClass(store, actorId, 2026, 1, 1);
+    const secondClass = await addClass(store, actorId, 2026, 1, 2);
+    const first = (await store.handle('/admin/timetables/entries', {
+      actorId,
+      method: 'POST',
+      body: {
+        classId: firstClass.id,
+        teacherId,
+        schoolYear: 2026,
+        semester: 2,
+        dayOfWeek: 'MONDAY',
+        period: 1,
+        subject: '국어'
+      }
     })).data;
-    const lessons = (await store.handle('/timetables?schoolYear=2026', {
-      actorId
-    })).data;
-    const first = lessons.find(t => t.dayOfWeek === 'MONDAY');
     await assert.rejects(store.handle('/admin/timetables/entries', {
       actorId,
       method: 'POST',
       body: {
         ...first,
-        classId: classes[1].id
+        classId: secondClass.id
       }
     }), /동일한 시간/);
   });
@@ -153,15 +200,21 @@ describe('Standalone UI workspace', () => {
       store
     } = setup();
     const actorId = await login(store, 'admin');
-    const source = (await store.handle('/classes?schoolYear=2026', {
-      actorId
-    })).data[0];
-    const target = (await store.handle('/classes?schoolYear=2027', {
-      actorId
-    })).data[0];
-    const student = (await store.handle(`/classes/${source.id}/students`, {
-      actorId
-    })).data[0];
+    const teacherId = await login(store);
+    const source = await addClass(store, actorId, 2026, 1, 1);
+    const target = await addClass(store, actorId, 2027, 1, 1);
+    await grant(store, actorId, teacherId, source.id);
+    const student = await addStudent(store, actorId, source.id);
+    await store.handle(`/students/${student.id}/observations`, {
+      actorId: teacherId,
+      method: 'POST',
+      body: {
+        observedAt: '2026-10-28',
+        category: 'CLASS_ATTITUDE',
+        content: '옮길 관찰',
+        schoolYear: 2026
+      }
+    });
     const body = {
       source: {
         classId: source.id,
@@ -202,10 +255,12 @@ describe('Standalone UI workspace', () => {
   });
   it('keeps record checks tied to the saved version and restores earlier content', async () => {
     const { store } = setup();
+    const adminId = await login(store, 'admin');
     const actorId = await login(store);
-    const classroom = (await store.handle('/classes?schoolYear=2026', { actorId })).data[0];
-    const student = (await store.handle(`/classes/${classroom.id}/students`, { actorId })).data[0];
-    const item = (await store.handle(`/students/${student.id}/record-items`, { actorId, method: 'POST', body: { type: 'BEHAVIOR_AND_OVERALL_OPINION', content: '처음 작성한 내용', status: 'DRAFT' } })).data;
+    const classroom = await addClass(store, adminId, 2026);
+    await grant(store, adminId, actorId, classroom.id);
+    const student = await addStudent(store, adminId, classroom.id);
+    const item = (await store.handle(`/students/${student.id}/record-items`, { actorId, method: 'POST', body: { type: 'CLUB', content: '처음 작성한 내용', status: 'DRAFT' } })).data;
     await store.handle(`/record-items/${item.id}/gate-checks`, { actorId, method: 'POST' });
     await store.handle(`/record-items/${item.id}/submit`, { actorId, method: 'POST' });
     const changed = (await store.handle(`/record-items/${item.id}`, { actorId, method: 'PATCH', body: { content: '수정한 내용', version: 1 } })).data;
@@ -221,11 +276,79 @@ describe('Standalone UI workspace', () => {
     const { store } = setup();
     const teacherId = await login(store);
     const actorId = await login(store, 'admin');
-    const classroom = (await store.handle('/classes?schoolYear=2026', { actorId })).data[0];
-    const student = (await store.handle(`/classes/${classroom.id}/students`, { actorId })).data[0];
+    const classroom = await addClass(store, actorId, 2026);
+    await grant(store, actorId, teacherId, classroom.id);
+    const student = await addStudent(store, actorId, classroom.id);
     await assert.rejects(store.handle(`/students/${student.id}/observations`, { actorId: teacherId, method: 'POST', body: { observedAt: '2026-02-31', content: '내용' } }), /올바른/);
     await store.handle(`/admin/teachers/${teacherId}`, { actorId, method: 'DELETE' });
     await assert.rejects(store.handle('/admin/timetables/entries', { actorId, method: 'POST', body: { classId: classroom.id, teacherId, period: 9, subject: '국어' } }), /활성 교사/);
+  });
+  it('lets an admin limit which report types a teacher can write', async () => {
+    const { store } = setup();
+    const adminId = await login(store, 'admin');
+    const teacherId = await login(store);
+    const teacher = (await store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId })).data;
+    await store.handle(`/admin/teachers/${teacherId}`, {
+      actorId: adminId,
+      method: 'PATCH',
+      body: { name: teacher.name, email: teacher.email, role: 'TEACHER', classIds: teacher.classIds, recordTypes: ['CLUB'] }
+    });
+    const classroom = await addClass(store, adminId, 2026);
+    await grant(store, adminId, teacherId, classroom.id);
+    const student = await addStudent(store, adminId, classroom.id);
+    await assert.rejects(store.handle(`/students/${student.id}/record-items`, {
+      actorId: teacherId,
+      method: 'POST',
+      body: { type: 'CAREER', content: '진로 문장', status: 'DRAFT' }
+    }), /생기부 유형/);
+    const item = (await store.handle(`/students/${student.id}/record-items`, {
+      actorId: teacherId,
+      method: 'POST',
+      body: { type: 'CLUB', content: '동아리 문장', status: 'DRAFT' }
+    })).data;
+    assert.equal(item.type, 'CLUB');
+    const usage = (await store.handle('/admin/dashboard/usage?schoolYear=2026', { actorId: adminId })).data;
+    assert.equal(usage.length, 12);
+    assert.equal(usage[9].records, 1);
+  });
+  it('removes a previously saved demo school without deleting later records', async () => {
+    const { store, storage } = setup();
+    await login(store, 'admin');
+    const saved = JSON.parse(storage.getItem('education24-ui-workspace-v1'));
+    saved.school = { name: '한빛학교' };
+    saved.classes = [
+      { id: 'demo-class', schoolYear: 2026, grade: 1, classNumber: 1, name: '1학년 1반' },
+      { id: 'next-class', schoolYear: 2027, grade: 2, classNumber: 1, name: '2학년 1반' },
+      { id: 'real-class', schoolYear: 2026, grade: 4, classNumber: 2, name: '4학년 2반' }
+    ];
+    saved.students = [
+      { id: 'demo-student', classId: 'demo-class', schoolYear: 2026, name: '김민준', number: 1 },
+      { id: 'real-student', classId: 'real-class', schoolYear: 2026, name: '홍길동', number: 1 },
+      { id: 'kept-student', classId: 'demo-class', schoolYear: 2026, name: '최우리', number: 2 }
+    ];
+    saved.observations = [
+      { id: 'demo-obs', studentId: 'demo-student', classId: 'demo-class', content: '모둠 활동에서 친구의 의견을 듣고 자신의 생각을 설명했어요.' },
+      { id: 'kept-obs', studentId: 'kept-student', classId: 'demo-class', content: '직접 남긴 관찰' }
+    ];
+    saved.timetables = [
+      { id: 'demo-lesson', classId: 'next-class', schoolYear: 2027, subject: '국어' },
+      { id: 'kept-lesson', classId: 'demo-class', schoolYear: 2026, subject: '사회' }
+    ];
+    saved.notifications = [{ id: 'demo-note', userId: saved.users[0].id, title: '새 학기 수업 준비', message: '담당 학급과 시간표를 확인해 주세요.', type: 'NOTICE', read: false }];
+    saved.users[0].classIds = ['demo-class', 'next-class', 'real-class'];
+    storage.setItem('education24-ui-workspace-v1', JSON.stringify(saved));
+    const restored = createLocalStore({ storage, now: () => new Date(2026, 9, 28, 12) });
+    const actorId = await login(restored, 'admin');
+    assert.equal((await restored.handle('/me', { actorId })).data.school.name, '');
+    assert.deepEqual((await restored.handle('/classes?schoolYear=2026', { actorId })).data.map(item => item.id).sort(), ['demo-class', 'real-class']);
+    assert.equal((await restored.handle('/classes?schoolYear=2027', { actorId })).data.length, 0);
+    assert.deepEqual((await restored.handle('/classes/demo-class/students', { actorId })).data.map(item => item.name), ['최우리']);
+    assert.equal((await restored.handle('/classes/real-class/students', { actorId })).data[0].name, '홍길동');
+    assert.equal((await restored.handle('/students/kept-student/observations', { actorId })).data[0].content, '직접 남긴 관찰');
+    assert.equal((await restored.handle('/timetables?schoolYear=2027', { actorId })).data.length, 0);
+    assert.equal((await restored.handle('/timetables?classId=demo-class', { actorId })).data[0].id, 'kept-lesson');
+    const teacherId = await login(restored);
+    assert.equal((await restored.handle('/notifications', { actorId: teacherId })).data.length, 0);
   });
 
 });

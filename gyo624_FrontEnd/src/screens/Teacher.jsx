@@ -13,7 +13,7 @@ import { careerSeed, evaluationSeed, notificationSeed, reportSeed } from './Teac
 
 const classLabel = settings => `${settings.grade}학년 ${settings.classroom}반`
 function Detail({ title, children, onClose, action, actionLabel = '확인' }) { return <Modal title={title} onClose={onClose}>{children}<PrimaryButton className="dialog-apply" onClick={action || onClose}>{actionLabel}</PrimaryButton>{action && <button type="button" className="secondary-button modal-cancel" onClick={onClose}>취소</button>}</Modal> }
-export function WeeklyChart() { return <section className="chart-card"><h2>주간 기록 흐름</h2><p>최근 6주 · 수업과 학생 관찰 기록</p><div className="chart-bars" role="img" aria-label="최근 6주 기록 흐름. 마지막 주 기록이 가장 많아요.">{[49.64, 75.92, 67.16, 99.28, 87.6, 125.56].map((height, i) => <span key={i} style={{ '--bar-height': height }} />)}</div></section> }
+export function WeeklyChart() { return <section className="chart-card"><h2>주간 기록 흐름</h2><p>최근 6주, 수업과 학생 관찰 기록</p><p className="empty-state">아직 집계할 기록이 없어요.</p></section> }
 export function TeacherDashboard({ type, records, settings, account, notify }) {
   const board = type === 'reports'
   const { state: schedule } = useSchedule(account, notify)
@@ -21,14 +21,18 @@ export function TeacherDashboard({ type, records, settings, account, notify }) {
   const monday = shiftDate(today, -((parseDate(today).getUTCDay() + 6) % 7))
   const weekCount = Array.from({ length: 7 }, (_, index) => dateLessons(schedule, shiftDate(monday, index)).filter(item => item.teacherId === actorId(account)).length).reduce((sum, count) => sum + count, 0)
   const [reports] = useState(() => readCollection('classroom-reports', reportSeed))
-  const metrics = board ? [['작성 중', '8명', '기록을 이어서 작성해요'], ['검토 필요', '5명', '표현을 확인해요'], ['정리 완료', '11명', '필수 항목을 확인했어요']] : [['이번 주 수업', `${weekCount}건`, '주간 시간표와 수업 교체 반영'], ['학생 관찰', `${14 + records.length}건`, '24명 중 18명 기록'], ['확인 필요', '2건', '초안 2건이 남아 있어요']]
+  const writing = reports.filter(report => report.status !== '완료').length
+  const review = reports.filter(report => report.status === '검토').length
+  const done = reports.filter(report => report.status === '완료').length
+  const drafts = reports.filter(report => report.status === '초안' || report.status === '검토').length
+  const metrics = board ? [['작성 중', `${writing}명`, '기록을 이어서 작성해요'], ['검토 필요', `${review}명`, '표현을 확인해요'], ['정리 완료', `${done}명`, '필수 항목을 확인했어요']] : [['이번 주 수업', `${weekCount}건`, '주간 시간표와 수업 교체 반영'], ['학생 관찰', `${records.length}건`, '저장한 관찰 기록'], ['확인 필요', `${drafts}건`, drafts ? '초안이 남아 있어요' : '확인할 초안이 없어요']]
   const info = board ? ['학생별 상태를 확인해요', '기재 요령을 확인한 뒤 내보내요'] : ['수업 기록은 날짜별로 모여요', '학생 기록은 학생별로 다시 볼 수 있어요', '필요한 항목만 이어서 확인해요']
   return <div className="teacher-dashboard admin-dashboard">
     {!board && <DashboardCalendar settings={settings} account={account} records={records} notify={notify} />}
     <div className="metric-grid">{metrics.map(([label, value, caption]) => <section className="metric-card" key={label}><h2>{label}</h2><p className="metric-value">{value}</p><p>{caption}</p></section>)}</div>
     <div className="admin-columns"><WeeklyChart /><InfoPanel className="desktop-only" title={board ? '진행 안내' : '기록 흐름'} lines={info} />
       <section className="admin-recent"><h2><span className="mobile-only">확인할 내용</span><span className="desktop-only">최근 확인할 내용</span></h2><div className="settings-list">
-        {board ? reports.map((report, i) => <ListRow key={report.id} className={i > 0 ? 'desktop-only' : ''} title={report.student} detail={report.detail} meta={report.status} href={`/reports/edit?id=${report.id}`} />) : <><ListRow title="기록이 적은 학생" detail="최근 2주 동안 관찰 기록이 없어요" meta="6명" href="/students" /><ListRow className="desktop-only" title="초안 확인" detail="저장 후 검토가 필요해요" meta="2건" href="/reports" /></>}
+        {board ? reports.map((report, i) => <ListRow key={report.id} className={i > 0 ? 'desktop-only' : ''} title={report.student} detail={report.detail} meta={report.status} href={`/reports/edit?id=${report.id}`} />) : records.length ? <ListRow title="학생 관찰" detail="저장한 관찰을 이어서 확인해요" meta={`${records.length}건`} href="/students" /> : null}{((board && !reports.length) || (!board && !records.length)) && <p className="empty-state">아직 확인할 기록이 없어요.</p>}
       </div></section><InfoPanel className="admin-guide desktop-only" title="기록을 한 번에 확인해요" lines={[board ? '학생별 기록 진행 상황을 모아 확인해요.' : '학급과 기간별 기록 현황을 한눈에 확인해요.']} />
     </div>
   </div>
@@ -37,7 +41,7 @@ export function Evaluations({ settings, notify }) {
   const [filter, setFilter] = useState('전체')
   const [items] = useCollection('classroom-evaluations', evaluationSeed, notify)
   const visible = filter === '최근 기록' ? items.slice(0, 2) : items
-  return <><Filters value={filter} onChange={setFilter} /><div className="content-columns"><div className="settings-list">{visible.map(item => <ListRow key={item.id} className={item.id === 'cooperation' ? 'desktop-only' : ''} title={item.name} detail={`${item.subject} · 기준 ${item.criteria.length}개 · 학생 24명`} meta={item.status} href={`/evaluations/create?id=${item.id}`} />)}</div><InfoPanel title="평가 안내" lines={['평가 기준은 관찰 기록과 연결돼요', '진행 상태를 확인하고 필요한 항목만 수정해요']} /></div><span className="sr-only">{classLabel(settings)} 평가</span></>
+  return <><Filters value={filter} onChange={setFilter} /><div className="content-columns"><div className="settings-list">{visible.map(item => <ListRow key={item.id} title={item.name} detail={`${item.subject}, 기준 ${item.criteria.length}개`} meta={item.status} href={`/evaluations/create?id=${item.id}`} />)}{!visible.length && <p className="empty-state">아직 만든 평가가 없어요.</p>}</div><InfoPanel title="평가 안내" lines={['평가 기준은 관찰 기록과 연결돼요', '진행 상태를 확인하고 필요한 항목만 수정해요']} /></div><span className="sr-only">{classLabel(settings)} 평가</span></>
 }
 export function EvaluationEditor({ settings, notify, query }) {
   const [items, save] = useCollection('classroom-evaluations', evaluationSeed, notify)
@@ -52,10 +56,10 @@ export function EvaluationEditor({ settings, notify, query }) {
   return <div className="content-columns observation-columns">
     <form id="evaluation-form" className="observation-form" onSubmit={e => { e.preventDefault(); if (!name.trim() || !criterion.trim()) return; const next = { id: current?.id || crypto.randomUUID(), name: name.trim(), subject, criteria: [criterion.trim(), ...extra], status: current?.status || '초안' }; if (save(current ? items.map(item => item.id === current.id ? next : item) : [next, ...items], '평가를 저장했어요.')) navigate('/evaluations') }}>
       <div className="observation-fields"><Field label="평가 이름" required pattern=".*\S.*" placeholder="예: 2학기 읽기 성장 기록" value={name} onChange={e => setName(e.target.value)} /><Field label="과목" value={subject} onChange={e => setSubject(e.target.value)}>{['국어', '수학', '창체', '통합', '사회', '과학', '영어'].map(item => <option key={item}>{item}</option>)}</Field><Field label="평가 기준" required pattern=".*\S.*" placeholder="읽은 내용을 자신의 말로 설명해요" value={criterion} onChange={e => setCriterion(e.target.value)} /></div>
-      <div className="settings-list observation-history"><h2 className="desktop-only history-title">평가 기준</h2><ListRow title="기준 예시" detail={extra.length ? extra.join(' · ') : '근거를 들어 생각을 설명해요'} meta={extra.length ? `${extra.length}개` : '추가'} onClick={() => setEditor(true)} /><ListRow title="학생 범위" detail={`${classLabel(settings)} · 24명`} meta="선택" onClick={() => setRange(true)} /></div>
+      <div className="settings-list observation-history"><h2 className="desktop-only history-title">평가 기준</h2><ListRow title="기준 예시" detail={extra.length ? extra.join(', ') : '추가할 기준이 없어요'} meta={extra.length ? `${extra.length}개` : '추가'} onClick={() => setEditor(true)} /><ListRow title="학생 범위" detail={classLabel(settings)} meta="선택" onClick={() => setRange(true)} /></div>
     </form><InfoPanel className="desktop-only observation-tips" title="평가 기준" lines={['확인할 수 있는 행동으로 적어요', '학생 기록과 연결하면 다시 찾기 쉬워요']} />
     {editor && <Modal title="평가 기준 추가" onClose={() => setEditor(false)}><form onSubmit={e => { e.preventDefault(); if (!extraText.trim()) return; setExtra([...extra, extraText.trim()]); setExtraText(''); setEditor(false) }}><Field label="추가 기준" required placeholder="근거를 들어 생각을 설명해요" value={extraText} onChange={e => setExtraText(e.target.value)} /><PrimaryButton type="submit" className="dialog-apply">기준 추가</PrimaryButton></form></Modal>}
-    {range && <Detail title="학생 범위" onClose={() => setRange(false)}><p className="detail-copy">{classLabel(settings)} · 24명 전체를 대상으로 평가해요.</p></Detail>}
+    {range && <Detail title="학생 범위" onClose={() => setRange(false)}><p className="detail-copy">{classLabel(settings)} 학생을 대상으로 평가해요.</p></Detail>}
   </div>
 }
 export function Career({ notify }) {
@@ -71,7 +75,7 @@ export function Career({ notify }) {
 }
 export function ReportEditor({ settings, records, notify, query }) {
   const [reports, save] = useCollection('classroom-reports', reportSeed, notify)
-  const current = reports.find(report => report.id === query.get('id')) || reports[0] || reportSeed[0]
+  const current = reports.find(report => report.id === query.get('id')) || reports[0] || { id: '', student: '', item: '교과 학습 발달 상황', content: '' }
   const [student, setStudent] = useState(current.student)
   const [item, setItem] = useState(current.item)
   const [content, setContent] = useState(current.content)
@@ -79,19 +83,19 @@ export function ReportEditor({ settings, records, notify, query }) {
   const [saved, setSaved] = useState(false)
   const studentId = reports.find(r => r.student === student)?.id || current.id
   return <div className="content-columns observation-columns report-editor">
-    <form id="report-form" className="observation-form" onSubmit={e => { e.preventDefault(); if (!content.trim()) return; const updated = { id: studentId, student, item, content: content.trim(), status: '초안', detail: `${item} · 초안이 있어요` }; if (save(reports.map(report => report.id === studentId ? updated : report), '학생 기록을 임시 저장했어요.')) setSaved(true) }}>
-      <div className="observation-fields"><Field label="학생" value={student} onChange={e => { const next = reports.find(r => r.student === e.target.value); setStudent(e.target.value); setItem(next?.item || current.item); setContent(next?.content || ''); setSaved(false) }}>{reports.map(report => <option key={report.id} value={report.student}>{report.student} · {classLabel(settings)}</option>)}</Field><Field label="항목" value={item} onChange={e => { setItem(e.target.value); setSaved(false) }}>{['교과 학습 발달 상황', '행동 특성 및 종합 의견', '창의적 체험 활동'].map(option => <option key={option}>{option}</option>)}</Field><Field label="기록 내용" multiline required maxLength={4000} placeholder="수업에서 확인한 장면을 바탕으로 정리해요" value={content} onChange={e => { setContent(e.target.value); setSaved(false) }} /></div>
-      <div className="settings-list observation-history"><h2 className="desktop-only history-title">작성 도움말</h2><ListRow title="연결된 관찰" detail={records.find(r => r.student.startsWith(student))?.content || '국어 · 모둠 토의에서 근거를 들었어요'} meta="연결" onClick={() => setLinked('관찰')} /><ListRow title="연결된 평가" detail="2학기 읽기 성장 기록" meta="연결" onClick={() => setLinked('평가')} /></div>
+    <form id="report-form" className="observation-form" onSubmit={e => { e.preventDefault(); if (!content.trim()) return; const updated = { id: studentId, student, item, content: content.trim(), status: '초안', detail: `${item}, 초안이 있어요` }; if (save(reports.map(report => report.id === studentId ? updated : report), '학생 기록을 임시 저장했어요.')) setSaved(true) }}>
+      <div className="observation-fields"><Field label="학생" value={student} onChange={e => { const next = reports.find(r => r.student === e.target.value); setStudent(e.target.value); setItem(next?.item || current.item); setContent(next?.content || ''); setSaved(false) }}>{reports.map(report => <option key={report.id} value={report.student}>{report.student}, {classLabel(settings)}</option>)}</Field><Field label="항목" value={item} onChange={e => { setItem(e.target.value); setSaved(false) }}>{['교과 학습 발달 상황', '행동 특성 및 종합 의견', '창의적 체험 활동'].map(option => <option key={option}>{option}</option>)}</Field><Field label="기록 내용" multiline required maxLength={4000} placeholder="수업에서 확인한 장면을 바탕으로 정리해요" value={content} onChange={e => { setContent(e.target.value); setSaved(false) }} /></div>
+      <div className="settings-list observation-history"><h2 className="desktop-only history-title">작성 도움말</h2><ListRow title="연결된 관찰" detail={records.find(r => student && r.student.startsWith(student))?.content || '연결된 관찰 기록이 없어요'} meta="연결" onClick={() => setLinked('관찰')} /><ListRow title="연결된 평가" detail="연결된 평가가 없어요" meta="연결" onClick={() => setLinked('평가')} /></div>
       {saved && <a className="inline-link" href={`#/reports/check?id=${studentId}`}>저장한 기록의 기재 요령 확인하기 →</a>}
     </form><InfoPanel className="desktop-only observation-tips" title="작성 도움말" lines={['확인한 사실을 중심으로 적어요', '학생의 변화와 과정을 구체적으로 담아요']} />
-    {linked && <Detail title={`연결된 ${linked}`} onClose={() => setLinked(null)} action={() => { setLinked(null); navigate(linked === '관찰' ? '/students' : '/evaluations/create?id=reading') }} actionLabel={`${linked} 화면 보기`}><p className="detail-copy">{linked === '관찰' ? records.find(r => r.student.startsWith(student))?.content || '국어 · 모둠 토의에서 근거를 들었어요' : '2학기 읽기 성장 기록'}</p></Detail>}
+    {linked && <Detail title={`연결된 ${linked}`} onClose={() => setLinked(null)} action={() => { setLinked(null); navigate(linked === '관찰' ? '/students' : '/evaluations') }} actionLabel={`${linked} 화면 보기`}><p className="detail-copy">{linked === '관찰' ? records.find(r => student && r.student.startsWith(student))?.content || '연결된 관찰 기록이 없어요' : '연결된 평가가 없어요'}</p></Detail>}
   </div>
 }
 export function ReportCheck({ query }) {
   const [detail, setDetail] = useState(null)
-  const id = query.get('id') || 'minjun'
+  const id = query.get('id') || ''
   return <div className="validation-results"><section className="validation-banner"><p>확인 결과</p><h2>제출 전 기록을 살펴봐요</h2><span>항목별 내용을 검토하고 필요한 부분을 수정해요.</span></section><div className="settings-list validation-list">
-    {[['필수 항목', '필수 내용을 빠짐없이 입력했는지 확인해요', '확인'], ['표현 점검', '비교·추측 표현을 다시 살펴봐요', '1건'], ['학생 정보', '학생과 학급 정보를 확인해요', '확인'], ['분량 확인', '학교 기준에 맞는 분량인지 확인해요', '확인']].map(([title, description, meta], i) => <ListRow key={title} className={i === 3 ? 'desktop-only' : ''} title={title} detail={description} meta={meta} onClick={() => setDetail([title, description])} />)}
+    {[['필수 항목', '필수 내용을 빠짐없이 입력했는지 확인해요', '확인'], ['표현 점검', '비교, 추측 표현을 다시 살펴봐요', '1건'], ['학생 정보', '학생과 학급 정보를 확인해요', '확인'], ['분량 확인', '학교 기준에 맞는 분량인지 확인해요', '확인']].map(([title, description, meta], i) => <ListRow key={title} className={i === 3 ? 'desktop-only' : ''} title={title} detail={description} meta={meta} onClick={() => setDetail([title, description])} />)}
   </div>{detail && <Detail title={detail[0]} onClose={() => setDetail(null)} action={() => navigate(`/reports/edit?id=${id}`)} actionLabel="기록 수정하기"><p className="detail-copy">{detail[1]}</p><p className="dialog-hint">학교의 기재 기준과 기록 내용을 함께 확인해 주세요.</p></Detail>}</div>
 }
 export function Transfer({ settings, records, saveRecords, notify }) {
@@ -100,17 +104,17 @@ export function Transfer({ settings, records, saveRecords, notify }) {
   const [date, setDate] = useState(todayValue)
   const [selected, setSelected] = useState([])
   const [confirm, setConfirm] = useState(false)
-  const eligible = records.filter(record => record.student.endsWith(` · ${source}`) && record.date <= date)
-  const students = [...new Set(eligible.map(record => record.student.split(' · ')[0]))]
+  const eligible = records.filter(record => record.student.endsWith(`, ${source}`) && record.date <= date)
+  const students = [...new Set(eligible.map(record => record.student.split(', ')[0]))]
   function transfer() {
     if (!registeredClasses(settings).includes(source) || !registeredClasses(settings).includes(target)) { notify('등록된 학급을 선택해 주세요.'); return }
     if (source.trim() === target.trim()) { notify('서로 다른 학급을 선택해 주세요.'); return }
-    const names = selected.map(name => `${name} · ${source}`)
+    const names = selected.map(name => `${name}, ${source}`)
     const matching = records.filter(record => names.includes(record.student) && record.date <= date)
-    if (!matching.length) { notify('선택한 학생의 해당 학급·날짜에 저장된 관찰 기록이 없어요.'); return }
-    if (saveRecords(records.map(record => matching.some(item => item.id === record.id) ? { ...record, student: `${record.student.split(' · ')[0]} · ${target}` } : record))) { setConfirm(false); setSelected([]); notify(`${matching.length}건의 기록을 ${target}으로 옮겼어요.`) }
+    if (!matching.length) { notify('선택한 학생의 해당 학급, 날짜에 저장된 관찰 기록이 없어요.'); return }
+    if (saveRecords(records.map(record => matching.some(item => item.id === record.id) ? { ...record, student: `${record.student.split(', ')[0]}, ${target}` } : record))) { setConfirm(false); setSelected([]); notify(`${matching.length}건의 기록을 ${target}으로 옮겼어요.`) }
   }
-  return <div className="content-columns observation-columns"><form id="transfer-form" className="observation-form" onSubmit={e => { e.preventDefault(); if (source === target) { notify('서로 다른 학급을 선택해 주세요.'); return } if (!selected.length) { notify('이관할 학생을 선택해 주세요.'); return } setConfirm(true) }}><div className="observation-fields"><ClassroomField label="이관할 학급" settings={settings} value={source} onChange={e => { setSource(e.target.value); setSelected([]) }} /><ClassroomField label="이관 받을 학급" settings={settings} options={registeredClasses(settings).filter(item => item !== source)} value={target} onChange={e => setTarget(e.target.value)} /><Field label="기준 날짜" type="date" required value={date} onChange={e => { setDate(e.target.value); setSelected([]) }} /></div><div className="settings-list observation-history"><h2 className="history-title">이관할 학생 · {selected.length}명 선택</h2>{!students.length && <p className="empty-state">이 학급에는 기준 날짜까지 저장된 관찰 기록이 없어요.</p>}{students.map(name => <ListRow key={name} title={name} detail={`학생 관찰 기록 ${eligible.filter(record => record.student.startsWith(`${name} · `)).length}건`} meta={selected.includes(name) ? '선택됨' : '선택'} selected={selected.includes(name)} onClick={() => setSelected(previous => previous.includes(name) ? previous.filter(item => item !== name) : [...previous, name])} />)}</div></form><InfoPanel className="desktop-only observation-tips" title="이관 범위" lines={['선택한 학생의 기록만 옮겨요', '이관 후 대상 학급을 다시 확인해요']} />{confirm && <Detail title="선택 기록 이관" onClose={() => setConfirm(false)} action={transfer} actionLabel="기록 이관하기"><p className="detail-copy">{selected.join(', ')} 학생의 {date} 까지의 관찰을 {source}에서 {target}으로 옮길까요?</p><p className="dialog-hint">이관할 학생과 대상 학급을 확인한 뒤 진행해 주세요.</p></Detail>}</div>
+  return <div className="content-columns observation-columns"><form id="transfer-form" className="observation-form" onSubmit={e => { e.preventDefault(); if (source === target) { notify('서로 다른 학급을 선택해 주세요.'); return } if (!selected.length) { notify('이관할 학생을 선택해 주세요.'); return } setConfirm(true) }}><div className="observation-fields"><ClassroomField label="이관할 학급" settings={settings} value={source} onChange={e => { setSource(e.target.value); setSelected([]) }} /><ClassroomField label="이관 받을 학급" settings={settings} options={registeredClasses(settings).filter(item => item !== source)} value={target} onChange={e => setTarget(e.target.value)} /><Field label="기준 날짜" type="date" required value={date} onChange={e => { setDate(e.target.value); setSelected([]) }} /></div><div className="settings-list observation-history"><h2 className="history-title">이관할 학생, {selected.length}명 선택</h2>{!students.length && <p className="empty-state">이 학급에는 기준 날짜까지 저장된 관찰 기록이 없어요.</p>}{students.map(name => <ListRow key={name} title={name} detail={`학생 관찰 기록 ${eligible.filter(record => record.student.startsWith(`${name}, `)).length}건`} meta={selected.includes(name) ? '선택됨' : '선택'} selected={selected.includes(name)} onClick={() => setSelected(previous => previous.includes(name) ? previous.filter(item => item !== name) : [...previous, name])} />)}</div></form><InfoPanel className="desktop-only observation-tips" title="이관 범위" lines={['선택한 학생의 기록만 옮겨요', '이관 후 대상 학급을 다시 확인해요']} />{confirm && <Detail title="선택 기록 이관" onClose={() => setConfirm(false)} action={transfer} actionLabel="기록 이관하기"><p className="detail-copy">{selected.join(', ')} 학생의 {date} 까지의 관찰을 {source}에서 {target}으로 옮길까요?</p><p className="dialog-hint">이관할 학생과 대상 학급을 확인한 뒤 진행해 주세요.</p></Detail>}</div>
 }
 export function Notifications({ notify, account }) {
   const { state, error: exchangeError, markRead, respond } = useSchedule(account, notify)

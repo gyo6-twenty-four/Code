@@ -34,19 +34,44 @@ export function ClassSelect({
   classes,
   value,
   onChange,
-  label = '학급'
+  label = '학급',
+  empty = '접근 가능한 학급이 없어요. 학교 관리자에게 학급 배정을 확인해 주세요.'
 }) {
-  return <><ApiState state={classes} empty="접근 가능한 학급이 없어요. 학교 관리자에게 학급 배정을 확인해 주세요." /><Field label={label} required value={value} disabled={classes.loading || !!classes.error} onChange={event => onChange(event.target.value)}><option value="">학급 선택</option>{Array.isArray(classes.data) && classes.data.map(item => <option key={item.id} value={item.id}>{className(item)}</option>)}</Field>{classes.setPage && <Pagination state={classes} onChange={() => onChange('')} />}</>;
+  return <><ApiState state={classes} empty={empty} /><Field label={label} required value={value} disabled={classes.loading || !!classes.error} onChange={event => onChange(event.target.value)}><option value="">학급 선택</option>{Array.isArray(classes.data) && classes.data.map(item => <option key={item.id} value={item.id}>{className(item)}</option>)}</Field>{classes.setPage && <Pagination state={classes} onChange={() => onChange('')} />}</>;
 }
 export function StudentSelect({
   students,
   value,
   onChange
 }) {
-  return <><ApiState state={students} empty="학급을 선택하거나 학생 명단을 확인해 주세요." /><Field label="학생" required value={value} disabled={students.loading || !!students.error} onChange={event => onChange(event.target.value)}><option value="">학생 선택</option>{Array.isArray(students.data) && students.data.map(item => <option key={item.id} value={item.id}>{item.number ? `${item.number}번 · ` : ''}{item.name}</option>)}</Field><Pagination state={students} onChange={() => onChange('')} /></>;
+  return <><ApiState state={students} empty="학급을 선택하거나 학생 명단을 확인해 주세요." /><Field label="학생" required value={value} disabled={students.loading || !!students.error} onChange={event => onChange(event.target.value)}><option value="">학생 선택</option>{Array.isArray(students.data) && students.data.map(item => <option key={item.id} value={item.id}>{item.number ? `${item.number}번, ` : ''}{item.name}</option>)}</Field><Pagination state={students} onChange={() => onChange('')} /></>;
 }
 export function SaveButton({ mutation, children = '저장하기', disabled = false, showError = true }) {
-  return <>{showError && <MutationError mutation={mutation} />}<PrimaryButton type="submit" disabled={mutation.busy || disabled}>{mutation.busy ? '처리 중…' : children}</PrimaryButton></>;
+  return <>{showError && <MutationError mutation={mutation} />}<PrimaryButton type="submit" busy={mutation.busy} disabled={disabled}>{mutation.busy ? '처리 중…' : children}</PrimaryButton></>;
+}
+function statusParts(row) {
+  return [
+    row.studentCount != null ? `학생 ${row.studentCount}명` : '',
+    row.recordCount != null ? `기록 ${row.recordCount}건` : '',
+    row.completedCount != null ? `완료 ${row.completedCount}건` : ''
+  ].filter(Boolean).join(', ');
+}
+export function StatusBoard({ title, rows }) {
+  const list = Array.isArray(rows) ? rows : [];
+  return <section className="api-panel"><h2>{title}</h2>{list.length ? <ul className="status-board">{list.map((row, index) => {
+    const name = row.className || row.name || '항목';
+    const base = row.studentCount || row.recordCount || 0;
+    const value = row.studentCount ? row.recordCount || 0 : row.completedCount ?? row.recordCount ?? 0;
+    const rate = base ? Math.min(100, Math.round(value / base * 100)) : 0;
+    return <li key={`${name}-${index}`}><div className="status-copy"><strong>{name}</strong><span>{statusParts(row)}</span></div><div className="status-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={rate} aria-label={`${name} ${rate}%`}><span style={{ width: `${rate}%` }} /></div></li>;
+  })}</ul> : <p className="agenda-empty">표시할 현황이 없어요.</p>}</section>;
+}
+export function UsageMonths({ months }) {
+  const list = Array.isArray(months) ? months : [];
+  return <section className="api-panel"><h2>기간별 사용 현황</h2><p className="dialog-hint">선택한 학년도의 월별 관찰, 생기부, 진로 기록 수예요.</p><div className="usage-months">{list.map(item => {
+    const month = Number(String(item.month).slice(5));
+    return <article key={item.month} className={item.total ? 'has-usage' : ''}><strong>{month}월</strong><span>{item.total || 0}건</span><small>관찰 {item.observations || 0}, 생기부 {item.records || 0}, 진로 {item.careers || 0}</small></article>;
+  })}</div></section>;
 }
 
 const labels = {

@@ -1,3 +1,16 @@
+export const RECORD_TYPES = [['CLUB', '동아리'], ['SUBJECT_DETAIL', '세특'], ['SUBJECT', '교과목'], ['CAREER', '진로']];
+export const ALL_RECORD_TYPES = RECORD_TYPES.map(([id]) => id);
+export const recordTypeLabel = id => RECORD_TYPES.find(([key]) => key === id)?.[1] || ({
+  BEHAVIOR_AND_OVERALL_OPINION: '행동 특성 및 종합 의견'
+})[id] || id;
+export function sanitizeRecordTypes(value) {
+  if (!Array.isArray(value)) return null;
+  return [...new Set(value.filter(id => ALL_RECORD_TYPES.includes(id)))];
+}
+export function assignedRecordTypes(user) {
+  const types = sanitizeRecordTypes(user?.recordTypes);
+  return types ?? [...ALL_RECORD_TYPES];
+}
 export const className = item => item?.name || item?.className || (item?.grade && item?.classNumber ? `${item.grade}학년 ${item.classNumber}반` : '학급');
 export function assertUser(user) {
   if (!user?.id || !['TEACHER', 'ADMIN'].includes(user.role)) throw new Error('사용자 정보 응답을 확인할 수 없어요. 다시 로그인해 주세요.');

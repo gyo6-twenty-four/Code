@@ -9,11 +9,11 @@ export default function Settings({ settings, setSettings, notify, account, onLog
   const [changed, setChanged] = useState([])
   const [editor, setEditor] = useState(null)
   const rows = [
-    ['account', '내 계정', `${settings.name} ${accountHome(account) === '/admin' ? '관리자' : '선생님'} · ${settings.email}`, '관리'],
-    ['school', '학교 정보 설정', `${settings.school} · ${settings.grade}학년 ${settings.classroom}반`, '설정'],
-    ['login', '계정 · 로그인', '다른 계정 로그인과 계정 복구', '보기'],
-    ['notifications', '알림 설정', '기록 검토 · 학급 변경', settings.notifications ? '켜짐' : '꺼짐'],
-    ['display', '표시 환경', `${settings.year}학년도 · ${settings.grade}학년 ${settings.classroom}반`, '관리'],
+    ['account', '내 계정', `${settings.name} ${accountHome(account) === '/admin' ? '관리자' : '선생님'}, ${settings.email}`, '관리'],
+    ['school', '학교 정보 설정', `${settings.school}, ${settings.grade}학년 ${settings.classroom}반`, '설정'],
+    ['login', '계정, 로그인', '다른 계정 로그인과 계정 복구', '보기'],
+    ['notifications', '알림 설정', '기록 검토, 학급 변경', settings.notifications ? '켜짐' : '꺼짐'],
+    ['display', '표시 환경', `${settings.year}학년도, ${settings.grade}학년 ${settings.classroom}반`, '관리'],
     ['privacy', '개인정보 안내', '기록 접근 권한과 보관 안내', '보기'],
   ]
   const visible = rows.filter(([id]) => filter === '전체' || (filter === '담당 학급' ? id === 'display' : changed.includes(id)))
@@ -33,7 +33,7 @@ function Editor({ section, settings, account, onClose, onApply }) {
   const change = (key) => (event) => setDraft({ ...draft, [key]: event.target.value })
   return <Modal title={titles[section]} onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); onApply({ ...draft, name: draft.name.trim(), email: draft.email.trim() }) }}>
     {section === 'account' && <><Field label="이름" required pattern=".*\S.*" maxLength={30} autoComplete="name" value={draft.name} onChange={change('name')} /><Field label="이메일" type="email" required autoComplete="email" value={draft.email} onChange={change('email')} /><p className="dialog-hint">계정 역할: {accountHome(account) === '/admin' ? '관리자' : '교사'}. 로그인한 계정 정보에 따라 자동 적용돼요.</p></>}
-    {section === 'notifications' && <label className="notification-control"><span>기록 검토 · 학급 변경<span className="dialog-hint">알림 수신 여부를 설정해요.</span></span><input type="checkbox" role="switch" className="switch" checked={draft.notifications} onChange={e => setDraft({ ...draft, notifications: e.target.checked })} /></label>}
+    {section === 'notifications' && <label className="notification-control"><span>기록 검토, 학급 변경<span className="dialog-hint">알림 수신 여부를 설정해요.</span></span><input type="checkbox" role="switch" className="switch" checked={draft.notifications} onChange={e => setDraft({ ...draft, notifications: e.target.checked })} /></label>}
     {section === 'display' && <><Field label="학년도" value={draft.year} onChange={change('year')}>{['2025', '2026', '2027'].map(year => <option key={year} value={year}>{year}학년도</option>)}</Field><div className="class-fields"><Field label="학년" value={draft.grade} onChange={change('grade')}>{[1, 2, 3, 4, 5, 6].map(grade => <option key={grade} value={grade}>{grade}학년</option>)}</Field><Field label="반" required value={draft.classroom} onChange={change('classroom')}>{Array.from({ length: 99 }, (_, i) => <option key={i} value={i + 1}>{i + 1}반</option>)}</Field></div></>}
     {section === 'privacy' ? <><p className="dialog-hint">학생 기록은 담당 업무에 필요한 범위에서만 열람해 주세요. 내보낸 파일은 학교의 보관 기준에 따라 관리하고 다른 사람과 계정을 공유하지 마세요.</p><PrimaryButton className="dialog-apply" onClick={onClose}>확인</PrimaryButton></> : <PrimaryButton type="submit" className="dialog-apply">설정 저장하기</PrimaryButton>}
   </form></Modal>
