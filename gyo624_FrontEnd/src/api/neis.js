@@ -98,7 +98,7 @@ export async function loadClasses(school, year, signal) {
 
 export async function loadTimetable(school, { year, semester, grade, classLabel, from, to }, signal) {
   const service = timetableService(school.kind)
-  if (!service) throw new Error('이 학교 유형의 시간표는 나이스 개방 API에서 제공하지 않아요.')
+  if (!service) throw new Error('이 학교의 시간표는 불러올 수 없어요.')
   const rows = await collect(service, {
     ATPT_OFCDC_SC_CODE: school.officeCode,
     SD_SCHUL_CODE: school.schoolCode,

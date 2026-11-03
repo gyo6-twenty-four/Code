@@ -91,7 +91,7 @@ export default function Auth({
       if (result) setResetPath(result.data.resetPath);
     }
   }
-  return <main className="auth-page login-page"><form className="auth-card" onSubmit={submit}><Brand /><h1>{invite ? '초대 가입' : reset ? '새 비밀번호' : route === '/login' ? '로그인' : '비밀번호 재설정'}</h1><p className="auth-description">{invite ? '초대받은 학교에 이름과 비밀번호를 등록해요.' : reset ? '이 계정의 비밀번호를 새로 정해요.' : route === '/login' ? '수업과 학생 기록을 한곳에서 관리해요.' : '등록한 학교 이메일로 재설정 화면을 열어요.'}</p><div className="auth-fields">
+  return <main className="auth-page login-page"><form className="auth-card" onSubmit={submit}><Brand /><h1>{invite ? '초대 가입' : reset ? '새 비밀번호' : route === '/login' ? '로그인' : '비밀번호 재설정'}</h1><p className="auth-description">{invite ? '초대받은 학교에 이름과 비밀번호를 등록해요.' : reset ? '이 계정의 비밀번호를 새로 정해요.' : route === '/login' ? '학급을 선택하면 나이스 시간표를 불러와요.' : '등록한 학교 이메일로 재설정 화면을 열어요.'}</p><div className="auth-fields">
     {invite ? <><Field label="초대 토큰" required value={token} onChange={e => {
             setToken(e.target.value);
             setCheckedToken('');
@@ -109,7 +109,7 @@ export function Onboarding({
   account
 }) {
   const state = useResource('/onboarding');
-  return <main className="onboarding-page"><section className="onboarding-card"><Brand /><h1>사용 환경</h1><p className="auth-description">이름과 알림을 정하고, 배정된 수업 일정을 달력에서 확인해요.</p><ApiState state={state}>{state.data && <OnboardingDraft initial={state.data} account={account} notify={notify} onComplete={onComplete} />}</ApiState></section></main>;
+  return <main className="onboarding-page"><section className="onboarding-card"><Brand /><h1>사용 환경</h1><p className="auth-description">이름과 알림을 정하면 학급 시간표를 볼 수 있어요.</p><ApiState state={state}>{state.data && <OnboardingDraft initial={state.data} account={account} notify={notify} onComplete={onComplete} />}</ApiState></section></main>;
 }
 function OnboardingSchedule({ account }) {
   const year = todayValue().slice(0, 4);

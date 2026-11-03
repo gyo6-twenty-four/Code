@@ -54,7 +54,7 @@ const descriptions = {
   '/admin': '학교 기록 작성이 어디까지 됐는지 봐요.',
   '/admin/teachers': '교사 계정과 작성할 수 있는 생기부를 관리해요.',
   '/admin/rosters': '학급과 학생 명단을 관리해요.',
-  '/admin/timetable': '학급 시간표를 만들고 고쳐요.',
+  '/admin/timetable': '학급 시간표를 확인해요.',
   '/admin/audit': '누가 무엇을 바꿨는지 확인해요.',
   '/admin/settings': '이름, 알림, 로그인 정보를 바꿔요.',
   '/admin/notifications': '확인하지 않은 알림을 모아요.'

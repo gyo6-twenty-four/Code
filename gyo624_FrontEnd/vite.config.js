@@ -35,7 +35,7 @@ function neisApi(root) {
     if (service === 'status') return send(res, 200, { configured: Boolean(readNeisKey(root)) })
     if (!neisServices.has(service)) return send(res, 404, { message: '지원하지 않는 나이스 항목이에요.' })
     const key = readNeisKey(root)
-    if (!key) return send(res, 503, { message: 'NEIS_API_KEY가 없어요. gyo624_FrontEnd/.env.local 에 적어 주세요.' })
+    if (!key) return send(res, 503, { message: '나이스 시간표를 불러올 수 없어요.' })
     const target = new URL(`https://open.neis.go.kr/hub/${service}`)
     for (const [name, value] of url.searchParams) if (name !== 'KEY' && name !== 'Type') target.searchParams.append(name, value)
     target.searchParams.set('Type', 'json')
