@@ -26,7 +26,7 @@
 .day-agenda-section { margin-top: 24px; }
 .day-agenda-section h3 { font-size: 13px; margin-bottom: 12px; }
 .day-agenda-section h3 > span { margin-left: 5px; color: var(--brand); }
-.agenda-empty { padding: 14px; border-radius: 10px; background: #f9fafb; font-size: 12px; line-height: 1.7; color: var(--fg-tertiary); }
+.agenda-empty { margin: 2px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 14px; line-height: 1.5; color: var(--fg-secondary); }
 .day-lessons, .day-records { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .day-lessons li { display: flex; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #f2f4f6; font-size: 13px; }
 .period-label { background: #f2f7ff; padding: 8px; border-radius: 8px; color: var(--brand); font-size: 11px; white-space: nowrap; }

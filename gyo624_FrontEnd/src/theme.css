@@ -540,10 +540,15 @@
 }
 
 .agenda-empty {
-  border: 1px solid #d5e4f5;
-  border-left: 3px solid var(--brand);
-  background: #f7fbff;
-  color: #1a3f73;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .validation-banner { background: #e8f6ef; }
