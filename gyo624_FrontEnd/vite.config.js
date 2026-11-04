@@ -59,4 +59,7 @@ function neisApi(root) {
 
 export default defineConfig({
   plugins: [neisApi(process.cwd()), react(), babel({ presets: [reactCompilerPreset()] })],
+  preview: {
+    allowedHosts: ['gyo624.dev', '.gyo624.dev'],
+  },
 })

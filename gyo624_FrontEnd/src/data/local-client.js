@@ -1,7 +1,11 @@
+import { createAccountGateway } from './firebase-accounts.js';
 import { createLocalStore, LocalError } from './local-store.js';
 export { LocalError as ApiError } from './local-store.js';
 const store = createLocalStore({
   storage: globalThis.localStorage
+});
+const accounts = createAccountGateway({
+  getSchool: async () => (await store.load()).school
 });
 const sessionKey = 'education24-ui-session-v1';
 let actorId = globalThis.sessionStorage?.getItem(sessionKey) || '',
@@ -25,23 +29,32 @@ export function onSessionExpired(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
-export async function renewSession() {
-  const response = await store.handle('/auth/refresh', {
-    method: 'POST',
-    body: {
-      refreshToken: refreshToken()
+export async function restoreSession() {
+  try {
+    const session = await accounts.handle('/auth/refresh', { method: 'POST', body: {} });
+    establishSession(session.data);
+    return (await accounts.handle('/me')).data;
+  } catch (error) {
+    if (error?.status === 401) {
+      clearSession();
+      return null;
     }
-  });
-  actorId = response.data.accessToken;
+    throw error;
+  }
+}
+export async function renewSession() {
+  const response = await accounts.handle('/auth/refresh', { method: 'POST', body: {} });
+  establishSession(response.data);
   return response;
 }
 export async function request(path, options = {}) {
   if (options.signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
   const epoch = generation;
-  const response = await store.handle(path, {
-    ...options,
-    actorId
-  });
+  const accountResponse = await accounts.handle(path, options);
+  const response = accountResponse || await (async () => {
+    const profile = await accounts.syncDirectory(payload => store.syncAccounts(payload));
+    return store.handle(path, { ...options, actorId: profile.id });
+  })();
   if (options.signal?.aborted || epoch !== generation) throw new DOMException('Cancelled', 'AbortError');
   return structuredClone(response);
 }

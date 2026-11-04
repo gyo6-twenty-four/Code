@@ -3,7 +3,18 @@
    Content padding 40px. Metrics share one ruled strip (3 × equal + 1px seams).
    Colour stays on the current page, the year, lessons, and notices. Actions are ink. */
 
+html:has(.app-shell),
+html:has(.app-shell) body,
+html:has(.app-shell) #root {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .app-shell {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   color: var(--fg-primary);
   background: var(--bg-canvas);
   font-size: 15px;
@@ -329,6 +340,17 @@
   font-weight: 500;
 }
 
+.topbar > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar > span:last-child { font-variant-numeric: tabular-nums; color: var(--brand); font-weight: 650; }
 
 .home-calendar-grid th {
@@ -399,14 +421,30 @@
 .home-calendar-grid .adjacent-month .day-number { color: #6d7580; }
 .home-calendar-grid .adjacent-month[aria-current='date'] .day-number { color: #fff; }
 
-.sidebar .school-brand,
-.mobile-brand .school-brand {
+.brand,
+.auth-card .brand,
+.onboarding-card .brand,
+.sidebar .brand,
+.mobile-brand .brand {
   height: auto;
-  min-height: 36px;
-  gap: 8px;
+  min-height: 0;
+  gap: 0;
+}
+
+.brand-logo {
+  width: 112px;
+  height: auto;
+}
+
+.sidebar .brand {
   margin: 2px 4px 14px;
   color: var(--ink);
-  text-decoration: none;
+}
+
+.sidebar .brand-logo,
+.mobile-brand .brand-logo,
+.auth-card .brand-logo {
+  width: 112px;
 }
 
 .mobile-brand .school-brand { width: 100%; margin: 0; }
@@ -627,7 +665,10 @@
     display: grid;
     grid-template-columns: 232px minmax(0, 1fr);
     grid-template-rows: 48px minmax(0, 1fr);
-    min-height: 100svh;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
     background: var(--bg-canvas);
   }
 
@@ -635,6 +676,10 @@
     display: flex;
     grid-column: 1;
     grid-row: 1 / 3;
+    align-self: stretch;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
     padding: 18px 12px 16px 16px;
     border: 0;
     border-right: 1px solid var(--line);
@@ -643,7 +688,7 @@
 
   .sidebar .brand { margin: 2px 8px 12px; }
 
-  .topbar { justify-content: flex-end; }
+  .topbar { justify-content: space-between; }
 
   .sidebar .side-nav a { min-height: 34px; padding: 6px 10px; font-size: 14px; }
 
@@ -671,6 +716,8 @@
     min-height: 0;
     margin: 0;
     padding: 20px 40px 56px;
+    overflow: auto;
+    overscroll-behavior: contain;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -686,17 +733,37 @@
 }
 
 @media (max-width: 899px) {
-  .app-shell { display: block; padding-bottom: 0; background: #fff; }
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
+    overflow: hidden;
+    background: #fff;
+  }
 
   .workspace {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
     width: 100%;
     max-width: none;
-    min-height: 100svh;
+    height: auto;
+    min-height: 0;
     margin: 0;
-    padding: 16px 16px calc(72px + env(safe-area-inset-bottom));
+    padding: 16px 16px 0;
+    overflow: hidden;
     border: 0;
     border-radius: 0;
     background: #fff;
+  }
+
+  .workspace > .screen {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 20px;
   }
 
   .screen-heading { margin-top: 16px; align-items: flex-end; }
@@ -708,9 +775,11 @@
   .mobile-school { color: var(--fg-secondary); font-size: 13px; font-weight: 600; }
 
   .mobile-footer {
-    position: fixed;
-    inset: auto 0 0;
+    position: static;
+    inset: auto;
+    flex: none;
     z-index: 4;
+    margin: 0 -16px;
     padding: 0 8px max(6px, env(safe-area-inset-bottom));
     background: #fff;
     backdrop-filter: none;

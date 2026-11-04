@@ -718,8 +718,15 @@ export function createLocalStore({
     requireValue(!observationDateError(body.observedAt, dateKey(now())), '관찰 날짜는 올바른 오늘 또는 과거 날짜로 선택해 주세요.');
     requireValue(body.content?.trim() && body.content.length <= 2000, '관찰 내용을 1~2000자 이내로 작성해 주세요.');
   }
+  async function syncAccounts({ users, invitations } = {}) {
+    const db = await load();
+    if (Array.isArray(users)) db.users = users;
+    if (Array.isArray(invitations)) db.invitations = invitations;
+    persist();
+  }
   return {
     handle,
-    load
+    load,
+    syncAccounts
   };
 }

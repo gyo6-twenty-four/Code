@@ -4,7 +4,7 @@ import education24Logo from '../assets/education24-logo.svg'
 import { Field as FormField } from './Fields'
 
 export function Brand({ onClick, label = '교육24' }) {
-  const copy = <img className="brand-logo" src={education24Logo} width="92" height="32" alt={label} />
+  const copy = <img className="brand-logo" src={education24Logo} width="112" height="39" alt={onClick ? '' : label} />
   return onClick ? <button type="button" className="brand" onClick={onClick} aria-label="메뉴 열기">{copy}</button> : <div className="brand">{copy}</div>
 }
 export function SchoolBrand({ name, onClick, href }) {

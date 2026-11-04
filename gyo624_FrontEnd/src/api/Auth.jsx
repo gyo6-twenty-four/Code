@@ -27,7 +27,10 @@ export default function Auth({
   const details = useResource(checkedToken && (invite || reset) ? invite ? `/invitations/${encodeURIComponent(checkedToken)}` : `/auth/password/reset/${encodeURIComponent(checkedToken)}` : null, true);
   const mutation = useMutation(notify);
   const [loginError, setLoginError] = useState(''),
+    [resetNote, setResetNote] = useState(''),
     [busy, setBusy] = useState(false);
+  const setup = useResource(route === '/login' ? '/auth/bootstrap' : null, true);
+  const firstAdmin = route === '/login' && !!setup.data?.required;
   async function submit(event) {
     event.preventDefault();
     if (route === '/login') {
@@ -35,10 +38,15 @@ export default function Auth({
       setBusy(true);
       setLoginError('');
       try {
-        const result = await request('/auth/login', {
+        const result = await request(firstAdmin ? '/auth/bootstrap' : '/auth/login', {
           method: 'POST',
           public: true,
-          body: {
+          body: firstAdmin ? {
+            name,
+            email,
+            password,
+            passwordConfirmation: confirmation
+          } : {
             email,
             password
           }
@@ -88,19 +96,20 @@ export default function Auth({
           email
         }
       });
-      if (result) setResetPath(result.data.resetPath);
+      if (result?.data?.sent) setResetNote(result.data.message);
+      else if (result) setResetPath(result.data.resetPath);
     }
   }
-  return <main className="auth-page login-page"><form className="auth-card" onSubmit={submit}><Brand /><h1>{invite ? '초대 가입' : reset ? '새 비밀번호' : route === '/login' ? '로그인' : '비밀번호 재설정'}</h1><p className="auth-description">{invite ? '초대받은 학교에 이름과 비밀번호를 등록해요.' : reset ? '이 계정의 비밀번호를 새로 정해요.' : route === '/login' ? '학급을 선택하면 나이스 시간표를 불러와요.' : '등록한 학교 이메일로 재설정 화면을 열어요.'}</p><div className="auth-fields">
+  return <main className="auth-page login-page"><form className="auth-card" onSubmit={submit}><Brand /><h1>{invite ? '초대 가입' : reset ? '새 비밀번호' : firstAdmin ? '학교 관리자 만들기' : route === '/login' ? '로그인' : '비밀번호 재설정'}</h1><p className="auth-description">{invite ? '초대받은 학교에 이름과 비밀번호를 등록해요.' : reset ? '이 계정의 비밀번호를 새로 정해요.' : firstAdmin ? '이 학교의 첫 관리자 계정을 만들어요. 이후 교사는 초대로 가입해요.' : route === '/login' ? '학급을 선택하면 나이스 시간표를 불러와요.' : '등록한 학교 이메일로 재설정 메일을 보내요.'}</p><div className="auth-fields">
     {invite ? <><Field label="초대 토큰" required value={token} onChange={e => {
             setToken(e.target.value);
             setCheckedToken('');
             setEmail('');
             setLoginError('');
-          }} placeholder="초대 링크의 토큰을 입력해 주세요" />{checkedToken && <ApiState state={details}><p className="dialog-hint">{details.data?.schoolName || details.data?.school?.name}, {details.data?.email}</p></ApiState>}{details.data && <><Field label="학교 이메일" type="email" required autoComplete="email" placeholder="초대받은 이메일을 입력해 주세요" value={email} onChange={e => { setEmail(e.target.value); setLoginError(''); }} /><p className="dialog-hint">초대받은 이메일을 확인해 주세요. 이 주소가 로그인에 사용돼요.</p><Field label="이름" required value={name} onChange={e => setName(e.target.value)} /><Field label="비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /><label className="api-check"><input type="checkbox" required checked={terms} onChange={e => setTerms(e.target.checked)} />학교에서 안내한 서비스 이용약관에 동의합니다.</label></>}</> : reset ? <><ApiState state={details} /><Field label="새 비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></> : <><Field label="학교 이메일" type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />{route === '/login' && <Field label="비밀번호" type="password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />}</>}
-    {resetPath && <a className="secondary-button" href={`#${resetPath}`}>새 비밀번호 설정하기</a>}{loginError && <p className="field-error" role="alert">{loginError}</p>}<MutationError mutation={mutation} />
-    <PrimaryButton type="submit" busy={busy || mutation.busy} disabled={reset && (!details.data || details.loading) || invite && !!checkedToken && !details.data}>{busy || mutation.busy ? '처리 중…' : invite ? details.data ? '비밀번호 설정하고 가입 완료' : '초대 확인하기' : reset ? '비밀번호 변경하기' : route === '/login' ? '로그인' : '재설정 안내 보내기'}</PrimaryButton>
-    {route === '/login' ? <div className="auth-links"><a href="#/reset-password">비밀번호를 잊으셨나요?</a><a href="#/invite">학교 초대로 가입하기</a></div> : <div className="auth-links"><a href="#/login">로그인으로 돌아가기</a></div>}
+          }} placeholder="초대 링크의 토큰을 입력해 주세요" />{checkedToken && <ApiState state={details}><p className="dialog-hint">{details.data?.schoolName || details.data?.school?.name}, {details.data?.email}</p></ApiState>}{details.data && <><Field label="학교 이메일" type="email" required autoComplete="email" placeholder="초대받은 이메일을 입력해 주세요" value={email} onChange={e => { setEmail(e.target.value); setLoginError(''); }} /><p className="dialog-hint">초대받은 이메일을 확인해 주세요. 이 주소가 로그인에 사용돼요.</p><Field label="이름" required value={name} onChange={e => setName(e.target.value)} /><Field label="비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /><label className="api-check"><input type="checkbox" required checked={terms} onChange={e => setTerms(e.target.checked)} />학교에서 안내한 서비스 이용약관에 동의합니다.</label></>}</> : reset ? <><ApiState state={details} /><Field label="새 비밀번호" type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /><Field label="비밀번호 확인" type="password" required minLength={8} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></> : <>{firstAdmin && <Field label="이름" required value={name} onChange={e => setName(e.target.value)} />}<Field label="학교 이메일" type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />{route === '/login' && <Field label="비밀번호" type="password" required minLength={firstAdmin ? 8 : undefined} autoComplete={firstAdmin ? 'new-password' : 'current-password'} value={password} onChange={e => setPassword(e.target.value)} />}{firstAdmin && <Field label="비밀번호 확인" type="password" required minLength={8} autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)} />}</>}
+    {resetPath && <a className="secondary-button" href={`#${resetPath}`}>새 비밀번호 설정하기</a>}{resetNote && <p className="dialog-hint" role="status">{resetNote}</p>}{loginError && <p className="field-error" role="alert">{loginError}</p>}{setup.error && <p className="field-error" role="alert">{setup.error.message}</p>}<MutationError mutation={mutation} />
+    <PrimaryButton type="submit" busy={busy || mutation.busy} disabled={setup.loading || reset && (!details.data || details.loading) || invite && !!checkedToken && !details.data}>{busy || mutation.busy ? '처리 중…' : invite ? details.data ? '비밀번호 설정하고 가입 완료' : '초대 확인하기' : reset ? '비밀번호 변경하기' : firstAdmin ? '관리자 계정 만들기' : route === '/login' ? '로그인' : '재설정 메일 보내기'}</PrimaryButton>
+    {route === '/login' && !firstAdmin ? <div className="auth-links"><a href="#/reset-password">비밀번호를 잊으셨나요?</a><a href="#/invite">학교 초대로 가입하기</a></div> : route !== '/login' ? <div className="auth-links"><a href="#/login">로그인으로 돌아가기</a></div> : null}
   </div></form></main>;
 }
 export function Onboarding({

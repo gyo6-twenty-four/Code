@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+    function isAdmin() {
+      return signedIn()
+        && exists(userPath(request.auth.uid))
+        && get(userPath(request.auth.uid)).data.role == 'ADMIN'
+        && get(userPath(request.auth.uid)).data.status == 'ACTIVE';
+    }
+    function keepsPrivileges() {
+      return request.resource.data.role == resource.data.role
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.classIds == resource.data.classIds
+        && request.resource.data.recordTypes == resource.data.recordTypes;
+    }
+
+    match /meta/bootstrap {
+      allow read: if true;
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/meta/bootstrap)
+        && request.resource.data.adminUid == request.auth.uid
+        && exists(userPath(request.auth.uid))
+        && get(userPath(request.auth.uid)).data.role == 'ADMIN';
+      allow update, delete: if false;
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'ACTIVE'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 30
+        && (
+          (
+            request.resource.data.role == 'ADMIN'
+            && !exists(/databases/$(database)/documents/meta/bootstrap)
+            && !request.resource.data.keys().hasAny(['invitationId'])
+          )
+          || (
+            request.resource.data.role == 'TEACHER'
+            && request.resource.data.invitationId is string
+            && exists(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId))
+            && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.accepted == false
+            && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.email == request.auth.token.email
+            && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.role == request.resource.data.role
+            && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.classIds == request.resource.data.classIds
+            && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.recordTypes == request.resource.data.recordTypes
+          )
+        );
+      allow update: if signedIn() && (
+        (
+          isAdmin()
+          && !(request.auth.uid == uid && resource.data.role == 'ADMIN' && request.resource.data.role != 'ADMIN')
+          && !(request.auth.uid == uid && resource.data.status == 'ACTIVE' && request.resource.data.status != 'ACTIVE')
+        )
+        || (request.auth.uid == uid && keepsPrivileges())
+      );
+      allow delete: if false;
+    }
+
+    match /invitations/{token} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.email is string
+        && request.resource.data.accepted == false
+        && request.resource.data.role in ['TEACHER', 'ADMIN'];
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.accepted == false
+          && request.resource.data.accepted == true
+          && request.resource.data.email == resource.data.email
+          && request.auth.token.email == resource.data.email
+        );
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

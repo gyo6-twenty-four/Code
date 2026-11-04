@@ -1,6 +1,6 @@
 /* Common components follow the dimensions and tokens of the Figma library. */
-.brand-logo { display: block; width: auto; height: 100%; max-width: 100%; object-fit: contain; }
-.brand { display: flex; align-items: center; gap: 12px; height: 34px; padding: 0; border: 0; background: transparent; font-size: 13px; line-height: 18px; text-align: left; }
+.brand-logo { display: block; width: 112px; height: auto; max-width: 100%; aspect-ratio: 92 / 32; object-fit: contain; object-position: left center; }
+.brand { display: flex; align-items: center; gap: 0; height: auto; padding: 0; border: 0; background: transparent; text-align: left; color: var(--fg-primary); }
 .primary-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; border-radius: 16px; background: var(--brand); color: #fff; font-size: 17px; font-weight: 700; line-height: 22px; letter-spacing: -.085px; }
 .primary-button:active { background: #2272e6; }
 .settings-list { display: grid; align-content: start; gap: 8px; min-width: 0; }
@@ -60,7 +60,8 @@ button:disabled { color: #8b95a1; cursor: default; }
 .app-shell { min-height: 100svh; font-size: 12px; font-weight: 500; line-height: 17px; }
 .sidebar, .topbar, .desktop-action, .desktop-only { display: none; }
 .workspace { display: flex; flex-direction: column; width: 100%; max-width: 390px; min-height: max(844px, 100svh); margin: 0 auto; padding: 22px 24px max(10px, env(safe-area-inset-bottom)); background: var(--bg-primary); }
-.mobile-brand { flex-shrink: 0; height: 34px; }
+.mobile-brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; min-height: 34px; }
+.mobile-school { min-width: 0; overflow: hidden; color: var(--fg-secondary); font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .screen-heading { margin-top: 28px; }
 .screen-heading h1 { height: 56px; font-size: 18px; font-weight: 600; line-height: 26px; letter-spacing: -.18px; }
 .page-description { min-height: 38px; margin-top: 2px; color: var(--fg-secondary); }
@@ -78,7 +79,7 @@ button:disabled { color: #8b95a1; cursor: default; }
 /* Authentication and school setup. */
 .auth-page { min-height: 100svh; background: var(--bg-primary); }
 .auth-card { display: flex; flex-direction: column; width: 100%; max-width: 390px; min-height: max(844px, 100svh); margin: 0 auto; padding: 30px 24px 44px; }
-.auth-card .brand { height: 36px; font-size: 18px; font-weight: 600; line-height: 26px; }
+.auth-card .brand { height: auto; }
 .auth-step { margin-top: 34px; color: var(--brand); font-size: 12px; line-height: 18px; }
 .auth-card h1 { height: 64px; margin-top: 14px; font-size: 28px; font-weight: 700; line-height: 37px; letter-spacing: -.56px; }
 .auth-description { min-height: 48px; margin-top: 6px; color: var(--fg-secondary); font-size: 15px; line-height: 23px; }
@@ -128,7 +129,7 @@ button:disabled { color: #8b95a1; cursor: default; }
   .mobile-brand, .mobile-footer { display: none; }
   .app-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); grid-template-rows: 72px minmax(calc(100svh - 72px), auto); background: #f9fafb; }
   .sidebar { display: flex; flex-direction: column; grid-column: 1; grid-row: 1 / 3; min-height: 100svh; padding: 20px 12px 32px; border-right: 1px solid var(--line); background: white; }
-  .sidebar .brand { gap: 10px; margin-left: 10px; font-size: 18px; font-weight: 600; line-height: 26px; }
+  .sidebar .brand { margin-left: 10px; }
   .space-label { margin: 24px 12px 15px; color: var(--fg-tertiary); font-size: 12px; line-height: 19px; }
   .side-nav { display: grid; gap: 6px; }
   .side-nav a, .side-nav button { display: flex; align-items: center; width: 100%; min-height: 40px; padding: 10px 16px; border: 0; border-radius: 12px; background: transparent; color: var(--fg-secondary); font-size: 13px; line-height: 20px; text-decoration: none; text-align: left; }
@@ -165,7 +166,7 @@ button:disabled { color: #8b95a1; cursor: default; }
   .toast { bottom: 32px; }
   .auth-page { min-height: max(960px, 100svh); padding: 125px 24px 80px; background: #f9fafb; }
   .auth-card { max-width: 480px; min-height: 690px; padding: 31px 31px 6px; border: 1px solid var(--line); border-radius: 16px; background: white; }
-  .auth-card .brand { height: 38px; gap: 14px; }
+  .auth-card .brand { height: auto; }
   .auth-step { margin-top: 32px; }
   .auth-card h1 { height: 68px; margin-top: 16px; }
   .auth-description { margin-top: 6px; }
