@@ -824,3 +824,43 @@ html:has(.app-shell) #root {
   .secondary-button,
   .navigation-drawer { transition: none; animation: none; }
 }
+
+/* Validation copy sits in the existing gap so fields, buttons, and hints stay put. */
+.field { position: relative; }
+.field .field-error {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0 2px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  max-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  pointer-events: none;
+}
+.phone-field { gap: 20px; }
+.auth-submit { position: relative; }
+.auth-submit > .auth-error,
+.auth-footer > .auth-error {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 2px);
+  left: 0;
+  z-index: 1;
+  height: 16px;
+  margin: 0;
+  overflow: hidden;
+  color: #d63847;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.auth-footer { position: relative; }
