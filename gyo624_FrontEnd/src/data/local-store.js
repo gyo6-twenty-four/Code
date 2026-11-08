@@ -771,9 +771,39 @@ export function createLocalStore({
     if (Array.isArray(invitations)) db.invitations = invitations;
     persist();
   }
+  function grantBackendClasses(db, actorId) {
+    const user = (db.users || []).find(item => item.id === actorId);
+    if (!user) return false;
+    const ids = (db.classes || []).filter(item => String(item.id).startsWith('backend:')).map(item => item.id);
+    const kept = (user.classIds || []).filter(id => !String(id).startsWith('backend:'));
+    const next = [...kept, ...ids];
+    const same = next.length === (user.classIds || []).length && next.every((id, index) => id === user.classIds[index]);
+    if (same) return false;
+    user.classIds = next;
+    return true;
+  }
+  async function applyBackendRoster(actorId, roster) {
+    const db = await load();
+    db.classes = [
+      ...(db.classes || []).filter(item => !String(item.id).startsWith('backend:')),
+      ...roster.classes.map(item => ({ ...item })),
+    ];
+    db.students = [
+      ...(db.students || []).filter(item => !String(item.classId).startsWith('backend:')),
+      ...roster.students.map(item => ({ ...item })),
+    ];
+    grantBackendClasses(db, actorId);
+    persist();
+  }
+  async function grantStoredBackendClasses(actorId) {
+    const db = await load();
+    if (grantBackendClasses(db, actorId)) persist();
+  }
   return {
     handle,
     load,
-    syncAccounts
+    syncAccounts,
+    applyBackendRoster,
+    grantStoredBackendClasses
   };
 }
