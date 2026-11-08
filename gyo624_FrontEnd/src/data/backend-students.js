@@ -83,13 +83,16 @@ export function rosterPage(roster, path) {
 
 let cached = null;
 let pending = null;
+let unavailable = false;
 
 export function clearBackendRosterCache() {
   cached = null;
   pending = null;
+  unavailable = false;
 }
 
 export async function loadBackendRoster(signal) {
+  if (unavailable) return null;
   if (cached) return cached;
   if (!pending) {
     pending = (async () => {
@@ -101,10 +104,24 @@ export async function loadBackendRoster(signal) {
         });
       } catch (error) {
         if (error?.name === 'AbortError') throw error;
-        throw new LocalError('학생 명단 서버에 연결하지 못했어요. 백엔드와 PostgreSQL이 실행 중인지 확인해 주세요.', 0);
+        unavailable = true;
+        return null;
+      }
+      const text = await response.text();
+      const trimmed = text.replace(/^\uFEFF/, '').trimStart();
+      // Static hosting rewrites /api/v1/* to index.html, and a stopped API proxy
+      // answers with an empty gateway error. Neither one is a roster payload.
+      if (trimmed.startsWith('<') || (!response.ok && !trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+        unavailable = true;
+        return null;
       }
       if (!response.ok) throw new LocalError('학생 명단을 불러오지 못했어요.', response.status);
-      const body = await response.json();
+      let body;
+      try {
+        body = JSON.parse(trimmed);
+      } catch {
+        throw new LocalError('학생 명단 응답 형식을 확인해 주세요.', response.status);
+      }
       cached = rosterFromApiRows(body);
       return cached;
     })().finally(() => {

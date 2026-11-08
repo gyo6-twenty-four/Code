@@ -1,0 +1,140 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { createRateLimiter, handleSetekRequest } from './setek-ai.js'
+
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+}
+
+function request(body, { token = 'token', path = '/api/setek/generate' } = {}) {
+  return new Request(`http://localhost${path}`, {
+    method: path.endsWith('/status') ? 'GET' : 'POST',
+    headers: { authorization: token ? `Bearer ${token}` : '', 'content-type': 'application/json' },
+    body: path.endsWith('/status') ? undefined : JSON.stringify(body),
+  })
+}
+
+const payload = {
+  curriculumName: '2022 개정 교육과정',
+  curriculumYear: 2022,
+  schoolLevel: 'high',
+  subjectName: '수학',
+  subjectType: '일반선택',
+  standards: [],
+  lesson: { lessonActivities: '이차함수 그래프를 그리고 꼭짓점을 설명했다.' },
+  student: {},
+  growth: {},
+  traits: [],
+  traitNote: '',
+  teacherRequest: '',
+  unit: 'characters',
+  targetLength: 300,
+}
+
+function deps(fetchImpl, env = {}, rateLimiter = createRateLimiter({ limit: 8, windowMs: 600000, now: () => 1000 })) {
+  return {
+    env: { AI_PROVIDER: 'openai', AI_API_KEY: 'server-key', FIREBASE_WEB_API_KEY: 'web-key', ...env },
+    fetchImpl,
+    rateLimiter,
+  }
+}
+
+test('로그인하지 않으면 생성하지 않는다', async () => {
+  const response = await handleSetekRequest(request(payload, { token: '' }), deps(async () => jsonResponse({})))
+  assert.equal(response.status, 401)
+})
+
+test('활동이 없으면 AI를 호출하지 않는다', async () => {
+  let called = false
+  const response = await handleSetekRequest(request({ ...payload, lesson: {} }), deps(async url => {
+    called = String(url).includes('api.openai.com')
+    return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+  }))
+  assert.equal(response.status, 400)
+  assert.equal(called, false)
+})
+
+test('개인정보가 있으면 AI를 호출하지 않는다', async () => {
+  let called = false
+  const response = await handleSetekRequest(request({ ...payload, studentName: '김민준', lesson: { lessonActivities: '010-1234-5678로 결과를 보냈다.' } }), deps(async url => {
+    called = String(url).includes('api.openai.com')
+    return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+  }))
+  const body = await response.json()
+  assert.equal(response.status, 400)
+  assert.match(body.message, /개인정보/)
+  assert.equal(called, false)
+})
+
+test('OPENAI_API_KEY만 있어도 GPT로 연결한다', async () => {
+  let auth = ''
+  const response = await handleSetekRequest(request(payload), {
+    env: { OPENAI_API_KEY: 'openai-key', OPENAI_MODEL: 'gpt-4o-mini', FIREBASE_WEB_API_KEY: 'web-key' },
+    fetchImpl: async (url, options) => {
+      if (String(url).includes('identitytoolkit')) return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+      auth = options.headers.authorization
+      const body = JSON.parse(options.body)
+      assert.equal(body.model, 'gpt-4o-mini')
+      assert.equal(body.max_tokens > 0, true)
+      assert.equal(body.reasoning_effort, undefined)
+      return jsonResponse({ choices: [{ message: { content: '그래프에서 꼭짓점을 설명함.' } }] })
+    },
+    rateLimiter: createRateLimiter(),
+  })
+  assert.equal(response.status, 200)
+  assert.equal(auth, 'Bearer openai-key')
+  const status = await handleSetekRequest(request(null, { path: '/api/setek/status' }), {
+    env: { OPENAI_API_KEY: 'openai-key' },
+    fetchImpl: async () => jsonResponse({}),
+  })
+  assert.deepEqual(await status.json(), { configured: true, provider: 'openai' })
+})
+
+test('키가 없으면 생성 설정이 없다고 알린다', async () => {
+  const response = await handleSetekRequest(request(payload), deps(async () => jsonResponse({ users: [{ localId: 'teacher-1' }] }), { AI_API_KEY: '' }))
+  assert.equal(response.status, 503)
+  const status = await handleSetekRequest(request(null, { path: '/api/setek/status' }), deps(async () => jsonResponse({}), { AI_API_KEY: '' }))
+  assert.deepEqual(await status.json(), { configured: false, provider: '' })
+})
+
+test('OpenAI 응답으로 글자 수를 계산하고 학생 이름을 프롬프트에 넣지 않는다', async () => {
+  let prompt = ''
+  const response = await handleSetekRequest(request({ ...payload, studentName: '김민준' }), deps(async (url, options) => {
+    if (String(url).includes('identitytoolkit')) return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+    prompt = options.body
+    const sent = JSON.parse(options.body)
+    assert.equal(sent.model, 'gpt-6.1-terra')
+    assert.equal(sent.reasoning_effort, 'none')
+    assert.equal(sent.max_completion_tokens > 0, true)
+    return jsonResponse({ choices: [{ message: { content: '```\n이차함수 그래프에서 꼭짓점을 설명함.\n```' } }] })
+  }))
+  const body = await response.json()
+  assert.equal(response.status, 200)
+  assert.equal(body.content, '이차함수 그래프에서 꼭짓점을 설명함.')
+  assert.equal(body.characterCount, body.count)
+  assert.equal(body.byteCount > body.characterCount, true)
+  assert.equal(prompt.includes('김민준'), false)
+  assert.equal(prompt.includes('server-key'), false)
+})
+
+test('요청이 많으면 잠시 후 다시 시도하게 한다', async () => {
+  const limiter = createRateLimiter({ limit: 1, windowMs: 10000, now: () => 5000 })
+  const fetchImpl = async url => String(url).includes('identitytoolkit') ? jsonResponse({ users: [{ localId: 'teacher-1' }] }) : jsonResponse({ choices: [{ message: { content: '설명함.' } }] })
+  assert.equal((await handleSetekRequest(request(payload), deps(fetchImpl, {}, limiter))).status, 200)
+  const blocked = await handleSetekRequest(request(payload), deps(fetchImpl, {}, limiter))
+  assert.equal(blocked.status, 429)
+  assert.match((await blocked.json()).message, /초 후/)
+})
+
+test('Gemini와 Anthropic 응답을 같은 형식으로 읽는다', async () => {
+  const gemini = await handleSetekRequest(request(payload), deps(async url => {
+    if (String(url).includes('identitytoolkit')) return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+    return jsonResponse({ candidates: [{ content: { parts: [{ text: '그래프를 해석함.' }] } }] })
+  }, { AI_PROVIDER: 'gemini' }))
+  assert.equal((await gemini.json()).content, '그래프를 해석함.')
+  const anthropic = await handleSetekRequest(request(payload), deps(async url => {
+    if (String(url).includes('identitytoolkit')) return jsonResponse({ users: [{ localId: 'teacher-2' }] })
+    return jsonResponse({ content: [{ type: 'text', text: '식을 변형함.' }] })
+  }, { AI_PROVIDER: 'anthropic' }, createRateLimiter({ limit: 8, windowMs: 600000, now: () => 9000 })))
+  assert.equal((await anthropic.json()).content, '식을 변형함.')
+})

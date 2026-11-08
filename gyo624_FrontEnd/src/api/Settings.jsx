@@ -7,6 +7,7 @@ import { useMutation, useResource, usePage } from './hooks';
 import { ApiState, MutationError, Pagination, SaveButton } from './shared';
 import PhoneField from '../components/PhoneField';
 import { phoneDigits } from '../lib/phone';
+import { readTheme, writeTheme } from '../lib/theme';
 import { SchoolConnection } from './NeisConnect';
 export default function Settings({
   account,
@@ -17,7 +18,8 @@ export default function Settings({
   const profile = useResource('/settings/profile'),
     notifications = useResource('/settings/notifications');
   const [draft, setDraft] = useState(null),
-    [kind, setKind] = useState('');
+    [kind, setKind] = useState(''),
+    [theme, setTheme] = useState(readTheme);
   const mutation = useMutation(notify);
   function edit(key, value) {
     setKind(key);
@@ -25,7 +27,7 @@ export default function Settings({
       ...value
     });
   }
-  return <section className="api-stack">{account.role === 'TEACHER' ? <SchoolConnection notify={notify} onSaved={updateProfile} /> : null}<ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name}, {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름, 연락처 변경</button></article></ApiState><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일, 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState><PrimaryButton onClick={() => edit('password/change', {
+  return <section className="api-stack">{account.role === 'TEACHER' ? <SchoolConnection notify={notify} onSaved={updateProfile} /> : null}<ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name}, {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름, 연락처 변경</button></article></ApiState><article className="api-panel"><h2>화면 테마</h2><p>{theme === 'dark' ? '어두운 화면' : '밝은 화면'}</p><label className="notification-control"><span>다크 모드<span className="dialog-hint">이 브라우저에만 저장돼요.</span></span><input type="checkbox" role="switch" className="switch" checked={theme === 'dark'} onChange={e => setTheme(writeTheme(e.target.checked ? 'dark' : 'light'))} /></label></article><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일, 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState><PrimaryButton onClick={() => edit('password/change', {
       currentPassword: '',
       newPassword: '',
       passwordConfirmation: ''

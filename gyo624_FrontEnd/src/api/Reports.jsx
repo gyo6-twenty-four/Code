@@ -4,18 +4,65 @@ import { Field, Modal, PrimaryButton } from '../components/ui';
 import { navigate } from '../lib/state';
 import { resource } from './client';
 import { useMutation, usePage, useResource } from './hooks';
+import { loadClasses, onNeisSchool, readNeisSchool } from './neis';
 import { ApiState, ClassSelect, StudentSelect, JsonDetails, MutationError, Pagination, SaveButton, StatusBoard } from './shared';
 export function Reports({
-  classes,
-  classId,
-  selectClass,
-  students,
-  studentId,
-  selectStudent,
   year,
   notify,
   account
 }) {
+  const localClasses = usePage('/classes', {
+    schoolYear: year,
+    scope: 'school'
+  });
+  const [classId, setClassId] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [neisSchool, setNeisSchool] = useState(readNeisSchool);
+  const [classFetch, setClassFetch] = useState({ id: '', error: '', data: [] });
+  const [attempt, setAttempt] = useState(0);
+  const classQuery = neisSchool ? `${year}|${attempt}|${neisSchool.officeCode}|${neisSchool.schoolCode}` : '';
+  useEffect(() => onNeisSchool(() => {
+    setNeisSchool(readNeisSchool());
+    setClassId('');
+  }), []);
+  useEffect(() => {
+    if (!classQuery) return undefined;
+    const controller = new AbortController();
+    const id = classQuery;
+    loadClasses(neisSchool, year, controller.signal).then(data => setClassFetch({ id, error: '', data })).catch(error => {
+      if (error.name !== 'AbortError') setClassFetch({ id, error: error.message, data: [] });
+    });
+    return () => controller.abort();
+  }, [classQuery, neisSchool, year]);
+  const neisClasses = classQuery && classFetch.id === classQuery
+    ? { loading: false, error: classFetch.error, data: classFetch.data }
+    : { loading: Boolean(classQuery), error: '', data: [] };
+  const seen = new Set();
+  const classes = {
+    loading: localClasses.loading || neisClasses.loading,
+    error: localClasses.error || (neisClasses.error ? new Error(neisClasses.error) : null),
+    data: [...(localClasses.data || []), ...neisClasses.data].filter(item => {
+      if (!item?.id || seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    }),
+    reload: () => {
+      localClasses.reload?.();
+      setAttempt(value => value + 1);
+    }
+  };
+  const students = usePage(classId ? `/classes/${classId}/students` : null, {
+    schoolYear: year,
+    scope: 'school'
+  });
+  function selectClass(id) {
+    setClassId(id);
+    setStudentId('');
+    students.setPage(1);
+  }
+  function selectStudent(id) {
+    setStudentId(id);
+  }
   const board = useResource(classId ? resource(`/classes/${classId}/record-board`, {
     schoolYear: year
   }) : null);
@@ -29,7 +76,7 @@ export function Reports({
   const [create, setCreate] = useState(false),
     [type, setType] = useState(allowed[0] || '');
   const mutation = useMutation(notify);
-  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={selectClass} /><StudentSelect students={students} value={studentId} onChange={selectStudent} /></div><ApiState state={board} empty="학급을 선택하면 작성 현황이 보여요."><StatusBoard title="학급별 작성 현황" rows={board.data} /></ApiState><ApiState state={studentBoard} empty="학생을 선택하면 작성 현황이 보여요."><StatusBoard title="선택한 학생 작성 현황" rows={studentBoard.data} /></ApiState><ApiState state={list} empty="학생을 선택하거나 생기부 항목을 추가해 주세요.">{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{recordTypeLabel(item.type)}</h2><p>{statusLabel(item.status)}, {item.characterCount ?? item.content?.length ?? 0}자</p><a href={`/reports/edit?id=${item.id}&studentId=${studentId}`}>항목 열기 →</a></article>)}</ApiState>{account.role === 'TEACHER' && <PrimaryButton disabled={!studentId || !allowed.length} onClick={() => { setType(allowed[0] || ''); setCreate(true); }}>생기부 항목 추가</PrimaryButton>}{create && <Modal title="생기부 항목 추가" onClose={() => setCreate(false)}><form onSubmit={async e => {
+  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={selectClass} empty={neisSchool ? '이 학년도의 나이스 학급이 없어요.' : '이 학년도에 등록된 학급이 없어요.'} /><StudentSelect students={students} value={studentId} onChange={selectStudent} /></div><ApiState state={board} empty="학급을 선택하면 작성 현황이 보여요."><StatusBoard title="학급별 작성 현황" rows={board.data} /></ApiState><ApiState state={studentBoard} empty="학생을 선택하면 작성 현황이 보여요."><StatusBoard title="선택한 학생 작성 현황" rows={studentBoard.data} /></ApiState><ApiState state={list} empty="학생을 선택하거나 생기부 항목을 추가해 주세요.">{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{recordTypeLabel(item.type)}</h2><p>{statusLabel(item.status)}, {item.characterCount ?? item.content?.length ?? 0}자</p><a href={`/reports/edit?id=${item.id}&studentId=${studentId}`}>항목 열기 →</a></article>)}</ApiState>{account.role === 'TEACHER' && <PrimaryButton disabled={!studentId || !allowed.length} onClick={() => { setType(allowed[0] || ''); setCreate(true); }}>생기부 항목 추가</PrimaryButton>}{create && <Modal title="생기부 항목 추가" onClose={() => setCreate(false)}><form onSubmit={async e => {
         e.preventDefault();
         const result = await mutation.run(`/students/${studentId}/record-items`, {
           body: {

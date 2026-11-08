@@ -101,7 +101,7 @@ export async function loadClasses(school, year, signal) {
       classLabel,
       name: classLabel.endsWith('반') ? `${grade}학년 ${classLabel}` : `${grade}학년 ${classLabel}반`
     }]
-  }).sort((a, b) => a.grade - b.grade || String(a.classLabel).localeCompare(String(b.classLabel), 'ko'))
+  }).sort((a, b) => a.grade - b.grade || String(a.classLabel).localeCompare(String(b.classLabel), 'ko', { numeric: true }))
 }
 
 export async function loadTimetable(school, { year, semester, grade, classLabel, from, to }, signal) {

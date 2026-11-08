@@ -10,6 +10,7 @@
   font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   color: #1c1e21;
   background: #f4f7fb;
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -29,6 +30,24 @@
   --shadow: none;
   --radius: 8px;
 }
+:root[data-theme="dark"] {
+  color: #e8eaed;
+  background: #121417;
+  color-scheme: dark;
+  --bg-primary: #1a1d21;
+  --bg-secondary: #24282e;
+  --bg-canvas: #121417;
+  --ink: #f2f4f6;
+  --brand: #7aa8e8;
+  --brand-weak: #1c334f;
+  --positive: #4ec9a3;
+  --negative: #f07a72;
+  --line: #2e343c;
+  --fg-primary: #e8eaed;
+  --fg-secondary: #b8bfc8;
+  --fg-tertiary: #8b939e;
+}
+:root[data-theme="dark"] ::selection { background: #274468; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 280px; }
 button, input, select { font: inherit; touch-action: manipulation; }

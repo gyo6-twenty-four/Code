@@ -173,6 +173,113 @@ service cloud.firestore {
         && storedSchool(resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
     }
 
+    function setekText(value, maxBytes) {
+      return value is string && value.size() <= maxBytes;
+    }
+
+    match /meta/setekPolicy {
+      allow read: if signedIn();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['unit', 'elementary', 'middle', 'high', 'note', 'updatedAt', 'updatedBy'])
+        && request.resource.data.unit in ['characters', 'bytes']
+        && request.resource.data.elementary is int
+        && request.resource.data.middle is int
+        && request.resource.data.high is int
+        && request.resource.data.elementary >= 0
+        && request.resource.data.elementary <= 6000
+        && request.resource.data.middle >= 0
+        && request.resource.data.middle <= 6000
+        && request.resource.data.high >= 0
+        && request.resource.data.high <= 6000
+        && setekText(request.resource.data.note, 1200)
+        && setekText(request.resource.data.updatedAt, 40)
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /setekCurricula/{curriculumId} {
+      allow read: if signedIn();
+      allow create: if isAdmin()
+        && curriculumId != '2015'
+        && curriculumId != '2022'
+        && curriculumId.matches('^y[0-9]{4}-[a-f0-9]{8}$')
+        && request.resource.data.keys().hasOnly(['name', 'year', 'createdBy', 'createdAt', 'updatedAt'])
+        && setekText(request.resource.data.name, 300)
+        && request.resource.data.name.size() > 0
+        && request.resource.data.year is int
+        && request.resource.data.year >= 1990
+        && request.resource.data.year <= 2100
+        && request.resource.data.createdBy == request.auth.uid
+        && setekText(request.resource.data.createdAt, 40)
+        && setekText(request.resource.data.updatedAt, 40);
+      allow delete: if isAdmin();
+    }
+
+    match /setekSubjects/{subjectId} {
+      allow read: if signedIn();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['curriculumId', 'schoolLevel', 'name', 'subjectType', 'createdBy', 'createdAt', 'updatedAt'])
+        && setekText(request.resource.data.curriculumId, 80)
+        && request.resource.data.curriculumId.size() > 0
+        && request.resource.data.schoolLevel in ['elementary', 'middle', 'high']
+        && setekText(request.resource.data.name, 300)
+        && request.resource.data.name.size() > 0
+        && setekText(request.resource.data.subjectType, 40)
+        && request.resource.data.createdBy == request.auth.uid
+        && setekText(request.resource.data.createdAt, 40)
+        && setekText(request.resource.data.updatedAt, 40);
+      allow delete: if isAdmin();
+    }
+
+    match /setekStandards/{standardId} {
+      allow read: if signedIn();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['subjectId', 'code', 'category', 'content', 'source', 'sourceUrl', 'createdBy', 'createdAt', 'updatedAt'])
+        && setekText(request.resource.data.subjectId, 80)
+        && request.resource.data.subjectId.size() > 0
+        && setekText(request.resource.data.code, 160)
+        && request.resource.data.code.size() > 0
+        && setekText(request.resource.data.category, 300)
+        && setekText(request.resource.data.content, 8000)
+        && request.resource.data.content.size() > 0
+        && setekText(request.resource.data.source, 800)
+        && request.resource.data.source.size() > 0
+        && setekText(request.resource.data.sourceUrl, 500)
+        && request.resource.data.createdBy == request.auth.uid
+        && setekText(request.resource.data.createdAt, 40)
+        && setekText(request.resource.data.updatedAt, 40);
+      allow delete: if isAdmin();
+    }
+
+    match /users/{uid}/setekDrafts/{draftId} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['curriculumId', 'curriculumName', 'curriculumYear', 'schoolLevel', 'subjectId', 'subjectName', 'subjectType', 'selectedStandards', 'lesson', 'student', 'growth', 'traits', 'traitNote', 'teacherRequest', 'lengthMode', 'customLength', 'unit', 'targetLength', 'generatedContent', 'editedContent', 'createdAt', 'updatedAt'])
+        && request.resource.data.schoolLevel in ['elementary', 'middle', 'high']
+        && request.resource.data.unit in ['characters', 'bytes']
+        && request.resource.data.targetLength is int
+        && request.resource.data.targetLength >= 50
+        && request.resource.data.targetLength <= 6000
+        && request.resource.data.curriculumYear is int
+        && request.resource.data.selectedStandards is list
+        && request.resource.data.selectedStandards.size() <= 12
+        && request.resource.data.lesson is map
+        && request.resource.data.lesson.size() <= 8
+        && request.resource.data.student is map
+        && request.resource.data.student.size() <= 8
+        && request.resource.data.growth is map
+        && request.resource.data.growth.size() <= 6
+        && request.resource.data.traits is list
+        && request.resource.data.traits.size() <= 8
+        && setekText(request.resource.data.generatedContent, 30000)
+        && setekText(request.resource.data.editedContent, 30000)
+        && setekText(request.resource.data.teacherRequest, 4000)
+        && setekText(request.resource.data.traitNote, 8000)
+        && setekText(request.resource.data.subjectName, 300)
+        && (resource == null || request.resource.data.createdAt == resource.data.createdAt);
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

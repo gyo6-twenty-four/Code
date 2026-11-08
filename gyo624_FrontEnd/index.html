@@ -19,6 +19,14 @@
     <meta name="twitter:description" content="약먹고자자팀" />
     <meta name="twitter:image" content="https://gyo624.dev/og.png" />
     <title>약먹고자자팀</title>
+    <script>
+      try {
+        if (localStorage.getItem('gyo624-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.style.colorScheme = 'dark';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

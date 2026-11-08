@@ -1,4 +1,5 @@
 import { Field, PrimaryButton } from '../components/ui';
+import { compareClassItems } from '../lib/classrooms';
 import { className, safeDetails, statusLabel } from './model';
 import { detailError } from './client';
 export function ApiState({
@@ -35,9 +36,10 @@ export function ClassSelect({
   value,
   onChange,
   label = '학급',
-  empty = '접근 가능한 학급이 없어요. 학교 관리자에게 학급 배정을 확인해 주세요.'
+  empty = '이 학년도에 등록된 학급이 없어요.'
 }) {
-  return <><ApiState state={classes} empty={empty} /><Field label={label} required value={value} disabled={classes.loading || !!classes.error} onChange={event => onChange(event.target.value)}><option value="">학급 선택</option>{Array.isArray(classes.data) && classes.data.map(item => <option key={item.id} value={item.id}>{className(item)}</option>)}</Field>{classes.setPage && <Pagination state={classes} onChange={() => onChange('')} />}</>;
+  const options = Array.isArray(classes.data) ? [...classes.data].sort(compareClassItems) : [];
+  return <><ApiState state={classes} empty={empty} /><Field label={label} required value={value} disabled={classes.loading || !!classes.error} onChange={event => onChange(event.target.value)}><option value="">학급 선택</option>{options.map(item => <option key={item.id} value={item.id}>{className(item)}</option>)}</Field>{classes.setPage && <Pagination state={classes} onChange={() => onChange('')} />}</>;
 }
 export function StudentSelect({
   students,

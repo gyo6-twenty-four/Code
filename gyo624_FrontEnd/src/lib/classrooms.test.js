@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeClassroom, classParts, classroomOptions, timetableError } from './classrooms.js'
+import { normalizeClassroom, classParts, classroomOptions, compareClassItems, timetableError } from './classrooms.js'
 
 describe('학급 입력 제한', () => {
   it('학년/반을 표준 형식으로 정리한다', () => {
@@ -12,6 +12,19 @@ describe('학급 입력 제한', () => {
   })
   it('잘못된 기존 데이터를 선택 목록에 노출하지 않고 학급을 중복 제거한다', () => {
     assert.deepEqual(classroomOptions([{ classroom: 'asdf' }, { classroom: '1학년 02반' }, { classroom: '1학년 2반' }]), ['1학년 2반'])
+  })
+  it('1반 다음에 10반이 오지 않도록 학년·반 숫자 순으로 정렬한다', () => {
+    assert.deepEqual(classroomOptions([
+      { classroom: '1학년 10반' },
+      { classroom: '2학년 1반' },
+      { classroom: '1학년 1반' },
+      { classroom: '1학년 2반' }
+    ]), ['1학년 1반', '1학년 2반', '1학년 10반', '2학년 1반'])
+    assert.deepEqual([
+      { id: 'c10', grade: 1, classNumber: 10, name: '1학년 10반' },
+      { id: 'c1', grade: 1, classNumber: 1, name: '1학년 1반' },
+      { id: 'c2', grade: 1, classNumber: 2, name: '1학년 2반' }
+    ].sort(compareClassItems).map(item => item.name), ['1학년 1반', '1학년 2반', '1학년 10반'])
   })
 })
 const lesson = { id: 'one', day: '월요일', period: '1', classroom: '1학년 2반', subject: '국어', teacher: '김지현' }

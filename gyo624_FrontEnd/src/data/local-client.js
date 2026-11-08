@@ -55,8 +55,10 @@ export async function request(path, options = {}) {
     const method = options.method || 'GET';
     if (method === 'GET' && isStudentRosterPath(path)) {
       const roster = await loadBackendRoster(options.signal);
-      await store.applyBackendRoster(profile.id, roster);
-      return rosterPage(roster, path);
+      if (roster) {
+        await store.applyBackendRoster(profile.id, roster);
+        return rosterPage(roster, path);
+      }
     }
     await store.grantStoredBackendClasses(profile.id);
     return store.handle(path, { ...options, actorId: profile.id });

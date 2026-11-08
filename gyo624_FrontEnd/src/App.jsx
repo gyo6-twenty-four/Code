@@ -8,6 +8,8 @@ import { Reports, RecordEditor, Transfer } from './api/Reports';
 import { AdminHome, Teachers, Rosters, Audit } from './api/Admin';
 import Settings, { Notifications } from './api/Settings';
 import Timetable from './api/Timetable';
+import Setek from './api/Setek';
+import SetekAdmin from './api/SetekAdmin';
 import { clearSession, detailError, onSessionExpired, refreshToken, request, restoreSession } from './api/client';
 import { usePage, useResource } from './api/hooks';
 import { assertUser } from './api/model';
@@ -19,6 +21,7 @@ import './ux.css';
 import './api/api.css';
 import './polish.css';
 import './theme.css';
+import './dark.css';
 const publicRoutes = ['/login', '/invite', '/set-password', '/reset-password'];
 const titles = {
   '/coverage': '나의 수업',
@@ -29,6 +32,8 @@ const titles = {
   '/reports': '학생 기록 보드',
   '/reports/edit': '생기부 항목 편집',
   '/reports/check': '작성 내용 확인',
+  '/setek': '교과세특',
+  '/admin/setek': '교과세특 자료',
   '/admin/transfer': '학생 기록 이관',
   '/notifications': '알림함',
   '/settings': '설정',
@@ -49,15 +54,17 @@ const descriptions = {
   '/reports': '학생별 생기부 작성 상태를 봐요.',
   '/reports/edit': '관찰을 바탕으로 항목을 다듬어요.',
   '/reports/check': '저장 전에 내용을 확인해요.',
+  '/setek': '과목과 성취기준, 수업 활동을 바탕으로 세부능력 및 특기사항 초안을 만들어요.',
+  '/admin/setek': '교과세특에 쓸 과목, 성취기준, 분량 상한을 관리해요.',
   '/admin/transfer': '학년도가 바뀐 학생의 기록을 옮겨요.',
   '/notifications': '확인하지 않은 알림을 모아요.',
-  '/settings': '이름, 알림, 로그인 정보를 바꿔요.',
+  '/settings': '이름, 알림, 화면 테마, 로그인 정보를 바꿔요.',
   '/admin': '학교 기록 작성이 어디까지 됐는지 봐요.',
   '/admin/teachers': '이 학교의 교사 계정을 보고, 초대와 제거를 관리해요.',
   '/admin/rosters': '학급과 학생 명단을 관리해요.',
   '/admin/timetable': '학급 시간표를 확인해요.',
   '/admin/audit': '누가 무엇을 바꿨는지 확인해요.',
-  '/admin/settings': '이름, 알림, 로그인 정보를 바꿔요.',
+  '/admin/settings': '이름, 알림, 화면 테마, 로그인 정보를 바꿔요.',
   '/admin/notifications': '확인하지 않은 알림을 모아요.'
 };
 function NavIcon({ name }) {
@@ -72,12 +79,13 @@ function NavIcon({ name }) {
     settings: <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></>,
     list: <><path d="M9 6.5h11M9 12h11M9 17.5h11" /><circle cx="4.5" cy="6.5" r="1.15" fill="currentColor" stroke="none" /><circle cx="4.5" cy="12" r="1.15" fill="currentColor" stroke="none" /><circle cx="4.5" cy="17.5" r="1.15" fill="currentColor" stroke="none" /></>,
     transfer: <><path d="M7 7h11" /><path d="m15 4 3 3-3 3" /><path d="M17 17H6" /><path d="m9 14-3 3 3 3" /></>,
-    history: <><path d="M4.5 12a7.5 7.5 0 1 0 2.1-5.2" /><path d="M4.2 4.2v4.2h4.2" /><path d="M12 8v4.5l2.8 1.8" /></>
+    history: <><path d="M4.5 12a7.5 7.5 0 1 0 2.1-5.2" /><path d="M4.2 4.2v4.2h4.2" /><path d="M12 8v4.5l2.8 1.8" /></>,
+    pen: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></>
   };
   return <svg className="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[name]}</svg>;
 }
-const teacherMenu = [['수업', [['홈', '/coverage', 'home'], ['나의 시간표', '/timetable', 'calendar']]], ['기록', [['학생별 관찰', '/students', 'user'], ['학급 일괄 관찰', '/observations/batch', 'users'], ['진로', '/career', 'compass'], ['생기부', '/reports', 'file']]], ['계정', [['알림함', '/notifications', 'bell'], ['설정', '/settings', 'settings']]]];
-const adminMenu = [['운영', [['관리자 홈', '/admin', 'home'], ['교사 계정', '/admin/teachers', 'users'], ['명단 관리', '/admin/rosters', 'list'], ['시간표 관리', '/admin/timetable', 'calendar']]], ['기록', [['학생 기록 이관', '/admin/transfer', 'transfer'], ['변경 이력', '/admin/audit', 'history']]], ['계정', [['알림함', '/admin/notifications', 'bell'], ['설정', '/admin/settings', 'settings']]]];
+const teacherMenu = [['수업', [['홈', '/coverage', 'home'], ['나의 시간표', '/timetable', 'calendar']]], ['기록', [['학생별 관찰', '/students', 'user'], ['학급 일괄 관찰', '/observations/batch', 'users'], ['진로', '/career', 'compass'], ['생기부', '/reports', 'file'], ['교과세특', '/setek', 'pen']]], ['계정', [['알림함', '/notifications', 'bell'], ['설정', '/settings', 'settings']]]];
+const adminMenu = [['운영', [['관리자 홈', '/admin', 'home'], ['교사 계정', '/admin/teachers', 'users'], ['명단 관리', '/admin/rosters', 'list'], ['시간표 관리', '/admin/timetable', 'calendar']]], ['기록', [['학생 기록 이관', '/admin/transfer', 'transfer'], ['교과세특 자료', '/admin/setek', 'pen'], ['변경 이력', '/admin/audit', 'history']]], ['계정', [['알림함', '/admin/notifications', 'bell'], ['설정', '/admin/settings', 'settings']]]];
 export default function App() {
   const location = useRoute(),
     requested = location.split('?')[0] === '/records' ? '/coverage' : location.split('?')[0],
@@ -238,6 +246,12 @@ export default function App() {
       break;
     case '/reports':
       screen = <Reports {...common} />;
+      break;
+    case '/setek':
+      screen = <Setek account={account} notify={notify} />;
+      break;
+    case '/admin/setek':
+      screen = <SetekAdmin account={account} notify={notify} />;
       break;
     case '/reports/edit':
     case '/reports/check':

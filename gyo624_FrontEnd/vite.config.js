@@ -3,6 +3,7 @@ import path from 'node:path'
 import { defineConfig } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
+import { setekApi } from './server/setek-plugin.js'
 
 const neisServices = new Set(['schoolInfo', 'classInfo', 'elsTimetable', 'misTimetable', 'hisTimetable', 'SchoolSchedule'])
 
@@ -63,7 +64,7 @@ const backendProxy = {
 }
 
 export default defineConfig({
-  plugins: [neisApi(process.cwd()), react(), babel({ presets: [reactCompilerPreset()] })],
+  plugins: [neisApi(process.cwd()), setekApi(process.cwd()), react(), babel({ presets: [reactCompilerPreset()] })],
   server: { proxy: backendProxy },
   preview: {
     allowedHosts: ['gyo624.dev', '.gyo624.dev'],

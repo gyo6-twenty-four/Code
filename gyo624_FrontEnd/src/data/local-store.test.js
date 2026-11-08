@@ -47,6 +47,39 @@ async function grant(store, adminId, teacherId, classId) {
   });
 }
 describe('Standalone UI workspace', () => {
+  it('lists classes by grade and class number, not lexicographic name', async () => {
+    const { store } = setup();
+    const adminId = await login(store, 'admin');
+    await addClass(store, adminId, 2026, 1, 10);
+    await addClass(store, adminId, 2026, 1, 1);
+    await addClass(store, adminId, 2026, 1, 2);
+    assert.deepEqual((await store.handle('/classes?schoolYear=2026', { actorId: adminId })).data.map(item => item.name), ['1학년 1반', '1학년 2반', '1학년 10반']);
+  });
+  it('lets a teacher write school records for every class without an admin assignment', async () => {
+    const { store } = setup();
+    const adminId = await login(store, 'admin');
+    const actorId = await login(store);
+    const assigned = await addClass(store, adminId, 2026, 1, 1);
+    const other = await addClass(store, adminId, 2026, 2, 3);
+    await grant(store, adminId, actorId, assigned.id);
+    const student = await addStudent(store, adminId, other.id, '다른 학급 학생', 4);
+    assert.deepEqual((await store.handle('/classes?schoolYear=2026', { actorId })).data.map(item => item.id), [assigned.id, other.id]);
+    assert.equal((await store.handle(`/classes/${other.id}/students`, { actorId })).data[0].name, '다른 학급 학생');
+    const item = (await store.handle(`/students/${student.id}/record-items`, {
+      actorId,
+      method: 'POST',
+      body: { schoolYear: 2026, type: 'SUBJECT', content: '교과 기록', status: 'DRAFT' }
+    })).data;
+    assert.equal(item.studentId, student.id);
+    assert.equal((await store.handle(`/classes/${other.id}/record-board`, { actorId })).data[0].name, '다른 학급 학생');
+    assert.equal((await store.handle('/classes/neis:2:3/students?schoolYear=2026', { actorId })).data[0].name, '다른 학급 학생');
+    assert.equal((await store.handle('/classes/neis:2:3/record-board?schoolYear=2026', { actorId })).data[0].name, '다른 학급 학생');
+    assert.equal((await store.handle(`/students/${student.id}/observations`, {
+      actorId,
+      method: 'POST',
+      body: { observedAt: '2026-10-28', category: 'OTHER', content: '관찰', schoolYear: 2026 }
+    })).data.content, '관찰');
+  });
   it('starts without demo school data and preserves writes after reload', async () => {
     const {
       store,

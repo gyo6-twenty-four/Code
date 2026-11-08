@@ -1,5 +1,6 @@
 import { observationDateError } from '../lib/observations.js';
 import { passwordError } from '../lib/passwords.js';
+import { compareClassItems } from '../lib/classrooms.js';
 import { ALL_RECORD_TYPES, assignedRecordTypes, sanitizeRecordTypes } from '../api/model.js';
 // Browser-only workspace. No HTTP requests or production credentials are used here.
 const STORE_KEY = 'education24-ui-workspace-v1';
@@ -293,14 +294,11 @@ export function createLocalStore({
     requireValue(user, '로그인해 주세요.', 401);
     const admin = user.role === 'ADMIN';
     if (p.startsWith('/admin/') || p.startsWith('/transfers')) requireValue(admin, '관리자만 이용할 수 있어요.', 403);
-    const classAccess = value => {
-      const c = find('classes', value);
-      requireValue(admin || user.classIds.includes(c.id), '담당 학급을 확인해 주세요.', 403);
-      return c;
-    };
+    const classAccess = value => find('classes', value);
     const studentAccess = value => {
       const s = find('students', value);
-      classAccess(s.classId);
+      const stored = db.classes.find(item => item.id === s.classId);
+      if (stored) classAccess(s.classId);
       return s;
     };
     const save = (data, title = '정보 변경') => {
@@ -383,8 +381,36 @@ export function createLocalStore({
         changed: true
       });
     }
-    if (p === '/classes') return page(db.classes.filter(c => (!q.get('schoolYear') || c.schoolYear === Number(q.get('schoolYear'))) && (admin || user.classIds.includes(c.id))), q);
+    const requestedYear = q.get('schoolYear');
+    const matchesYear = item => !requestedYear || item.schoolYear == null || Number(item.schoolYear) === Number(requestedYear);
+    const neisClass = value => {
+      if (!String(value).startsWith('neis:')) return null;
+      const body = String(value).slice(5);
+      const split = body.indexOf(':');
+      if (split <= 0) return null;
+      const grade = Number(body.slice(0, split));
+      const classLabel = body.slice(split + 1);
+      if (!Number.isInteger(grade) || grade < 1 || !classLabel) return null;
+      return {
+        id: String(value),
+        grade,
+        classNumber: classLabel,
+        classLabel,
+        name: String(classLabel).endsWith('반') ? `${grade}학년 ${classLabel}` : `${grade}학년 ${classLabel}반`,
+        schoolYear: requestedYear ? Number(requestedYear) : undefined
+      };
+    };
+    const classNumberOf = item => Number(String(item?.classNumber ?? item?.classLabel ?? '').replace(/\D/g, ''));
+    const studentsIn = classroom => db.students.filter(student => {
+      if (student.classId === classroom.id) return true;
+      const stored = db.classes.find(item => item.id === student.classId);
+      const number = classNumberOf(classroom);
+      return stored && Number(stored.grade) === Number(classroom.grade) && classNumberOf(stored) === number && number > 0;
+    });
+    if (p === '/classes') return page(db.classes.filter(matchesYear).sort(compareClassItems), q);
     if (parts[0] === 'classes' && parts[2] === 'students') {
+      const catalog = neisClass(id);
+      if (catalog) return page(studentsIn(catalog), q);
       classAccess(id);
       return page(db.students.filter(s => s.classId === id), q);
     }
@@ -409,7 +435,7 @@ export function createLocalStore({
       return page(entries.filter(n => (!q.get('status') || !n.read) && (!q.get('type') || n.type === q.get('type'))), q);
     }
     if (parts[0] === 'students' && ['observations', 'career-records', 'record-items'].includes(parts[2])) {
-      const student = studentAccess(id);
+      const student = studentAccess(id, { school: parts[2] === 'record-items' });
       const key = {
         observations: 'observations',
         'career-records': 'careers',
@@ -469,7 +495,7 @@ export function createLocalStore({
         'record-items': 'records'
       }[parts[0]];
       const item = find(key, id);
-      studentAccess(item.studentId);
+      studentAccess(item.studentId, { school: key === 'records' });
       if (parts.length === 2) {
         if (method === 'GET') return result(item);
         requireValue(!admin, '교사 계정에서 작성해 주세요.', 403);
@@ -537,7 +563,8 @@ export function createLocalStore({
       }
     }
     if (parts[2] === 'record-board') {
-      const students = parts[0] === 'classes' ? db.students.filter(s => s.classId === classAccess(id).id) : [studentAccess(id)];
+      const catalog = parts[0] === 'classes' ? neisClass(id) : null;
+      const students = catalog ? studentsIn(catalog) : parts[0] === 'classes' ? db.students.filter(s => s.classId === classAccess(id).id) : [studentAccess(id)];
       return result(students.map(s => ({
         name: s.name,
         recordCount: db.records.filter(r => r.studentId === s.id).length,

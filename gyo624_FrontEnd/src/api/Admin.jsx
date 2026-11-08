@@ -1,3 +1,4 @@
+import { compareClassItems } from '../lib/classrooms';
 import { RECORD_TYPES, assignedRecordTypes, className, recordTypeLabel, statusLabel } from './model';
 import { useState } from 'react';
 import { Field, Modal, PrimaryButton } from '../components/ui';
@@ -54,7 +55,7 @@ export function Teachers({
     })}><option value="TEACHER">교사</option><option value="ADMIN">관리자</option></Field><RecordTypeFields value={draft?.recordTypes || []} onChange={recordTypes => setDraft({
       ...draft,
       recordTypes
-    })} /><p className="dialog-hint">담당 학급은 여러 개 선택할 수 있어요.</p>{classes.data?.map(item => <label className="api-check" key={item.id}><input type="checkbox" checked={draft?.classIds?.includes(item.id) || false} onChange={e => setDraft({
+    })} /><p className="dialog-hint">담당 학급은 여러 개 선택할 수 있어요. 학생 기록은 이 배정과 관계없이 학교의 모든 학생에게 열려 있어요.</p>{[...(classes.data || [])].sort(compareClassItems).map(item => <label className="api-check" key={item.id}><input type="checkbox" checked={draft?.classIds?.includes(item.id) || false} onChange={e => setDraft({
         ...draft,
         classIds: e.target.checked ? [...(draft.classIds || []), item.id] : draft.classIds.filter(id => id !== item.id)
       })} />{className(item)}</label>)}</>;

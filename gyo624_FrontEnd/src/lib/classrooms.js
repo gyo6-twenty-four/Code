@@ -6,9 +6,22 @@ export function classParts(value) {
   const valid = normalizeClassroom(value)
   return valid ? valid.match(/\d+/g) : ['', '']
 }
+export function compareClassroomNames(left, right) {
+  return String(left || '').localeCompare(String(right || ''), 'ko', { numeric: true })
+}
+
+export function compareClassItems(left, right) {
+  const grade = Number(left?.grade) - Number(right?.grade)
+  if (Number.isFinite(grade) && grade) return grade
+  const classNumber = Number(String(left?.classNumber ?? '').replace(/\D/g, '')) - Number(String(right?.classNumber ?? '').replace(/\D/g, ''))
+  if (Number.isFinite(classNumber) && classNumber) return classNumber
+  const nameOf = item => item?.name || item?.className || item?.classLabel || (item?.grade && item?.classNumber ? `${item.grade}학년 ${item.classNumber}반` : '')
+  return compareClassroomNames(nameOf(left), nameOf(right))
+}
+
 export function classroomOptions(rosters, settings) {
   const current = settings ? normalizeClassroom(`${settings.grade}학년 ${settings.classroom}반`) : ''
-  return [...new Set([...rosters.map(item => normalizeClassroom(item.classroom)), current].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }))
+  return [...new Set([...rosters.map(item => normalizeClassroom(item.classroom)), current].filter(Boolean))].sort(compareClassroomNames)
 }
 export const weekdays = ['월요일', '화요일', '수요일', '목요일', '금요일']
 export const subjects = ['국어', '수학', '통합', '사회', '과학', '영어', '체육', '음악', '미술', '도덕', '실과', '창의적 체험 활동']
