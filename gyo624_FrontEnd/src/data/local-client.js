@@ -1,3 +1,4 @@
+import { isStudentRosterPath, loadBackendRoster, rosterPage } from './backend-students.js';
 import { createAccountGateway } from './firebase-accounts.js';
 import { createLocalStore, LocalError } from './local-store.js';
 export { LocalError as ApiError } from './local-store.js';
@@ -53,6 +54,13 @@ export async function request(path, options = {}) {
   const accountResponse = await accounts.handle(path, options);
   const response = accountResponse || await (async () => {
     const profile = await accounts.syncDirectory(payload => store.syncAccounts(payload));
+    const method = options.method || 'GET';
+    if (method === 'GET' && isStudentRosterPath(path)) {
+      const roster = await loadBackendRoster(options.signal);
+      await store.applyBackendRoster(profile.id, roster);
+      return rosterPage(roster, path);
+    }
+    await store.grantStoredBackendClasses(profile.id);
     return store.handle(path, { ...options, actorId: profile.id });
   })();
   if (options.signal?.aborted || epoch !== generation) throw new DOMException('Cancelled', 'AbortError');

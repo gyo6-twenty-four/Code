@@ -57,9 +57,16 @@ function neisApi(root) {
   }
 }
 
+const backendTarget = process.env.API_PROXY_TARGET || 'http://127.0.0.1:8080'
+const backendProxy = {
+  '/api/v1': { target: backendTarget, changeOrigin: true },
+}
+
 export default defineConfig({
   plugins: [neisApi(process.cwd()), react(), babel({ presets: [reactCompilerPreset()] })],
+  server: { proxy: backendProxy },
   preview: {
     allowedHosts: ['gyo624.dev', '.gyo624.dev'],
+    proxy: backendProxy,
   },
 })
