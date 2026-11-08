@@ -13,21 +13,13 @@ service cloud.firestore {
         && get(userPath(request.auth.uid)).data.role == 'ADMIN'
         && get(userPath(request.auth.uid)).data.status == 'ACTIVE';
     }
-    function viewerSchool() {
-      return get(userPath(request.auth.uid)).data.keys().hasAny(['schoolCode'])
-        ? get(userPath(request.auth.uid)).data.schoolCode
-        : '';
-    }
-    function legacySchool() {
-      return exists(/databases/$(database)/documents/meta/school)
-        ? get(/databases/$(database)/documents/meta/school).data.schoolCode
-        : '';
-    }
     function blankSchool(data) {
       return !data.keys().hasAny(['schoolCode']) || data.schoolCode == '';
     }
-    function unassignedSchool() {
-      return viewerSchool() == '' && legacySchool() == '';
+    function storedSchool(data) {
+      return data.keys().hasAny(['schoolCode']) && data.schoolCode is string && data.schoolCode != ''
+        ? data.schoolCode
+        : '';
     }
     function keepsPrivileges() {
       return request.resource.data.role == resource.data.role
@@ -93,9 +85,8 @@ service cloud.firestore {
         && (
           (
             request.resource.data.role == 'ADMIN'
-            && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$')
+            && request.resource.data.schoolCode == ''
             && !request.resource.data.keys().hasAny(['invitationId'])
-            && !exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolCode))
           )
           || (
             request.resource.data.role in ['TEACHER', 'ADMIN']
@@ -106,11 +97,7 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.role == request.resource.data.role
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.classIds == request.resource.data.classIds
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.recordTypes == request.resource.data.recordTypes
-            && (
-              !get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.keys().hasAny(['schoolCode'])
-              || get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.schoolCode == ''
-              || get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.schoolCode == request.resource.data.schoolCode
-            )
+            && request.resource.data.schoolCode == ''
           )
         );
       allow update: if signedIn() && (
@@ -118,22 +105,31 @@ service cloud.firestore {
           isAdmin()
           && (
             (
-              viewerSchool() != ''
-              && (
-                (blankSchool(resource.data) && viewerSchool() == legacySchool())
-                || (resource.data.keys().hasAny(['schoolCode']) && resource.data.schoolCode == viewerSchool())
-              )
+              resource.data.keys().hasAny(['schoolCode'])
               && request.resource.data.keys().hasAny(['schoolCode'])
-              && request.resource.data.schoolCode == viewerSchool()
+              && request.resource.data.schoolCode == resource.data.schoolCode
             )
             || (
-              unassignedSchool()
-              && blankSchool(resource.data)
+              blankSchool(resource.data)
               && blankSchool(request.resource.data)
             )
           )
           && !(request.auth.uid == uid && resource.data.role == 'ADMIN' && request.resource.data.role != 'ADMIN')
           && !(request.auth.uid == uid && resource.data.status == 'ACTIVE' && request.resource.data.status != 'ACTIVE')
+        )
+        || (
+          request.auth.uid == uid
+          && resource.data.role == 'TEACHER'
+          && resource.data.status == 'ACTIVE'
+          && keepsPrivileges()
+          && request.resource.data.schoolCode is string
+          && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$')
+          && request.resource.data.schoolName is string
+          && request.resource.data.schoolName.size() > 0
+          && request.resource.data.schoolName.size() <= 40
+          && request.resource.data.officeCode is string
+          && request.resource.data.officeCode.size() > 0
+          && request.resource.data.officeCode.size() <= 10
         )
         || (
           request.auth.uid == uid
@@ -146,14 +142,7 @@ service cloud.firestore {
             )
             || (
               blankSchool(resource.data)
-              && (
-                blankSchool(request.resource.data)
-                || (
-                  request.resource.data.keys().hasAny(['schoolCode'])
-                  && legacySchool() != ''
-                  && request.resource.data.schoolCode == legacySchool()
-                )
-              )
+              && blankSchool(request.resource.data)
             )
           )
         )
@@ -168,16 +157,18 @@ service cloud.firestore {
         && request.resource.data.email is string
         && request.resource.data.accepted == false
         && request.resource.data.role in ['TEACHER', 'ADMIN']
-        && request.resource.data.schoolCode == get(userPath(request.auth.uid)).data.schoolCode;
+        && storedSchool(request.resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
       allow update: if isAdmin()
-        || (
-          signedIn()
-          && resource.data.accepted == false
-          && request.resource.data.accepted == true
-          && request.resource.data.email == resource.data.email
-          && request.auth.token.email == resource.data.email
-        );
-      allow delete: if false;
+        && storedSchool(resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
+      allow update: if signedIn()
+        && resource.data.accepted == false
+        && request.resource.data.accepted == true
+        && resource.data.keys().hasAny(['email'])
+        && request.resource.data.email == resource.data.email
+        && request.auth.token.keys().hasAny(['email'])
+        && request.auth.token.email == resource.data.email;
+      allow delete: if isAdmin()
+        && storedSchool(resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
     }
 
     match /{document=**} {

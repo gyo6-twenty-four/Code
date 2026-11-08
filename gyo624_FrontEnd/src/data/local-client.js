@@ -5,9 +5,7 @@ export { LocalError as ApiError } from './local-store.js';
 const store = createLocalStore({
   storage: globalThis.localStorage
 });
-const accounts = createAccountGateway({
-  getSchool: async () => (await store.load()).school
-});
+const accounts = createAccountGateway();
 const sessionKey = 'education24-ui-session-v1';
 let actorId = globalThis.sessionStorage?.getItem(sessionKey) || '',
   generation = 0;

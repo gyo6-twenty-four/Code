@@ -25,7 +25,7 @@ export default function Settings({
       ...value
     });
   }
-  return <section className="api-stack"><SchoolConnection account={account} notify={notify} onSaved={updateProfile} /><ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name}, {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름, 연락처 변경</button></article></ApiState><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일, 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState><PrimaryButton onClick={() => edit('password/change', {
+  return <section className="api-stack">{account.role === 'TEACHER' ? <SchoolConnection notify={notify} onSaved={updateProfile} /> : null}<ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name}, {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름, 연락처 변경</button></article></ApiState><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일, 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState><PrimaryButton onClick={() => edit('password/change', {
       currentPassword: '',
       newPassword: '',
       passwordConfirmation: ''

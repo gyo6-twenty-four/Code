@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth'
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -79,6 +80,13 @@ function services() {
   }
 }
 
+function inviteSchoolFields(profile) {
+  const schoolCode = profile?.schoolCode || ''
+  if (!schoolCode) return {}
+  const school = profile.school?.schoolCode === schoolCode ? profile.school : { ...(profile.school || {}), schoolCode }
+  return schoolFields(school)
+}
+
 function schoolFields(value) {
   const next = normalizeSchool(value)
   return {
@@ -90,29 +98,17 @@ function schoolFields(value) {
   }
 }
 
-function schoolFromProfile(data, fallback) {
-  const own = normalizeSchool({
+function schoolFromProfile(data) {
+  return normalizeSchool({
     name: data?.schoolName,
     schoolCode: data?.schoolCode,
     officeCode: data?.officeCode,
     officeName: data?.officeName,
     kind: data?.kind,
   })
-  if (!own.schoolCode && !own.name) return fallback || own
-  if (fallback?.schoolCode && fallback.schoolCode === own.schoolCode) {
-    return {
-      ...fallback,
-      ...own,
-      name: own.name || fallback.name,
-      officeCode: own.officeCode || fallback.officeCode,
-      officeName: own.officeName || fallback.officeName,
-      kind: own.kind || fallback.kind,
-    }
-  }
-  return own
 }
 
-function profileFrom(id, data, school) {
+function profileFrom(id, data) {
   return {
     id,
     email: data.email,
@@ -126,18 +122,13 @@ function profileFrom(id, data, school) {
     preferences: data.preferences || { notificationEmail: true, notificationInApp: true },
     invitationId: data.invitationId || '',
     schoolCode: data.schoolCode || '',
-    school: schoolFromProfile(data, school),
+    school: schoolFromProfile(data),
   }
 }
 
-function inSchool(person, schoolCode, legacyCode = '') {
-  const code = person?.schoolCode || ''
-  if (!schoolCode) return !code
-  if (code === schoolCode) return true
-  return !code && !!legacyCode && legacyCode === schoolCode
-}
+const emptySchool = () => schoolFields({})
 
-export function createAccountGateway({ getSchool }) {
+export function createAccountGateway() {
   const waitForUser = () => new Promise(resolve => {
     const { auth } = services()
     const stop = onAuthStateChanged(auth, user => {
@@ -146,41 +137,11 @@ export function createAccountGateway({ getSchool }) {
     }, () => resolve(null))
   })
 
-  async function sharedSchool() {
-    try {
-      const { db } = services()
-      const snap = await getDoc(doc(db, 'meta', 'school'))
-      if (!snap.exists()) return null
-      const schoolRecord = normalizeSchool(snap.data())
-      return schoolRecord.name || schoolRecord.schoolCode ? schoolRecord : null
-    } catch (error) {
-      if (error?.code === 'permission-denied') return null
-      throw error
-    }
-  }
-
-  async function school() {
-    return (await sharedSchool()) || normalizeSchool(await getSchool())
-  }
-
-  async function saveSchool(value) {
-    const next = normalizeSchool(value)
-    requireValue(next.name && next.schoolCode && next.officeCode, '학교 이름과 학교 코드를 확인해 주세요.')
-    const { db } = services()
-    try {
-      await setDoc(doc(db, 'meta', 'school'), next)
-    } catch (error) {
-      if (error?.code === 'permission-denied') throw new LocalError('학교 정보를 저장하지 못했어요. 관리자 권한을 확인해 주세요.', 403)
-      throw error
-    }
-    return next
-  }
-
   async function readProfile(uid) {
     const { db } = services()
     const snap = await getDoc(doc(db, 'users', uid))
     if (!snap.exists()) return null
-    return profileFrom(snap.id, snap.data(), await school())
+    return profileFrom(snap.id, snap.data())
   }
 
   async function activeProfile() {
@@ -195,38 +156,15 @@ export function createAccountGateway({ getSchool }) {
   async function requireAdmin() {
     const profile = await activeProfile()
     requireValue(profile.role === 'ADMIN', '관리자만 이용할 수 있어요.', 403)
-    return ensureAdminSchool(profile)
+    return profile
   }
 
-  async function ensureAdminSchool(profile) {
-    if (profile.schoolCode) return profile
-    const current = await sharedSchool()
-    if (!current?.schoolCode) return profile
-    const fields = schoolFields(current)
-    try {
-      await updateDoc(doc(services().db, 'users', profile.id), fields)
-    } catch (error) {
-      if (error?.code === 'permission-denied') return profile
-      throw error
-    }
-    return profileFrom(profile.id, { ...profile, ...fields }, current)
-  }
-
-  async function claimSchoolAdmin(body) {
+  async function createAdmin(body) {
     const { auth, db } = services()
     const email = emailOf(body.email)
     const name = String(body.name || '').trim()
     requireValue(name && email.includes('@'), '이름과 이메일을 확인해 주세요.')
     passwordIssue(body.password, body.passwordConfirmation)
-    const joinedSchool = normalizeSchool(body.school)
-    requireValue(joinedSchool.name && joinedSchool.schoolCode && joinedSchool.officeCode, '학교 이름과 학교 코드를 확인해 주세요.')
-    const schoolRef = doc(db, 'schools', joinedSchool.schoolCode)
-    try {
-      requireValue(!(await getDoc(schoolRef)).exists(), '이 학교에는 이미 관리자가 있어요. 그 학교 관리자에게 초대를 요청해 주세요.')
-    } catch (error) {
-      if (error instanceof LocalError) throw error
-      if (error?.code !== 'permission-denied') throw error
-    }
     const credential = await createUserWithEmailAndPassword(auth, email, body.password)
     await writeProfile(credential.user.uid, {
       email,
@@ -238,43 +176,19 @@ export function createAccountGateway({ getSchool }) {
       classIds: [],
       recordTypes: [...ALL_RECORD_TYPES],
       preferences: { notificationEmail: true, notificationInApp: true },
-      ...schoolFields(joinedSchool),
+      ...emptySchool(),
     })
-    try {
-      await setDoc(schoolRef, { ...joinedSchool, adminUid: credential.user.uid, createdAt: serverTimestamp() })
-    } catch (error) {
-      if (error?.code !== 'permission-denied') throw error
-    }
     const bootstrapRef = doc(db, 'meta', 'bootstrap')
     if (!(await getDoc(bootstrapRef)).exists()) {
       await setDoc(bootstrapRef, { adminUid: credential.user.uid, createdAt: serverTimestamp() })
     }
-    let schoolWarning = ''
-    if (!(await sharedSchool())?.schoolCode) {
-      try {
-        await saveSchool(joinedSchool)
-      } catch {
-        schoolWarning = '계정은 만들었어요. 학교 코드는 설정에서 다시 저장해 주세요.'
-      }
-    }
-    return result({ accessToken: credential.user.uid, refreshToken: credential.user.uid, schoolWarning })
+    return result({ accessToken: credential.user.uid, refreshToken: credential.user.uid })
   }
 
-  async function schoolDirectory(profile) {
-    const legacyCode = (await sharedSchool())?.schoolCode || ''
-    const schoolCode = profile.schoolCode || profile.school?.schoolCode || ''
-    const users = (await listUsers()).filter(item => inSchool(item, schoolCode, legacyCode))
-    if (schoolCode && legacyCode === schoolCode) {
-      const { db } = services()
-      const missing = users.filter(item => !item.schoolCode)
-      await Promise.all(missing.map(item => updateDoc(doc(db, 'users', item.id), {
-        schoolCode,
-        schoolName: profile.school?.name || item.school?.name || '',
-      })))
-      missing.forEach(item => { item.schoolCode = schoolCode })
-    }
-    const invites = (await listInvitations()).filter(item => item.accepted === false && inSchool(item, schoolCode, legacyCode))
-    return { users, invites, schoolCode }
+  async function schoolDirectory() {
+    const users = await listUsers()
+    const invites = (await listInvitations()).filter(item => item.accepted === false)
+    return { users, invites }
   }
 
   async function writeProfile(uid, data) {
@@ -285,8 +199,7 @@ export function createAccountGateway({ getSchool }) {
   async function listUsers() {
     const { db } = services()
     const snap = await getDocs(collection(db, 'users'))
-    const currentSchool = await school()
-    return snap.docs.map(item => profileFrom(item.id, item.data(), currentSchool))
+    return snap.docs.map(item => profileFrom(item.id, item.data()))
   }
 
   async function listInvitations() {
@@ -307,8 +220,7 @@ export function createAccountGateway({ getSchool }) {
   async function syncDirectory(syncAccounts) {
     const profile = await activeProfile()
     if (profile.role === 'ADMIN') {
-      const ready = await ensureAdminSchool(profile)
-      const directory = await schoolDirectory(ready)
+      const directory = await schoolDirectory()
       await syncAccounts({ users: directory.users, invitations: directory.invites })
     } else {
       await syncAccounts({ users: [profile] })
@@ -316,18 +228,24 @@ export function createAccountGateway({ getSchool }) {
     return profile
   }
 
+  function inviteToken(value) {
+    const text = decodeURIComponent(String(value || '').trim())
+    const hash = text.includes('#') ? text.slice(text.indexOf('#') + 1) : text
+    const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : ''
+    return new URLSearchParams(query).get('token') || text
+  }
+
   async function openInvite(token) {
     const { db } = services()
-    const snap = await getDoc(doc(db, 'invitations', token))
-    requireValue(snap.exists() && snap.data().accepted === false, '유효한 초대 링크를 확인해 주세요.')
+    const snap = await getDoc(doc(db, 'invitations', inviteToken(token)))
+    requireValue(snap.exists() && snap.data().accepted === false && snap.data().cancelled !== true, '유효한 초대 링크를 확인해 주세요.')
     const invite = { id: snap.id, ...snap.data() }
     requireValue(!invite.expiresAt || Date.parse(invite.expiresAt) > Date.now(), '초대 링크가 만료됐어요. 관리자에게 다시 요청해 주세요.')
     return invite
   }
 
-  async function createInvites(inputs, ignoreId = '', schoolRecord) {
+  async function createInvites(inputs, ignoreId = '', profile) {
     const { db } = services()
-    const currentSchool = schoolRecord?.schoolCode ? schoolRecord : await school()
     const created = []
     for (const input of inputs) {
       const email = emailOf(input.email)
@@ -342,7 +260,7 @@ export function createAccountGateway({ getSchool }) {
         classIds: Array.isArray(input.classIds) ? input.classIds : [],
         recordTypes: cleanTypes(input.recordTypes),
         accepted: false,
-        ...schoolFields(currentSchool),
+        ...inviteSchoolFields(profile),
         expiresAt: new Date(Date.now() + INVITE_TTL).toISOString(),
         createdAt: new Date().toISOString(),
       }
@@ -366,10 +284,10 @@ export function createAccountGateway({ getSchool }) {
       }
       if (p === '/auth/bootstrap') {
         const { db } = services()
-        requireValue(!(await getDoc(doc(db, 'meta', 'bootstrap'))).exists(), '이미 학교 관리자 계정이 있어요. 로그인해 주세요.')
-        return claimSchoolAdmin(body)
+        requireValue(!(await getDoc(doc(db, 'meta', 'bootstrap'))).exists(), '이미 관리자 계정이 있어요. 로그인해 주세요.')
+        return createAdmin(body)
       }
-      if (p === '/auth/schools' && method === 'POST') return claimSchoolAdmin(body)
+      if (p === '/auth/schools' && method === 'POST') return createAdmin(body)
       if (p === '/auth/login') {
         const { auth } = services()
         const credential = await signInWithEmailAndPassword(auth, emailOf(body.email), body.password || '')
@@ -420,18 +338,12 @@ export function createAccountGateway({ getSchool }) {
         return result({ changed: true })
       }
       if (p === '/settings/school') {
-        if (method === 'GET') {
-          const profile = await activeProfile()
-          if (profile.school?.schoolCode || profile.school?.name) return result(profile.school)
-          return result((await sharedSchool()) || normalizeSchool(await getSchool()))
-        }
-        const profile = await requireAdmin()
+        const profile = await activeProfile()
+        requireValue(profile.role === 'TEACHER', '학교는 교사 계정에서 등록해요.', 403)
+        if (method === 'GET') return result(profile.school)
         const next = normalizeSchool(body)
-        const currentCode = profile.schoolCode || profile.school?.schoolCode || ''
-        requireValue(!currentCode || currentCode === next.schoolCode, '이 계정에 연결된 학교 코드를 유지해 주세요.')
-        if (profile.id) await updateDoc(doc(services().db, 'users', profile.id), schoolFields(next))
-        const shared = await sharedSchool()
-        if (!shared?.schoolCode || shared.schoolCode === next.schoolCode) return result(await saveSchool(next))
+        requireValue(next.name && next.schoolCode && next.officeCode, '학교 이름과 학교 코드를 확인해 주세요.')
+        await updateDoc(doc(services().db, 'users', profile.id), schoolFields(next))
         return result(next)
       }
       if (parts[0] === 'invitations') {
@@ -441,7 +353,6 @@ export function createAccountGateway({ getSchool }) {
         requireValue(String(body.name || '').trim() && body.termsAgreed, '이름과 이용약관 동의를 확인해 주세요.')
         const { auth, db } = services()
         const credential = await createUserWithEmailAndPassword(auth, invite.email, body.password)
-        const joined = schoolFromProfile(invite, await school())
         await writeProfile(credential.user.uid, {
           email: invite.email,
           name: String(body.name).trim(),
@@ -453,7 +364,7 @@ export function createAccountGateway({ getSchool }) {
           recordTypes: invite.recordTypes?.length ? invite.recordTypes : [...ALL_RECORD_TYPES],
           preferences: { notificationEmail: true, notificationInApp: true },
           invitationId: invite.id,
-          ...schoolFields(joined.schoolCode ? joined : { ...joined, schoolCode: invite.schoolCode || '' }),
+          ...emptySchool(),
         })
         await updateDoc(doc(db, 'invitations', invite.id), { accepted: true, acceptedAt: new Date().toISOString() })
         await signOut(auth)
@@ -499,18 +410,23 @@ export function createAccountGateway({ getSchool }) {
           await signOut(auth)
           return result({ changed: true })
         }
-        const directory = await schoolDirectory(profile)
+        const directory = await schoolDirectory()
         if (parts[2] === 'invitations') {
           if (parts[4] === 'resend') {
             const currentInvite = directory.invites.find(item => item.id === parts[3])
-            requireValue(currentInvite, '이 학교의 초대를 찾을 수 없어요.', 404)
-            const [created] = await createInvites([currentInvite], currentInvite.id, profile.school)
-            await updateDoc(doc(db, 'invitations', currentInvite.id), { accepted: true, replaced: true })
-            return result(created)
+            requireValue(currentInvite, '초대를 찾을 수 없어요.', 404)
+            const expiresAt = new Date(Date.now() + INVITE_TTL).toISOString()
+            await updateDoc(doc(db, 'invitations', currentInvite.id), { expiresAt, accepted: false, cancelled: false })
+            return result({
+              email: currentInvite.email,
+              invitationId: currentInvite.id,
+              invitationUrl: `/#/invite?token=${currentInvite.id}`,
+              expiresAt,
+            })
           }
           const inputs = parts[3] === 'bulk' ? body.invitations : [body]
           requireValue(Array.isArray(inputs) && inputs.length, '초대할 교사를 입력해 주세요.')
-          const created = await createInvites(inputs, '', profile.school)
+          const created = await createInvites(inputs, '', profile)
           return result(parts[3] === 'bulk' ? { invitations: created } : created[0])
         }
         if (!parts[2]) {
@@ -524,7 +440,7 @@ export function createAccountGateway({ getSchool }) {
             status: 'INVITED',
             classIds: item.classIds || [],
             recordTypes: item.recordTypes || [],
-            schoolCode: item.schoolCode || directory.schoolCode,
+            schoolCode: item.schoolCode || '',
           }))
           const rows = [...directory.users.filter(item => item.status !== 'DELETED'), ...invites].filter(item => !keyword || `${item.name} ${item.email}`.toLowerCase().includes(keyword))
           return pageOf(rows, q)
@@ -532,20 +448,18 @@ export function createAccountGateway({ getSchool }) {
         const teacher = directory.users.find(item => item.id === parts[2])
         if (!teacher && method === 'DELETE') {
           const invite = directory.invites.find(item => item.id === parts[2])
-          requireValue(invite, '이 학교의 초대를 찾을 수 없어요.', 404)
-          await updateDoc(doc(db, 'invitations', invite.id), { accepted: true, cancelled: true })
+          requireValue(invite, '초대를 찾을 수 없어요.', 404)
+          await deleteDoc(doc(db, 'invitations', invite.id))
           return result(null)
         }
-        requireValue(teacher, '이 학교의 계정을 찾을 수 없어요.', 404)
+        requireValue(teacher, '계정을 찾을 수 없어요.', 404)
         if (method === 'GET') return result(teacher)
         if (method === 'DELETE') {
           requireValue(teacher.id !== profile.id, '자신의 계정은 삭제할 수 없어요.')
           requireValue(teacher.status !== 'DELETED', '이미 삭제된 계정이에요.')
           const activeAdmins = directory.users.filter(item => item.role === 'ADMIN' && item.status === 'ACTIVE')
-          requireValue(!(teacher.role === 'ADMIN' && teacher.status === 'ACTIVE' && activeAdmins.length <= 1), '이 학교의 마지막 관리자 계정은 삭제할 수 없어요.')
-          await updateDoc(doc(db, 'users', teacher.id), profile.schoolCode
-            ? { status: 'DELETED', schoolCode: profile.schoolCode }
-            : { status: 'DELETED' })
+          requireValue(!(teacher.role === 'ADMIN' && teacher.status === 'ACTIVE' && activeAdmins.length <= 1), '마지막 관리자 계정은 삭제할 수 없어요.')
+          await updateDoc(doc(db, 'users', teacher.id), { status: 'DELETED' })
           return result(null)
         }
         if (parts[3] === 'status' || method === 'PATCH') {
@@ -554,7 +468,7 @@ export function createAccountGateway({ getSchool }) {
           const status = parts[3] === 'status' ? body.status : teacher.status
           if (parts[3] === 'status') {
             requireValue(['ACTIVE', 'SUSPENDED', 'INACTIVE'].includes(status), '계정 상태를 확인해 주세요.')
-            await updateDoc(doc(db, 'users', teacher.id), profile.schoolCode ? { status, schoolCode: profile.schoolCode } : { status })
+            await updateDoc(doc(db, 'users', teacher.id), { status })
             return result({ ...teacher, status })
           }
           const next = {
@@ -564,7 +478,7 @@ export function createAccountGateway({ getSchool }) {
             recordTypes: body.recordTypes !== undefined ? cleanTypes(body.recordTypes) : teacher.recordTypes,
           }
           requireValue(next.name, '이름을 입력해 주세요.')
-          await updateDoc(doc(db, 'users', teacher.id), profile.schoolCode ? { ...next, schoolCode: profile.schoolCode } : next)
+          await updateDoc(doc(db, 'users', teacher.id), next)
           return result({ ...teacher, ...next })
         }
       }

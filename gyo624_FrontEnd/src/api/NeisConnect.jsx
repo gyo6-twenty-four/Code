@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Field, PrimaryButton } from '../components/ui'
 import { schoolFromNeis, toNeisSchool } from '../lib/school'
 import { useMutation, useResource } from './hooks'
-import { neisStatus, readNeisSchool, searchSchools, writeNeisSchool } from './neis'
+import { neisStatus, searchSchools, writeNeisSchool } from './neis'
 import { ApiState } from './shared'
 
 function SchoolSummary({ school, note }) {
@@ -68,16 +68,13 @@ export function SchoolPicker({ value, onChange, notify }) {
   </div>
 }
 
-export function SchoolConnection({ account, notify, onSaved }) {
+export function SchoolConnection({ notify, onSaved }) {
   const school = useResource('/settings/school')
   const mutation = useMutation(notify)
-  const local = readNeisSchool()
-  const shared = school.data?.schoolCode ? school.data : null
-  const current = shared || (local?.schoolCode ? { name: local.schoolName, schoolCode: local.schoolCode, officeCode: local.officeCode, officeName: local.officeName || '', kind: local.kind || '' } : null)
-  const admin = account.role === 'ADMIN'
+  const current = school.data?.schoolCode ? school.data : null
   async function save(next) {
     if (!next) return
-    const saved = await mutation.run('/settings/school', { method: 'PATCH', body: next }, `${next.name} 학교를 연결했어요.`)
+    const saved = await mutation.run('/settings/school', { method: 'PATCH', body: next }, `${next.name} 학교를 이 계정에 저장했어요.`)
     if (!saved) return
     writeNeisSchool(toNeisSchool(next))
     school.reload()
@@ -92,13 +89,14 @@ export function SchoolConnection({ account, notify, onSaved }) {
     }
   }
   return <article className="api-panel">
-    <h2>학교</h2>
+    <h2>내 학교</h2>
+    <p className="dialog-hint">이 교사 계정에만 저장돼요. 시간표는 이 학교로 불러와요.</p>
     <ApiState state={school}>
       {current ? <>
-        <SchoolSummary school={current} note={!shared && local ? '이 브라우저에만 연결되어 있어요. 학교 코드를 저장하면 다른 선생님도 같은 학교를 써요.' : ''} />
+        <SchoolSummary school={current} />
         <button type="button" className="text-button" onClick={copyCode}>학교 코드 복사</button>
-      </> : <p>{admin ? '학교 이름 또는 학교 코드로 이 학교를 연결해 주세요.' : '학교 관리자가 학교 코드를 연결하면 시간표를 불러와요.'}</p>}
-      {admin ? <SchoolPicker value={null} onChange={save} notify={notify} /> : null}
+      </> : <p>학교 이름 또는 학교 코드로 이 계정의 학교를 등록해 주세요.</p>}
+      <SchoolPicker value={null} onChange={save} notify={notify} />
     </ApiState>
   </article>
 }

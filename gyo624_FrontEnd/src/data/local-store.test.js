@@ -325,23 +325,27 @@ describe('Standalone UI workspace', () => {
     assert.equal((await store.handle('/admin/teachers', { actorId: adminId })).data.some(item => item.id === invite.invitationId), false);
     await assert.rejects(store.handle(`/invitations/${token}`), /유효한 초대/);
   });
-  it('shows and removes only the teachers of the admin school', async () => {
+  it('stores a school on each teacher account', async () => {
     const { store } = setup();
     const adminId = await login(store, 'admin');
     const teacherId = await login(store, 'teacher2');
-    const teacher = (await store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId })).data;
-    await store.handle(`/admin/teachers/${teacherId}`, {
+    await assert.rejects(store.handle('/settings/school', {
       actorId: adminId,
       method: 'PATCH',
-      body: { name: teacher.name, email: teacher.email, role: 'TEACHER', classIds: teacher.classIds, recordTypes: teacher.recordTypes, schoolCode: 'B7010083' }
-    });
+      body: { name: '관리학교', schoolCode: 'B0000001', officeCode: 'B10' }
+    }), /교사/);
+    const saved = (await store.handle('/settings/school', {
+      actorId: teacherId,
+      method: 'PATCH',
+      body: { name: '한빛초등학교', schoolCode: 'b7010083', officeCode: 'B10', officeName: '서울', kind: '초등학교' }
+    })).data;
+    assert.equal(saved.schoolCode, 'B7010083');
+    assert.equal((await store.handle('/me', { actorId: teacherId })).data.school.name, '한빛초등학교');
+    assert.equal((await store.handle('/me', { actorId: adminId })).data.school.name, '');
     const listed = (await store.handle('/admin/teachers', { actorId: adminId })).data;
-    assert.equal(listed.some(item => item.id === teacherId), false);
-    await assert.rejects(store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId, method: 'DELETE' }), /이 학교 소속/);
-    const ownTeacher = listed.find(item => item.role === 'TEACHER');
-    assert.ok(ownTeacher);
-    await store.handle(`/admin/teachers/${ownTeacher.id}`, { actorId: adminId, method: 'DELETE' });
-    assert.equal((await store.handle('/admin/teachers', { actorId: adminId })).data.some(item => item.id === ownTeacher.id), false);
+    assert.equal(listed.some(item => item.id === teacherId), true);
+    await store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId, method: 'DELETE' });
+    assert.equal((await store.handle('/admin/teachers', { actorId: adminId })).data.some(item => item.id === teacherId), false);
   });
   it('lets an admin limit which report types a teacher can write', async () => {
     const { store } = setup();
