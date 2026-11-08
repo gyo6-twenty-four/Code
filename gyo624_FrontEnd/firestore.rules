@@ -26,6 +26,9 @@ service cloud.firestore {
     function blankSchool(data) {
       return !data.keys().hasAny(['schoolCode']) || data.schoolCode == '';
     }
+    function unassignedSchool() {
+      return viewerSchool() == '' && legacySchool() == '';
+    }
     function keepsPrivileges() {
       return request.resource.data.role == resource.data.role
         && request.resource.data.status == resource.data.status
@@ -113,13 +116,22 @@ service cloud.firestore {
       allow update: if signedIn() && (
         (
           isAdmin()
-          && viewerSchool() != ''
           && (
-            (blankSchool(resource.data) && viewerSchool() == legacySchool())
-            || (resource.data.keys().hasAny(['schoolCode']) && resource.data.schoolCode == viewerSchool())
+            (
+              viewerSchool() != ''
+              && (
+                (blankSchool(resource.data) && viewerSchool() == legacySchool())
+                || (resource.data.keys().hasAny(['schoolCode']) && resource.data.schoolCode == viewerSchool())
+              )
+              && request.resource.data.keys().hasAny(['schoolCode'])
+              && request.resource.data.schoolCode == viewerSchool()
+            )
+            || (
+              unassignedSchool()
+              && blankSchool(resource.data)
+              && blankSchool(request.resource.data)
+            )
           )
-          && request.resource.data.keys().hasAny(['schoolCode'])
-          && request.resource.data.schoolCode == viewerSchool()
           && !(request.auth.uid == uid && resource.data.role == 'ADMIN' && request.resource.data.role != 'ADMIN')
           && !(request.auth.uid == uid && resource.data.status == 'ACTIVE' && request.resource.data.status != 'ACTIVE')
         )

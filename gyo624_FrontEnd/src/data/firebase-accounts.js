@@ -200,10 +200,15 @@ export function createAccountGateway({ getSchool }) {
 
   async function ensureAdminSchool(profile) {
     if (profile.schoolCode) return profile
-    const current = profile.school?.schoolCode ? profile.school : await sharedSchool()
+    const current = await sharedSchool()
     if (!current?.schoolCode) return profile
     const fields = schoolFields(current)
-    await updateDoc(doc(services().db, 'users', profile.id), fields)
+    try {
+      await updateDoc(doc(services().db, 'users', profile.id), fields)
+    } catch (error) {
+      if (error?.code === 'permission-denied') return profile
+      throw error
+    }
     return profileFrom(profile.id, { ...profile, ...fields }, current)
   }
 
@@ -538,7 +543,9 @@ export function createAccountGateway({ getSchool }) {
           requireValue(teacher.status !== 'DELETED', '이미 삭제된 계정이에요.')
           const activeAdmins = directory.users.filter(item => item.role === 'ADMIN' && item.status === 'ACTIVE')
           requireValue(!(teacher.role === 'ADMIN' && teacher.status === 'ACTIVE' && activeAdmins.length <= 1), '이 학교의 마지막 관리자 계정은 삭제할 수 없어요.')
-          await updateDoc(doc(db, 'users', teacher.id), { status: 'DELETED', schoolCode: directory.schoolCode || teacher.schoolCode || '' })
+          await updateDoc(doc(db, 'users', teacher.id), profile.schoolCode
+            ? { status: 'DELETED', schoolCode: profile.schoolCode }
+            : { status: 'DELETED' })
           return result(null)
         }
         if (parts[3] === 'status' || method === 'PATCH') {
@@ -547,7 +554,7 @@ export function createAccountGateway({ getSchool }) {
           const status = parts[3] === 'status' ? body.status : teacher.status
           if (parts[3] === 'status') {
             requireValue(['ACTIVE', 'SUSPENDED', 'INACTIVE'].includes(status), '계정 상태를 확인해 주세요.')
-            await updateDoc(doc(db, 'users', teacher.id), { status, schoolCode: directory.schoolCode || teacher.schoolCode || '' })
+            await updateDoc(doc(db, 'users', teacher.id), profile.schoolCode ? { status, schoolCode: profile.schoolCode } : { status })
             return result({ ...teacher, status })
           }
           const next = {
@@ -557,7 +564,7 @@ export function createAccountGateway({ getSchool }) {
             recordTypes: body.recordTypes !== undefined ? cleanTypes(body.recordTypes) : teacher.recordTypes,
           }
           requireValue(next.name, '이름을 입력해 주세요.')
-          await updateDoc(doc(db, 'users', teacher.id), { ...next, schoolCode: directory.schoolCode || teacher.schoolCode || '' })
+          await updateDoc(doc(db, 'users', teacher.id), profile.schoolCode ? { ...next, schoolCode: profile.schoolCode } : next)
           return result({ ...teacher, ...next })
         }
       }
