@@ -156,12 +156,6 @@
   line-height: 1;
 }
 
-.year-switch button:last-child:not(:nth-child(3)) {
-  padding: 0 10px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .year-switch button:hover:not(:disabled) { background: var(--bg-secondary); color: var(--fg-primary); }
 .year-switch button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 .year-switch button:disabled { color: #d1d6db; cursor: not-allowed; }

@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { clearSession } from './client';
 import { navigate } from '../lib/state';
 import { Field, Modal, PrimaryButton } from '../components/ui';
+import { passwordError } from '../lib/passwords';
 import { useMutation, useResource, usePage } from './hooks';
-import { ApiState, JsonDetails, MutationError, Pagination, SaveButton } from './shared';
+import { ApiState, MutationError, Pagination, SaveButton } from './shared';
 import PhoneField from '../components/PhoneField';
 import { phoneDigits } from '../lib/phone';
-import NeisConnect from './NeisConnect';
+import { SchoolConnection } from './NeisConnect';
 export default function Settings({
   account,
   notify,
@@ -14,8 +15,7 @@ export default function Settings({
   updateProfile
 }) {
   const profile = useResource('/settings/profile'),
-    notifications = useResource('/settings/notifications'),
-    school = useResource(account.role === 'ADMIN' ? '/settings/school' : null);
+    notifications = useResource('/settings/notifications');
   const [draft, setDraft] = useState(null),
     [kind, setKind] = useState('');
   const mutation = useMutation(notify);
@@ -25,26 +25,30 @@ export default function Settings({
       ...value
     });
   }
-  return <section className="api-stack"><NeisConnect notify={notify} /><ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name}, {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름, 연락처 변경</button></article></ApiState><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일, 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState>{account.role === 'ADMIN' && <ApiState state={school}><article className="api-panel"><h2>학교 정보</h2><JsonDetails value={school.data} /><button className="text-button" type="button" onClick={() => edit('school', school.data)}>학교 정보 변경</button></article></ApiState>}<PrimaryButton onClick={() => edit('password/change', {
+  return <section className="api-stack"><SchoolConnection account={account} notify={notify} onSaved={updateProfile} /><ApiState state={profile}><article className="api-panel"><h2>내 계정</h2><p>{profile.data?.name}, {account.email}</p><button className="text-button" type="button" onClick={() => edit('profile', profile.data)}>이름, 연락처 변경</button></article></ApiState><ApiState state={notifications}><article className="api-panel"><h2>알림 설정</h2><p>이메일, 서비스 내 알림</p><button className="text-button" type="button" onClick={() => edit('notifications', notifications.data)}>알림 채널 변경</button></article></ApiState><PrimaryButton onClick={() => edit('password/change', {
       currentPassword: '',
       newPassword: '',
       passwordConfirmation: ''
     })}>비밀번호 변경</PrimaryButton><section className="logout-section"><h2>로그아웃</h2><button className="secondary-button danger" type="button" onClick={onLogout}>로그아웃</button></section>{draft && <Modal title={{
       profile: '내 계정',
       notifications: '알림 설정',
-      school: '학교 정보',
       'password/change': '비밀번호 변경'
     }[kind]} onClose={() => setDraft(null)}><form className="api-stack" onSubmit={async e => {
         e.preventDefault();
-        if (kind === 'password/change' && draft.newPassword !== draft.passwordConfirmation) {
-          notify('새 비밀번호 확인이 일치하지 않아요.');
-          return;
+        if (kind === 'password/change') {
+          const issue = passwordError(draft.newPassword, draft.passwordConfirmation);
+          if (!draft.currentPassword) {
+            notify('현재 비밀번호를 입력해 주세요.');
+            return;
+          }
+          if (issue) {
+            notify(issue);
+            return;
+          }
         }
         const body = kind === 'profile' ? {
           name: draft.name,
           phone: phoneDigits(draft.phone)
-        } : kind === 'school' ? {
-          name: draft.name
         } : kind === 'notifications' ? {
           notificationEmail: !!draft.notificationEmail,
           notificationInApp: !!draft.notificationInApp
@@ -57,8 +61,7 @@ export default function Settings({
           if (kind === 'password/change') { clearSession(); navigate('/login'); notify('비밀번호를 변경했어요. 새 비밀번호로 로그인해 주세요.'); return; }
           profile.reload();
           notifications.reload();
-          school.reload();
-          if (kind === 'profile' || kind === 'school') updateProfile();
+          if (kind === 'profile') updateProfile();
         }
       }}>{kind === 'profile' ? <><Field label="이름" required value={draft.name || ''} onChange={e => setDraft({
             ...draft,
@@ -66,10 +69,7 @@ export default function Settings({
           })} /><PhoneField value={draft.phone || ''} onChange={phone => setDraft({
             ...draft,
             phone
-          })} /></> : kind === 'school' ? <Field label="학교 이름" required value={draft.name || ''} onChange={e => setDraft({
-          ...draft,
-          name: e.target.value
-        })} /> : kind === 'notifications' ? <>{[['notificationEmail', '이메일 알림'], ['notificationInApp', '서비스 내 알림']].map(([key, label]) => <label className="notification-control" key={key}><span>{label}</span><input type="checkbox" role="switch" className="switch" checked={!!draft[key]} onChange={e => setDraft({
+          })} /></> : kind === 'notifications' ? <>{[['notificationEmail', '이메일 알림'], ['notificationInApp', '서비스 내 알림']].map(([key, label]) => <label className="notification-control" key={key}><span>{label}</span><input type="checkbox" role="switch" className="switch" checked={!!draft[key]} onChange={e => setDraft({
               ...draft,
               [key]: e.target.checked
             })} /></label>)}</> : <>{[['currentPassword', '현재 비밀번호'], ['newPassword', '새 비밀번호'], ['passwordConfirmation', '새 비밀번호 확인']].map(([key, label]) => <Field key={key} label={label} type="password" required minLength={key === 'currentPassword' ? undefined : 8} value={draft[key]} onChange={e => setDraft({

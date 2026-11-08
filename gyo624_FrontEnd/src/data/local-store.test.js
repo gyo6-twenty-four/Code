@@ -283,6 +283,66 @@ describe('Standalone UI workspace', () => {
     await store.handle(`/admin/teachers/${teacherId}`, { actorId, method: 'DELETE' });
     await assert.rejects(store.handle('/admin/timetables/entries', { actorId, method: 'POST', body: { classId: classroom.id, teacherId, period: 9, subject: '국어' } }), /활성 교사/);
   });
+  it('deletes a teacher account, keeps their records, and cancels a pending invitation', async () => {
+    const { store } = setup();
+    const adminId = await login(store, 'admin');
+    const teacherId = await login(store, 'teacher2');
+    const classroom = await addClass(store, adminId, 2026);
+    await grant(store, adminId, teacherId, classroom.id);
+    const student = await addStudent(store, adminId, classroom.id);
+    const observation = (await store.handle(`/students/${student.id}/observations`, {
+      actorId: teacherId,
+      method: 'POST',
+      body: { observedAt: '2026-10-28', category: 'OTHER', content: '남길 관찰', schoolYear: 2026 }
+    })).data;
+    await store.handle('/admin/timetables/entries', {
+      actorId: adminId,
+      method: 'POST',
+      body: { classId: classroom.id, teacherId, schoolYear: 2026, semester: 2, dayOfWeek: 'MONDAY', period: 3, subject: '국어' }
+    });
+    await store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId, method: 'DELETE' });
+    const listed = (await store.handle('/admin/teachers', { actorId: adminId })).data;
+    assert.equal(listed.some(item => item.id === teacherId), false);
+    assert.equal((await store.handle(`/observations/${observation.id}`, { actorId: adminId })).data.content, '남길 관찰');
+    assert.equal((await store.handle('/timetables?schoolYear=2026&semester=2', { actorId: adminId })).data.length, 0);
+    await assert.rejects(store.handle('/auth/login', {
+      method: 'POST',
+      body: { email: 'teacher2@education24.local', password: LOCAL_PASSWORD }
+    }), /일치하지/);
+    await assert.rejects(store.handle('/admin/teachers/invitations', {
+      actorId: adminId,
+      method: 'POST',
+      body: { email: 'teacher2@education24.local', name: '이서연', role: 'TEACHER', classIds: [], recordTypes: ['CLUB'] }
+    }), /삭제한 계정/);
+    await assert.rejects(store.handle(`/admin/teachers/${adminId}`, { actorId: adminId, method: 'DELETE' }), /자신의 계정/);
+    const invite = (await store.handle('/admin/teachers/invitations', {
+      actorId: adminId,
+      method: 'POST',
+      body: { email: 'new-teacher@school.kr', name: '새 교사', role: 'TEACHER', classIds: [], recordTypes: ['CLUB'] }
+    })).data;
+    const token = invite.invitationUrl.split('token=')[1];
+    await store.handle(`/admin/teachers/${invite.invitationId}`, { actorId: adminId, method: 'DELETE' });
+    assert.equal((await store.handle('/admin/teachers', { actorId: adminId })).data.some(item => item.id === invite.invitationId), false);
+    await assert.rejects(store.handle(`/invitations/${token}`), /유효한 초대/);
+  });
+  it('shows and removes only the teachers of the admin school', async () => {
+    const { store } = setup();
+    const adminId = await login(store, 'admin');
+    const teacherId = await login(store, 'teacher2');
+    const teacher = (await store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId })).data;
+    await store.handle(`/admin/teachers/${teacherId}`, {
+      actorId: adminId,
+      method: 'PATCH',
+      body: { name: teacher.name, email: teacher.email, role: 'TEACHER', classIds: teacher.classIds, recordTypes: teacher.recordTypes, schoolCode: 'B7010083' }
+    });
+    const listed = (await store.handle('/admin/teachers', { actorId: adminId })).data;
+    assert.equal(listed.some(item => item.id === teacherId), false);
+    await assert.rejects(store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId, method: 'DELETE' }), /이 학교 소속/);
+    const ownTeacher = listed.find(item => item.role === 'TEACHER');
+    assert.ok(ownTeacher);
+    await store.handle(`/admin/teachers/${ownTeacher.id}`, { actorId: adminId, method: 'DELETE' });
+    assert.equal((await store.handle('/admin/teachers', { actorId: adminId })).data.some(item => item.id === ownTeacher.id), false);
+  });
   it('lets an admin limit which report types a teacher can write', async () => {
     const { store } = setup();
     const adminId = await login(store, 'admin');

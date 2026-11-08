@@ -40,6 +40,7 @@ export const statusLabel = value => ({
   ACTIVE: '활성',
   SUSPENDED: '정지',
   INACTIVE: '비활성',
+  DELETED: '삭제',
   INVITED: '초대 대기',
   QUEUED: '대기 중',
   PROCESSING: '처리 중',

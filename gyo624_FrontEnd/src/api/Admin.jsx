@@ -35,6 +35,7 @@ export function Teachers({
     [bulk, setBulk] = useState(false),
     [bulkText, setBulkText] = useState(''),
     [confirm, setConfirm] = useState(false),
+    [removeTarget, setRemoveTarget] = useState(null),
     [delivery, setDelivery] = useState(null);
   const list = usePage('/admin/teachers', {
       keyword: search
@@ -57,7 +58,8 @@ export function Teachers({
         ...draft,
         classIds: e.target.checked ? [...(draft.classIds || []), item.id] : draft.classIds.filter(id => id !== item.id)
       })} />{className(item)}</label>)}</>;
-  return <section className="api-stack"><form className="api-toolbar" onSubmit={e => {
+  const schoolName = account.school?.name?.trim();
+  return <section className="api-stack"><p className="dialog-hint">{schoolName ? `${schoolName} 소속 교사와 초대만 보여요.` : '이 학교 소속 교사와 초대만 보여요.'}</p><form className="api-toolbar" onSubmit={e => {
       e.preventDefault();
       list.setPage(1);
       setSearch(keyword);
@@ -78,7 +80,16 @@ export function Teachers({
             });
             setConfirm(false);
           }
-        }} disabled={item.status === 'INVITED'}>계정 관리</button>{item.invitationId && <button type="button" className="text-button" disabled={mutation.busy} onClick={async () => {
+        }} disabled={item.status === 'INVITED'}>계정 관리</button>{item.role === 'TEACHER' && item.status !== 'INVITED' && item.id !== account.id && <button type="button" className="text-button danger" onClick={() => setRemoveTarget({
+          id: item.id,
+          name: item.name,
+          invited: false,
+          teacher: true
+        })}>교사 제거</button>}{item.status === 'INVITED' && <button type="button" className="text-button danger" onClick={() => setRemoveTarget({
+          id: item.id,
+          name: item.name,
+          invited: true
+        })}>초대 취소</button>}{item.invitationId && <button type="button" className="text-button" disabled={mutation.busy} onClick={async () => {
           const result = await mutation.run(`/admin/teachers/invitations/${item.invitationId}/resend`, { body: {}, idempotent: true });
           if (result) { setDelivery([result.data]); list.reload(); }
         }}>초대 링크 다시 만들기</button>}</article>)}</ApiState><Pagination state={list} />{draft && <Modal title={draft.id ? '교사 계정 관리' : '교사 초대'} onClose={() => {
@@ -120,15 +131,23 @@ export function Teachers({
             setDraft(null);
             list.reload();
           }
-        }}>{draft.status === 'ACTIVE' ? '계정 정지' : '계정 활성화'}</button><button type="button" className="text-button danger" onClick={() => setConfirm(true)}>계정 비활성화</button>{confirm && <><p>이 계정을 비활성화할까요?</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
-            if (await mutation.run(`/admin/teachers/${draft.id}`, {
-              method: 'DELETE'
+        }}>{draft.status === 'ACTIVE' ? '계정 정지' : '계정 활성화'}</button><button type="button" className="text-button danger" onClick={() => setConfirm(true)}>계정 비활성화</button>{confirm && <><p>이 계정을 비활성화할까요? 목록에는 남고, 로그인만 막혀요.</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
+            if (await mutation.run(`/admin/teachers/${draft.id}/status`, {
+              method: 'PATCH',
+              body: {
+                status: 'INACTIVE'
+              }
             }, '비활성화했어요.')) {
               setDraft(null);
               setConfirm(false);
               list.reload();
             }
-          }}>비활성화 확인</PrimaryButton></>}</div>}<MutationError mutation={mutation} /></Modal>}{bulk && <Modal title="교사 일괄 초대" onClose={() => setBulk(false)}><form onSubmit={async e => {
+          }}>비활성화 확인</PrimaryButton></>}<button type="button" className="text-button danger" onClick={() => setRemoveTarget({
+            id: draft.id,
+            name: draft.name,
+            invited: false,
+            teacher: draft.role === 'TEACHER'
+          })}>{draft.role === 'TEACHER' ? '교사 제거' : '계정 삭제'}</button></div>}<MutationError mutation={mutation} /></Modal>}{bulk && <Modal title="교사 일괄 초대" onClose={() => setBulk(false)}><form onSubmit={async e => {
         e.preventDefault();
         const invitations = bulkText.split('\n').filter(line => line.trim()).map(line => {
           const [email, name] = line.split(',').map(value => value.trim());
@@ -155,7 +174,16 @@ export function Teachers({
           setBulk(false);
           list.reload();
         }
-      }}><Field label="이메일, 이름 (한 줄에 한 명)" multiline required value={bulkText} onChange={e => setBulkText(e.target.value)} /><SaveButton mutation={mutation}>초대 생성</SaveButton></form></Modal>}{delivery && <Modal title="학교 초대 링크" onClose={() => setDelivery(null)}><div className="api-stack"><p>초대받을 교사에게 아래 링크를 전달해 주세요. 링크에서 비밀번호를 설정하고 가입할 수 있어요.</p>{delivery.map(item => <article className="api-panel api-stack" key={item.invitationId || item.id}><strong>{item.email}</strong><Field label="초대 링크" readOnly value={item.invitationUrl ? new URL(item.invitationUrl, window.location.origin).href : ''} onFocus={e => e.target.select()} />{item.expiresAt && <p>만료: {item.expiresAt}</p>}<button type="button" className="secondary-button" onClick={async () => { try { await navigator.clipboard.writeText(new URL(item.invitationUrl, window.location.origin).href); notify('초대 링크를 복사했어요.'); } catch { notify('초대 링크를 선택해 복사해 주세요.'); } }}>링크 복사</button></article>)}</div></Modal>}<MutationError mutation={mutation} /></section>;
+      }}><Field label="이메일, 이름 (한 줄에 한 명)" multiline required value={bulkText} onChange={e => setBulkText(e.target.value)} /><SaveButton mutation={mutation}>초대 생성</SaveButton></form></Modal>}{delivery && <Modal title="학교 초대 링크" onClose={() => setDelivery(null)}><div className="api-stack"><p>초대받을 교사에게 아래 링크를 전달해 주세요. 링크에서 학교 코드와 비밀번호를 확인하고 가입할 수 있어요.</p>{delivery.map(item => <article className="api-panel api-stack" key={item.invitationId || item.id}><strong>{item.email}</strong><Field label="초대 링크" readOnly value={item.invitationUrl ? new URL(item.invitationUrl, window.location.origin).href : ''} onFocus={e => e.target.select()} />{item.expiresAt && <p>만료: {item.expiresAt}</p>}<button type="button" className="secondary-button" onClick={async () => { try { await navigator.clipboard.writeText(new URL(item.invitationUrl, window.location.origin).href); notify('초대 링크를 복사했어요.'); } catch { notify('초대 링크를 선택해 복사해 주세요.'); } }}>링크 복사</button></article>)}</div></Modal>}{removeTarget && <Modal title={removeTarget.invited ? '초대 취소' : removeTarget.teacher ? '교사 제거' : '계정 삭제'} onClose={() => setRemoveTarget(null)}><div className="api-stack"><p>{removeTarget.invited ? `${removeTarget.name} 초대를 취소할까요? 전달한 링크는 더 이상 쓸 수 없어요.` : `${removeTarget.name} 계정을 이 학교에서 제거할까요? 목록에서 빠지고 로그인할 수 없어요. 작성한 관찰과 생기부는 남고, 같은 이메일로는 다시 가입할 수 없어요.`}</p><PrimaryButton disabled={mutation.busy} onClick={async () => {
+        if (await mutation.run(`/admin/teachers/${removeTarget.id}`, {
+          method: 'DELETE'
+        }, removeTarget.invited ? '초대를 취소했어요.' : '계정을 삭제했어요.')) {
+          setRemoveTarget(null);
+          setDraft(null);
+          setConfirm(false);
+          list.reload();
+        }
+      }}>{removeTarget.invited ? '초대 취소' : removeTarget.teacher ? '교사 제거' : '삭제 확인'}</PrimaryButton><MutationError mutation={mutation} /></div></Modal>}<MutationError mutation={mutation} /></section>;
 }
 export function Rosters({
   classes,

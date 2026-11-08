@@ -96,6 +96,13 @@ a.primary-button { text-decoration: none; }
 .auth-card .brand, .onboarding-card .brand { flex-shrink: 0; }
 .auth-card a { color: var(--brand); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .auth-card .secondary-button { text-align: center; text-decoration: none; }
+.school-picker, .school-selected, .auth-sent { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.school-selected { align-items: flex-start; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-secondary); }
+.school-selected strong { font-size: 16px; }
+.school-selected p, .auth-sent p { margin: 0; }
+.school-code { font-variant-numeric: tabular-nums; }
+.school-results { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.school-results .settings-row { width: 100%; }
 .onboarding-card > form { margin-top: 24px; }
 .settings-dialog { max-width: calc(100vw - 32px); max-height: calc(100svh - 32px); overflow: auto; padding: 24px; }
 .dialog-heading h2 { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }

@@ -1,3 +1,4 @@
+import { schoolSearchParams } from '../lib/school.js'
 import { parseNeis } from './neis-parse.js'
 
 const schoolKey = 'education24-neis-school-v1'
@@ -39,10 +40,15 @@ export function compactDate(value) {
   return String(value || '').replaceAll('-', '')
 }
 
+function neisUrl(service, query = '') {
+  const origin = String(import.meta.env.VITE_NEIS_ORIGIN || '').replace(/\/$/, '')
+  return `${origin}/api/neis/${service}${query ? `?${query}` : ''}`
+}
+
 async function callNeis(service, params, signal) {
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) if (value !== '' && value != null) query.set(key, String(value))
-  const response = await fetch(`/api/neis/${service}?${query}`, { signal })
+  const response = await fetch(neisUrl(service, query), { signal })
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload.message || '나이스에 연결하지 못했어요.')
   return parseNeis(payload, service)
@@ -62,15 +68,17 @@ async function collect(service, params, signal) {
 }
 
 export function neisStatus(signal) {
-  return fetch('/api/neis/status', { signal }).then(async response => {
+  return fetch(neisUrl('status'), { signal }).then(async response => {
     const payload = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(payload.message || '나이스 연결 상태를 확인하지 못했어요.')
     return payload
   })
 }
 
-export function searchSchools(name, signal) {
-  return collect('schoolInfo', { SCHUL_NM: name.trim() }, signal)
+export function searchSchools(value, signal) {
+  const params = schoolSearchParams(value)
+  if (!params) return Promise.reject(new Error('학교 이름은 두 글자 이상, 학교 코드는 7자 이상으로 입력해 주세요.'))
+  return collect('schoolInfo', params, signal)
 }
 
 export async function loadClasses(school, year, signal) {

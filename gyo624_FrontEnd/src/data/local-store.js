@@ -1,4 +1,5 @@
 import { observationDateError } from '../lib/observations.js';
+import { passwordError } from '../lib/passwords.js';
 import { ALL_RECORD_TYPES, assignedRecordTypes, sanitizeRecordTypes } from '../api/model.js';
 // Browser-only workspace. No HTTP requests or production credentials are used here.
 const STORE_KEY = 'education24-ui-workspace-v1';
@@ -200,7 +201,10 @@ export function createLocalStore({
       requireValue(item, '항목을 찾을 수 없어요.', 404);
       return item;
     };
-    const checkPassword = () => requireValue(body.password?.length >= 8 && body.password === body.passwordConfirmation, '비밀번호를 8자 이상 입력하고 확인란을 맞춰 주세요.');
+    const checkPassword = () => {
+      const issue = passwordError(String(body.password || ''), String(body.passwordConfirmation || ''));
+      requireValue(!issue, issue);
+    };
     const session = user => result({
       accessToken: user.id,
       refreshToken: user.id
@@ -217,7 +221,10 @@ export function createLocalStore({
     }
     if (p === '/auth/password/forgot') {
       const user = db.users.find(u => u.email.toLowerCase() === body.email?.trim().toLowerCase());
-      requireValue(user, '등록된 이메일을 확인해 주세요.');
+      if (!user) return result({
+        sent: true,
+        message: '등록된 이메일이면 비밀번호를 다시 설정할 수 있어요.'
+      });
       const token = uuid();
       db.resets.push({
         token,
@@ -225,6 +232,8 @@ export function createLocalStore({
       });
       persist();
       return result({
+        sent: true,
+        message: '이 브라우저에서 새 비밀번호를 설정할 수 있어요.',
         resetPath: `/reset-password?token=${token}`
       });
     }
@@ -247,7 +256,8 @@ export function createLocalStore({
       requireValue(invite, '유효한 초대 링크를 확인해 주세요.');
       if (method === 'GET') return result({
         email: invite.email,
-        schoolName: db.school.name
+        schoolName: invite.schoolName || db.school.name,
+        schoolCode: invite.schoolCode || db.school.schoolCode || ''
       });
       checkPassword();
       requireValue(body.name?.trim() && body.termsAgreed, '이름과 이용약관 동의를 확인해 주세요.');
@@ -258,6 +268,7 @@ export function createLocalStore({
         role: invite.role,
         status: 'ACTIVE',
         classIds: invite.classIds,
+        schoolCode: invite.schoolCode || db.school.schoolCode || '',
         recordTypes: sanitizeRecordTypes(invite.recordTypes)?.length ? sanitizeRecordTypes(invite.recordTypes) : [...ALL_RECORD_TYPES],
         onboardingCompleted: false,
         passwordHash: await digest(body.password),
@@ -272,6 +283,9 @@ export function createLocalStore({
     const user = db.users.find(u => u.id === actorId && u.status === 'ACTIVE');
     requireValue(user, '로그인해 주세요.', 401);
     const admin = user.role === 'ADMIN';
+    const homeCode = () => String(db.school?.schoolCode || '').trim().toUpperCase();
+    const personCode = person => String(person?.schoolCode || '').trim().toUpperCase() || homeCode();
+    const sameSchool = person => personCode(person) === personCode(user);
     if (p.startsWith('/admin/') || p.startsWith('/transfers')) requireValue(admin, '관리자만 이용할 수 있어요.', 403);
     const classAccess = value => {
       const c = find('classes', value);
@@ -340,14 +354,23 @@ export function createLocalStore({
     if (p === '/settings/school') {
       requireValue(admin, '관리자만 학교 정보를 변경할 수 있어요.', 403);
       if (method !== 'GET') {
-        db.school.name = body.name.trim();
+        const name = String(body.name || '').trim();
+        requireValue(name, '학교 이름을 입력해 주세요.');
+        db.school = {
+          name,
+          schoolCode: String(body.schoolCode || db.school.schoolCode || '').trim(),
+          officeCode: String(body.officeCode || db.school.officeCode || '').trim(),
+          officeName: String(body.officeName || db.school.officeName || '').trim(),
+          kind: String(body.kind || db.school.kind || '').trim()
+        };
         return save(db.school);
       }
       return result(db.school);
     }
     if (p === '/settings/password/change') {
       requireValue(user.passwordHash === (await digest(body.currentPassword)), '현재 비밀번호가 일치하지 않아요.');
-      requireValue(body.newPassword.length >= 8 && body.newPassword === body.passwordConfirmation, '새 비밀번호를 확인해 주세요.');
+      const nextPassword = passwordError(String(body.newPassword || ''), String(body.passwordConfirmation || ''));
+      requireValue(!nextPassword, nextPassword);
       user.passwordHash = await digest(body.newPassword);
       return save({
         changed: true
@@ -581,7 +604,7 @@ export function createLocalStore({
       const year = Number(q.get('schoolYear'));
       const classes = db.classes.filter(c => c.schoolYear === year);
       if (parts[2] === 'summary') return result({
-        teacherCount: db.users.filter(u => u.role === 'TEACHER').length,
+        teacherCount: db.users.filter(u => u.role === 'TEACHER' && u.status !== 'DELETED' && sameSchool(u)).length,
         classCount: classes.length,
         studentCount: db.students.filter(s => classes.some(c => c.id === s.classId)).length,
         recordCompletionRate: db.records.length ? Math.round(db.records.filter(r => r.status === 'SUBMITTED').length / db.records.length * 100) : 0,
@@ -612,7 +635,8 @@ export function createLocalStore({
         const inputs = parts[3] === 'bulk' ? body.invitations : parts[4] === 'resend' ? [find('invitations', parts[3])] : [body];
         const invites = inputs.map(input => {
           requireValue(input.email?.includes('@'), '이메일을 확인해 주세요.');
-          requireValue(!db.users.some(u => u.email === input.email), '이미 등록된 이메일이에요.');
+          const existing = db.users.find(u => u.email === input.email);
+          requireValue(!existing, existing?.status === 'DELETED' ? '삭제한 계정의 이메일이에요. 같은 이메일로는 다시 가입할 수 없어요.' : '이미 등록된 이메일이에요.');
           return {
             ...input,
             id: uuid(),
@@ -620,6 +644,8 @@ export function createLocalStore({
             role: input.role || 'TEACHER',
             classIds: input.classIds || [],
             recordTypes: cleanRecordTypes(input.recordTypes),
+            schoolName: db.school.name || '',
+            schoolCode: db.school.schoolCode || '',
             accepted: false
           };
         });
@@ -634,19 +660,35 @@ export function createLocalStore({
           invitations: data
         } : data[0], '교사 초대');
       }
-      if (!parts[2]) return page([...db.users.map(userView), ...db.invitations.filter(i => !i.accepted).map(i => ({
+      if (!parts[2]) return page([...db.users.filter(u => u.status !== 'DELETED' && sameSchool(u)).map(userView), ...db.invitations.filter(i => !i.accepted && sameSchool(i)).map(i => ({
         ...i,
         token: undefined,
         invitationId: i.id,
         status: 'INVITED'
       }))].filter(u => !q.get('keyword') || `${u.name} ${u.email}`.includes(q.get('keyword'))), q);
-      const teacher = find('users', parts[2]);
-      if (method === 'GET') return result(userView(teacher));
-      requireValue(teacher.id !== user.id || method === 'PATCH' && body.role === 'ADMIN' && !body.status, '자신의 관리자 권한은 유지해야 해요.');
-      if (method === 'DELETE') teacher.status = 'INACTIVE';else {
-        if (body.recordTypes !== undefined) body.recordTypes = cleanRecordTypes(body.recordTypes);
-        Object.assign(teacher, body);
+      if (method === 'DELETE') {
+        const invite = db.invitations.find(i => i.id === parts[2] && !i.accepted && sameSchool(i));
+        if (invite) {
+          db.invitations = db.invitations.filter(i => i.id !== invite.id);
+          return save(null, '교사 초대 취소');
+        }
+        const teacher = find('users', parts[2]);
+        requireValue(sameSchool(teacher), '이 학교 소속 계정만 제거할 수 있어요.', 404);
+        requireValue(teacher.id !== user.id, '자신의 계정은 삭제할 수 없어요.');
+        requireValue(teacher.status !== 'DELETED', '이미 삭제된 계정이에요.');
+        const activeAdmins = db.users.filter(u => u.role === 'ADMIN' && u.status === 'ACTIVE' && sameSchool(u));
+        requireValue(!(teacher.role === 'ADMIN' && teacher.status === 'ACTIVE' && activeAdmins.length <= 1), '마지막 관리자 계정은 삭제할 수 없어요.');
+        teacher.status = 'DELETED';
+        db.timetables = db.timetables.filter(t => t.teacherId !== teacher.id);
+        return save(null, '교사 계정 삭제');
       }
+      const teacher = find('users', parts[2]);
+      requireValue(sameSchool(teacher), '이 학교 소속 계정만 관리할 수 있어요.', 404);
+      if (method === 'GET') return result(userView(teacher));
+      requireValue(teacher.status !== 'DELETED', '이미 삭제된 계정이에요.');
+      requireValue(teacher.id !== user.id || method === 'PATCH' && body.role === 'ADMIN' && !body.status, '자신의 관리자 권한은 유지해야 해요.');
+      if (body.recordTypes !== undefined) body.recordTypes = cleanRecordTypes(body.recordTypes);
+      Object.assign(teacher, body);
       return save(userView(teacher), '교사 계정');
     }
     if (parts[0] === 'admin' && parts[1] === 'classes') {
@@ -720,7 +762,12 @@ export function createLocalStore({
   }
   async function syncAccounts({ users, invitations } = {}) {
     const db = await load();
-    if (Array.isArray(users)) db.users = users;
+    if (Array.isArray(users)) {
+      const visible = users.filter(account => account.status !== 'DELETED');
+      const ids = new Set(visible.map(account => account.id));
+      db.users = visible;
+      db.timetables = (db.timetables || []).filter(entry => ids.has(entry.teacherId));
+    }
     if (Array.isArray(invitations)) db.invitations = invitations;
     persist();
   }

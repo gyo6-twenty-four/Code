@@ -13,12 +13,57 @@ service cloud.firestore {
         && get(userPath(request.auth.uid)).data.role == 'ADMIN'
         && get(userPath(request.auth.uid)).data.status == 'ACTIVE';
     }
+    function viewerSchool() {
+      return get(userPath(request.auth.uid)).data.keys().hasAny(['schoolCode'])
+        ? get(userPath(request.auth.uid)).data.schoolCode
+        : '';
+    }
+    function legacySchool() {
+      return exists(/databases/$(database)/documents/meta/school)
+        ? get(/databases/$(database)/documents/meta/school).data.schoolCode
+        : '';
+    }
+    function blankSchool(data) {
+      return !data.keys().hasAny(['schoolCode']) || data.schoolCode == '';
+    }
     function keepsPrivileges() {
       return request.resource.data.role == resource.data.role
         && request.resource.data.status == resource.data.status
         && request.resource.data.email == resource.data.email
         && request.resource.data.classIds == resource.data.classIds
         && request.resource.data.recordTypes == resource.data.recordTypes;
+    }
+
+    match /schools/{schoolCode} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if signedIn()
+        && request.auth.uid == request.resource.data.adminUid
+        && request.resource.data.schoolCode == schoolCode
+        && exists(userPath(request.auth.uid))
+        && get(userPath(request.auth.uid)).data.role == 'ADMIN'
+        && get(userPath(request.auth.uid)).data.status == 'ACTIVE'
+        && get(userPath(request.auth.uid)).data.schoolCode == schoolCode;
+      allow update, delete: if false;
+    }
+
+    match /meta/school {
+      allow read: if signedIn();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['name', 'schoolCode', 'officeCode', 'officeName', 'kind'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.schoolCode is string
+        && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$')
+        && request.resource.data.officeCode is string
+        && request.resource.data.officeCode.size() > 0
+        && request.resource.data.officeCode.size() <= 10
+        && request.resource.data.officeName is string
+        && request.resource.data.officeName.size() <= 40
+        && request.resource.data.kind is string
+        && request.resource.data.kind.size() <= 40;
+      allow delete: if false;
     }
 
     match /meta/bootstrap {
@@ -41,14 +86,16 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 30
+        && request.resource.data.schoolCode is string
         && (
           (
             request.resource.data.role == 'ADMIN'
-            && !exists(/databases/$(database)/documents/meta/bootstrap)
+            && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$')
             && !request.resource.data.keys().hasAny(['invitationId'])
+            && !exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolCode))
           )
           || (
-            request.resource.data.role == 'TEACHER'
+            request.resource.data.role in ['TEACHER', 'ADMIN']
             && request.resource.data.invitationId is string
             && exists(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId))
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.accepted == false
@@ -56,15 +103,48 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.role == request.resource.data.role
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.classIds == request.resource.data.classIds
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.recordTypes == request.resource.data.recordTypes
+            && (
+              !get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.keys().hasAny(['schoolCode'])
+              || get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.schoolCode == ''
+              || get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.schoolCode == request.resource.data.schoolCode
+            )
           )
         );
       allow update: if signedIn() && (
         (
           isAdmin()
+          && viewerSchool() != ''
+          && (
+            (blankSchool(resource.data) && viewerSchool() == legacySchool())
+            || (resource.data.keys().hasAny(['schoolCode']) && resource.data.schoolCode == viewerSchool())
+          )
+          && request.resource.data.keys().hasAny(['schoolCode'])
+          && request.resource.data.schoolCode == viewerSchool()
           && !(request.auth.uid == uid && resource.data.role == 'ADMIN' && request.resource.data.role != 'ADMIN')
           && !(request.auth.uid == uid && resource.data.status == 'ACTIVE' && request.resource.data.status != 'ACTIVE')
         )
-        || (request.auth.uid == uid && keepsPrivileges())
+        || (
+          request.auth.uid == uid
+          && keepsPrivileges()
+          && (
+            (
+              resource.data.keys().hasAny(['schoolCode'])
+              && request.resource.data.keys().hasAny(['schoolCode'])
+              && request.resource.data.schoolCode == resource.data.schoolCode
+            )
+            || (
+              blankSchool(resource.data)
+              && (
+                blankSchool(request.resource.data)
+                || (
+                  request.resource.data.keys().hasAny(['schoolCode'])
+                  && legacySchool() != ''
+                  && request.resource.data.schoolCode == legacySchool()
+                )
+              )
+            )
+          )
+        )
       );
       allow delete: if false;
     }
@@ -75,7 +155,8 @@ service cloud.firestore {
       allow create: if isAdmin()
         && request.resource.data.email is string
         && request.resource.data.accepted == false
-        && request.resource.data.role in ['TEACHER', 'ADMIN'];
+        && request.resource.data.role in ['TEACHER', 'ADMIN']
+        && request.resource.data.schoolCode == get(userPath(request.auth.uid)).data.schoolCode;
       allow update: if isAdmin()
         || (
           signedIn()

@@ -43,22 +43,26 @@ export default function Timetable({
     [remove, setRemove] = useState(false);
   const [neisSchool, setNeisSchool] = useState(readNeisSchool);
   const [neisClassId, setNeisClassId] = useState('');
-  const [neisClasses, setNeisClasses] = useState({ loading: false, error: '', data: [] });
-  const [neisLessons, setNeisLessons] = useState({ loading: false, error: '', data: [] });
+  const [classFetch, setClassFetch] = useState({ id: '', error: '', data: [] });
+  const [lessonFetch, setLessonFetch] = useState({ id: '', error: '', data: [] });
   const [schedule, setSchedule] = useState([]);
   const [attempt, setAttempt] = useState(0);
   const admin = account.role === 'ADMIN';
   const neisOn = Boolean(neisSchool);
+  const classQuery = neisOn && neisSchool ? `${year}|${attempt}|${neisSchool.officeCode}|${neisSchool.schoolCode}` : '';
   useEffect(() => onNeisSchool(() => { setNeisSchool(readNeisSchool()); setNeisClassId(''); }), []);
   useEffect(() => {
-    if (!neisOn) return undefined;
+    if (!classQuery) return undefined;
     const controller = new AbortController();
-    setNeisClasses({ loading: true, error: '', data: [] });
-    loadClasses(neisSchool, year, controller.signal).then(data => setNeisClasses({ loading: false, error: '', data })).catch(error => {
-      if (error.name !== 'AbortError') setNeisClasses({ loading: false, error: error.message, data: [] });
+    const id = classQuery;
+    loadClasses(neisSchool, year, controller.signal).then(data => setClassFetch({ id, error: '', data })).catch(error => {
+      if (error.name !== 'AbortError') setClassFetch({ id, error: error.message, data: [] });
     });
     return () => controller.abort();
-  }, [neisOn, neisSchool, year, attempt]);
+  }, [classQuery, neisSchool, year]);
+  const neisClasses = classQuery && classFetch.id === classQuery
+    ? { loading: false, error: classFetch.error, data: classFetch.data }
+    : { loading: Boolean(classQuery), error: '', data: [] };
   useEffect(() => {
     if (!neisOn || !home) return undefined;
     const controller = new AbortController();
@@ -68,21 +72,23 @@ export default function Timetable({
     });
     return () => controller.abort();
   }, [neisOn, neisSchool, home, month, attempt]);
+  const foundClass = neisClasses.data.find(item => item.id === neisClassId);
+  const lessonRange = home ? monthBounds(month) : { from: weekStart, to: shiftDate(weekStart, 4) };
+  const lessonQuery = classQuery && neisClassId && foundClass
+    ? `${classQuery}|${neisClassId}|${semester}|${lessonRange.from}|${lessonRange.to}`
+    : '';
   useEffect(() => {
-    if (!neisOn || !neisClassId) {
-      setNeisLessons({ loading: false, error: '', data: [] });
-      return undefined;
-    }
-    const found = neisClasses.data.find(item => item.id === neisClassId);
-    if (!found) return undefined;
+    if (!lessonQuery || !foundClass) return undefined;
     const controller = new AbortController();
-    const range = home ? monthBounds(month) : { from: weekStart, to: shiftDate(weekStart, 4) };
-    setNeisLessons({ loading: true, error: '', data: [] });
-    loadTimetable(neisSchool, { year, semester, grade: found.grade, classLabel: found.classLabel, ...range }, controller.signal).then(data => setNeisLessons({ loading: false, error: '', data })).catch(error => {
-      if (error.name !== 'AbortError') setNeisLessons({ loading: false, error: error.message, data: [] });
+    const id = lessonQuery;
+    loadTimetable(neisSchool, { year, semester, grade: foundClass.grade, classLabel: foundClass.classLabel, from: lessonRange.from, to: lessonRange.to }, controller.signal).then(data => setLessonFetch({ id, error: '', data })).catch(error => {
+      if (error.name !== 'AbortError') setLessonFetch({ id, error: error.message, data: [] });
     });
     return () => controller.abort();
-  }, [neisOn, neisClassId, neisClasses.data, neisSchool, year, semester, month, weekStart, home, attempt]);
+  }, [lessonQuery, foundClass, neisSchool, year, semester, lessonRange.from, lessonRange.to]);
+  const neisLessons = lessonQuery && lessonFetch.id === lessonQuery
+    ? { loading: false, error: lessonFetch.error, data: lessonFetch.data }
+    : { loading: Boolean(lessonQuery), error: '', data: [] };
   const state = useResource(!neisOn && (admin && !classId ? null : resource('/timetables', {
     schoolYear: year,
     semester,
