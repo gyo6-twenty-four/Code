@@ -91,7 +91,7 @@
 아래 필드를 이번 백엔드와 프론트에서 함께 사용합니다. 공식 명세서에 반영할 때 팀 검토가 필요합니다.
 
 - refresh/logout: JSON `{refreshToken}`. `/me`: 직접 data 안에 `{id,name,email,role,onboardingCompleted,school?}`.
-- 초대 조회: data 안에 email, schoolName 또는 school.name. 토큰은 `/#/invite?token=...`으로 전달합니다.
+- 초대 조회: data 안에 email, schoolName 또는 school.name. 토큰은 `/invite?token=...`으로 전달합니다.
 - 학생/학급 목록: 배열 원소의 `id,name`; 학생은 `number`, 학급은 `grade,classNumber`. 학급 label에는 className도 읽을 수 있습니다.
 - 진로/관찰/생기부 상세는 `id,version`을 반환해야 합니다. 생기부 생성/내보내기의 항목 코드는 명세에 예시로 명시된 BEHAVIOR_AND_OVERALL_OPINION만 노출합니다. 다른 항목 코드는 서버 enum 합의 후 늘립니다.
 - 계정 상태 변경: ACTIVE/SUSPENDED. 일괄 초대 본문 `{invitations:[...]}`. 초대 재발송에는 교사 조회 응답의 invitationId가 필요합니다.

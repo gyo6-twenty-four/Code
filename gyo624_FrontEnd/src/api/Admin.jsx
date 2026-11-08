@@ -58,7 +58,7 @@ export function Teachers({
         ...draft,
         classIds: e.target.checked ? [...(draft.classIds || []), item.id] : draft.classIds.filter(id => id !== item.id)
       })} />{className(item)}</label>)}</>;
-  return <section className="api-stack"><p className="dialog-hint">교사 계정과 초대를 관리해요. 학교는 교사 계정마다 등록해요.</p><form className="api-toolbar" onSubmit={e => {
+  return <section className="api-stack"><form className="api-toolbar" onSubmit={e => {
       e.preventDefault();
       list.setPage(1);
       setSearch(keyword);

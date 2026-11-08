@@ -81,10 +81,10 @@ function services() {
 }
 
 function inviteSchoolFields(profile) {
-  const schoolCode = profile?.schoolCode || ''
+  const schoolCode = String(profile?.schoolCode || '')
   if (!schoolCode) return {}
   const school = profile.school?.schoolCode === schoolCode ? profile.school : { ...(profile.school || {}), schoolCode }
-  return schoolFields(school)
+  return { ...schoolFields(school), schoolCode }
 }
 
 function schoolFields(value) {
@@ -159,14 +159,64 @@ export function createAccountGateway() {
     return profile
   }
 
+  async function openAuth(email, password) {
+    const { auth } = services()
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password)
+      return { user: credential.user, created: true }
+    } catch (error) {
+      if (error?.code !== 'auth/email-already-in-use') throw error
+      try {
+        const credential = await signInWithEmailAndPassword(auth, email, password)
+        return { user: credential.user, created: false }
+      } catch (signInError) {
+        if (['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(signInError?.code)) {
+          throw new LocalError('이 이메일로 가입이 이미 시작됐어요. 그때 입력한 비밀번호로 다시 시도해 주세요.', 400)
+        }
+        throw signInError
+      }
+    }
+  }
+
+  async function claimProfile(user, data, { created = false, inviteId = '' } = {}) {
+    await user.reload()
+    await user.getIdToken(true)
+    const existing = await readProfile(user.uid)
+    if (existing?.status === 'DELETED') {
+      await signOut(services().auth)
+      throw new LocalError('삭제한 계정의 이메일이에요. 같은 이메일로는 다시 가입할 수 없어요.')
+    }
+    if (existing) return 'exists'
+    const email = String(user.email || '')
+    try {
+      requireValue(emailOf(email) && emailOf(email) === emailOf(data.email), '이메일을 확인해 주세요.')
+      await writeProfile(user.uid, { ...data, email })
+      if (inviteId) {
+        await updateDoc(doc(services().db, 'invitations', inviteId), {
+          accepted: true,
+          acceptedAt: new Date().toISOString(),
+        })
+      }
+      return 'created'
+    } catch (error) {
+      const profile = await readProfile(user.uid).catch(() => null)
+      if (!profile && created) {
+        try { await user.delete() } catch { /* 같은 비밀번호로 다시 가입을 마칠 수 있게 둔다 */ }
+      }
+      if (profile) return 'created'
+      throw error
+    }
+  }
+
   async function createAdmin(body) {
     const { auth, db } = services()
     const email = emailOf(body.email)
     const name = String(body.name || '').trim()
     requireValue(name && email.includes('@'), '이름과 이메일을 확인해 주세요.')
+    requireValue(name.length <= 30, '이름은 30자 이내로 입력해 주세요.')
     passwordIssue(body.password, body.passwordConfirmation)
-    const credential = await createUserWithEmailAndPassword(auth, email, body.password)
-    await writeProfile(credential.user.uid, {
+    const { user, created } = await openAuth(email, body.password)
+    const outcome = await claimProfile(user, {
       email,
       name,
       role: 'ADMIN',
@@ -177,12 +227,16 @@ export function createAccountGateway() {
       recordTypes: [...ALL_RECORD_TYPES],
       preferences: { notificationEmail: true, notificationInApp: true },
       ...emptySchool(),
-    })
+    }, { created })
+    if (outcome === 'exists') {
+      await signOut(auth)
+      throw new LocalError('이미 등록된 이메일이에요. 로그인해 주세요.')
+    }
     const bootstrapRef = doc(db, 'meta', 'bootstrap')
     if (!(await getDoc(bootstrapRef)).exists()) {
-      await setDoc(bootstrapRef, { adminUid: credential.user.uid, createdAt: serverTimestamp() })
+      await setDoc(bootstrapRef, { adminUid: user.uid, createdAt: serverTimestamp() })
     }
-    return result({ accessToken: credential.user.uid, refreshToken: credential.user.uid })
+    return result({ accessToken: user.uid, refreshToken: user.uid })
   }
 
   async function schoolDirectory() {
@@ -266,7 +320,7 @@ export function createAccountGateway() {
       }
       requireValue(invite.name, '이름을 입력해 주세요.')
       await setDoc(doc(db, 'invitations', token), invite)
-      created.push({ email, invitationId: token, invitationUrl: `/#/invite?token=${token}`, expiresAt: invite.expiresAt })
+      created.push({ email, invitationId: token, invitationUrl: `/invite?token=${token}`, expiresAt: invite.expiresAt })
     }
     return created
   }
@@ -319,7 +373,7 @@ export function createAccountGateway() {
         const email = emailOf(body.email)
         requireValue(email.includes('@'), '이메일을 확인해 주세요.')
         const origin = globalThis.location?.origin
-        const settings = origin ? { url: `${origin}/#/login`, handleCodeInApp: false } : undefined
+        const settings = origin ? { url: `${origin}/login`, handleCodeInApp: false } : undefined
         try {
           await sendPasswordResetEmail(auth, email, settings)
         } catch (error) {
@@ -350,24 +404,26 @@ export function createAccountGateway() {
         const invite = await openInvite(parts[1])
         if (method === 'GET') return result({ email: invite.email, schoolName: invite.schoolName, schoolCode: invite.schoolCode || '', name: invite.name })
         passwordIssue(body.password, body.passwordConfirmation)
-        requireValue(String(body.name || '').trim() && body.termsAgreed, '이름과 이용약관 동의를 확인해 주세요.')
-        const { auth, db } = services()
-        const credential = await createUserWithEmailAndPassword(auth, invite.email, body.password)
-        await writeProfile(credential.user.uid, {
+        const name = String(body.name || '').trim()
+        requireValue(name && body.termsAgreed, '이름과 이용약관 동의를 확인해 주세요.')
+        requireValue(name.length <= 30, '이름은 30자 이내로 입력해 주세요.')
+        const { auth } = services()
+        const { user, created } = await openAuth(invite.email, body.password)
+        const outcome = await claimProfile(user, {
           email: invite.email,
-          name: String(body.name).trim(),
+          name,
           role: invite.role === 'ADMIN' ? 'ADMIN' : 'TEACHER',
           status: 'ACTIVE',
           onboardingCompleted: false,
           phone: '',
-          classIds: invite.classIds || [],
-          recordTypes: invite.recordTypes?.length ? invite.recordTypes : [...ALL_RECORD_TYPES],
+          classIds: Array.isArray(invite.classIds) ? invite.classIds : [],
+          recordTypes: Array.isArray(invite.recordTypes) ? invite.recordTypes : [...ALL_RECORD_TYPES],
           preferences: { notificationEmail: true, notificationInApp: true },
           invitationId: invite.id,
           ...emptySchool(),
-        })
-        await updateDoc(doc(db, 'invitations', invite.id), { accepted: true, acceptedAt: new Date().toISOString() })
+        }, { created, inviteId: invite.id })
         await signOut(auth)
+        if (outcome === 'exists') throw new LocalError('이미 가입된 이메일이에요. 로그인해 주세요.')
         return result({ accepted: true })
       }
       if (p === '/me') return result(await activeProfile())
@@ -383,6 +439,7 @@ export function createAccountGateway() {
           return result({ ...profile, ...next })
         }
         if (p === '/onboarding/complete') {
+          if (profile.role === 'TEACHER') requireValue(profile.school?.schoolCode, '학교를 선택해 주세요.')
           await updateDoc(ref, { onboardingCompleted: true })
           return result({ ...profile, onboardingCompleted: true })
         }
@@ -420,7 +477,7 @@ export function createAccountGateway() {
             return result({
               email: currentInvite.email,
               invitationId: currentInvite.id,
-              invitationUrl: `/#/invite?token=${currentInvite.id}`,
+              invitationUrl: `/invite?token=${currentInvite.id}`,
               expiresAt,
             })
           }

@@ -74,7 +74,7 @@ export function SchoolConnection({ notify, onSaved }) {
   const current = school.data?.schoolCode ? school.data : null
   async function save(next) {
     if (!next) return
-    const saved = await mutation.run('/settings/school', { method: 'PATCH', body: next }, `${next.name} 학교를 이 계정에 저장했어요.`)
+    const saved = await mutation.run('/settings/school', { method: 'PATCH', body: next }, `${next.name} 학교를 저장했어요.`)
     if (!saved) return
     writeNeisSchool(toNeisSchool(next))
     school.reload()
@@ -90,12 +90,11 @@ export function SchoolConnection({ notify, onSaved }) {
   }
   return <article className="api-panel">
     <h2>내 학교</h2>
-    <p className="dialog-hint">이 교사 계정에만 저장돼요. 시간표는 이 학교로 불러와요.</p>
     <ApiState state={school}>
       {current ? <>
         <SchoolSummary school={current} />
         <button type="button" className="text-button" onClick={copyCode}>학교 코드 복사</button>
-      </> : <p>학교 이름 또는 학교 코드로 이 계정의 학교를 등록해 주세요.</p>}
+      </> : null}
       <SchoolPicker value={null} onChange={save} notify={notify} />
     </ApiState>
   </article>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { passwordResetHash } from './auth-link.js'
+import { passwordResetPath } from './auth-link.js'
 import { normalizeSchool, schoolFromNeis, schoolSearchParams, toNeisSchool } from './school.js'
 
 test('학교 코드는 나이스 코드로, 이름은 학교명으로 찾는다', () => {
@@ -28,7 +28,7 @@ test('나이스 학교 행을 학교 코드가 있는 기록으로 맞춘다', (
 })
 
 test('재설정 메일의 코드만 비밀번호 찾기 주소로 옮긴다', () => {
-  assert.equal(passwordResetHash('?mode=resetPassword&oobCode=abc%2Bdef'), '#/reset-password?oobCode=abc%2Bdef')
-  assert.equal(passwordResetHash('?mode=verifyEmail&oobCode=abc'), '')
-  assert.equal(passwordResetHash(''), '')
+  assert.equal(passwordResetPath('?mode=resetPassword&oobCode=abc%2Bdef'), '/reset-password?oobCode=abc%2Bdef')
+  assert.equal(passwordResetPath('?mode=verifyEmail&oobCode=abc'), '')
+  assert.equal(passwordResetPath(''), '')
 })

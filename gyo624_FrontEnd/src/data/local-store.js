@@ -333,6 +333,7 @@ export function createLocalStore({
       return save(userView(user));
     }
     if (p === '/onboarding/complete') {
+      if (user.role === 'TEACHER') requireValue(accountSchool(user).schoolCode, '학교를 선택해 주세요.');
       user.onboardingCompleted = true;
       return save(userView(user));
     }
@@ -660,7 +661,7 @@ export function createLocalStore({
         const data = invites.map(i => ({
           email: i.email,
           invitationId: i.id,
-          invitationUrl: `/#/invite?token=${i.token}`
+          invitationUrl: `/invite?token=${i.token}`
         }));
         return save(parts[3] === 'bulk' ? {
           invitations: data

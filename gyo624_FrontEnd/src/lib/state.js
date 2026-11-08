@@ -16,9 +16,36 @@ export function readRecords() {
   } catch { return [] }
 }
 export function persist(key, value) { localStorage.setItem(key, JSON.stringify(value)) }
-export function navigate(path) { window.location.hash = path }
-const subscribe = (callback) => { window.addEventListener('hashchange', callback); return () => window.removeEventListener('hashchange', callback) }
-const snapshot = () => window.location.hash.slice(1) || '/coverage'
+function currentPath() { return `${window.location.pathname}${window.location.search}` }
+export function navigate(path) {
+  const next = path.startsWith('/') ? path : `/${path}`
+  if (currentPath() === next) return
+  const pathChanged = window.location.pathname !== next.split('?')[0]
+  window.history.pushState(null, '', next)
+  if (pathChanged) window.scrollTo(0, 0)
+  window.dispatchEvent(new PopStateEvent('popstate'))
+}
+export function adoptLegacyHash() {
+  const hash = window.location.hash
+  if (!hash.startsWith('#/')) return
+  window.history.replaceState(null, '', hash.slice(1))
+}
+export function installAppLinks() {
+  if (installAppLinks.installed) return
+  installAppLinks.installed = true
+  document.addEventListener('click', event => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null
+    if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return
+    const url = new URL(anchor.href, window.location.href)
+    if (url.origin !== window.location.origin) return
+    if (url.hash && !url.hash.startsWith('#/') && url.pathname === window.location.pathname && url.search === window.location.search) return
+    event.preventDefault()
+    navigate(url.hash.startsWith('#/') ? url.hash.slice(1) : `${url.pathname}${url.search}`)
+  })
+}
+const subscribe = (callback) => { window.addEventListener('popstate', callback); return () => window.removeEventListener('popstate', callback) }
+const snapshot = () => currentPath() === '/' ? '/coverage' : currentPath()
 export function useRoute() { return useSyncExternalStore(subscribe, snapshot, () => '/coverage') }
 export function useNotice() {
   const [notice, setNotice] = useState(null)

@@ -341,6 +341,26 @@ describe('Standalone UI workspace', () => {
     })).data;
     assert.equal(saved.schoolCode, 'B7010083');
     assert.equal((await store.handle('/me', { actorId: teacherId })).data.school.name, '한빛초등학교');
+    const invited = (await store.handle('/admin/teachers/invitations', {
+      actorId: adminId,
+      method: 'POST',
+      body: { email: 'setup-teacher@school.kr', name: '처음 교사', role: 'TEACHER', classIds: [] }
+    })).data;
+    const token = invited.invitationUrl.split('token=')[1];
+    await store.handle(`/invitations/${token}/accept`, {
+      method: 'POST',
+      body: { name: '처음 교사', termsAgreed: true, password: 'NewPass!123', passwordConfirmation: 'NewPass!123' }
+    });
+    const setupId = (await store.handle('/auth/login', {
+      body: { email: 'setup-teacher@school.kr', password: 'NewPass!123' }
+    })).data.accessToken;
+    await assert.rejects(store.handle('/onboarding/complete', { actorId: setupId, method: 'POST', body: {} }), /학교/);
+    await store.handle('/settings/school', {
+      actorId: setupId,
+      method: 'PATCH',
+      body: { name: '한빛초등학교', schoolCode: 'B7010083', officeCode: 'B10' }
+    });
+    assert.equal((await store.handle('/onboarding/complete', { actorId: setupId, method: 'POST', body: {} })).data.onboardingCompleted, true);
     assert.equal((await store.handle('/me', { actorId: adminId })).data.school.name, '');
     const listed = (await store.handle('/admin/teachers', { actorId: adminId })).data;
     assert.equal(listed.some(item => item.id === teacherId), true);

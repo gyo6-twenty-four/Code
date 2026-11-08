@@ -1,14 +1,14 @@
-export function passwordResetHash(search) {
+export function passwordResetPath(search) {
   const params = new URLSearchParams(String(search || '').replace(/^\?/, ''))
   const mode = params.get('mode')
   const code = params.get('oobCode')
   if (!code || (mode && mode !== 'resetPassword')) return ''
-  return `#/reset-password?oobCode=${encodeURIComponent(code)}`
+  return `/reset-password?oobCode=${encodeURIComponent(code)}`
 }
 
 export function installPasswordResetLink() {
   if (typeof window === 'undefined') return
-  const next = passwordResetHash(window.location.search)
+  const next = passwordResetPath(window.location.search)
   if (!next) return
-  window.history.replaceState(null, '', `${window.location.pathname}${next}`)
+  window.history.replaceState(null, '', next)
 }

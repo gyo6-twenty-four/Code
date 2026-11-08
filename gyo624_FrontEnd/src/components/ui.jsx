@@ -21,7 +21,7 @@ export function PrimaryButton({ children, className = '', busy = false, disabled
 }
 export function ListRow({ title, detail, meta, onClick, href, selected, className = '' }) {
   const copy = <><img className="row-mark" src={rowMark} width="36" height="36" alt="" /><span className="row-copy"><span className="row-title">{title}</span><span className="row-detail">{detail}</span></span><span className="row-meta">{meta}</span></>
-  if (href) return <a className={`settings-row ${className}`} href={`#${href}`}>{copy}</a>
+  if (href) return <a className={`settings-row ${className}`} href={`${href}`}>{copy}</a>
   return <button type="button" className={`settings-row ${className}`} onClick={onClick} aria-pressed={selected}>{copy}</button>
 }
 export function Field({ label, multiline, children, ...props }) {

@@ -128,7 +128,7 @@ export default function App() {
     if (!initializing && !restoreError && route !== requested) navigate(route);
   }, [initializing, restoreError, route, requested]);
   useEffect(() => {
-    document.title = `${titles[route] || (route === '/onboarding' ? '사용 환경 설정' : '학교 계정')}, 교육24`;
+    document.title = `${titles[route] || (route === '/onboarding' ? '처음 설정' : '학교 계정')}, 교육24`;
   }, [route]);
   const classes = usePage(account ? '/classes' : null, {
     schoolYear: year
@@ -198,7 +198,7 @@ export default function App() {
   };
   const count = typeof unread.data === 'number' ? unread.data : unread.data?.count ?? unread.data?.unreadCount ?? 0;
   const menuGroups = adminRoute ? adminMenu : teacherMenu;
-  const nav = <nav className="side-nav" aria-label={adminRoute ? '관리자 메뉴' : '교사 메뉴'}>{menuGroups.map(([section, items]) => <div className="nav-group" key={section}><p className="space-label">{section}</p>{items.map(([label, path, icon]) => <a key={path} href={`#${path}`} aria-current={route === path ? 'page' : undefined} onClick={() => setMenu(false)}><NavIcon name={icon} /><span className="nav-label">{label}</span>{path.endsWith('/notifications') && count > 0 && <span className="nav-unread">{count}</span>}</a>)}</div>)}</nav>;
+  const nav = <nav className="side-nav" aria-label={adminRoute ? '관리자 메뉴' : '교사 메뉴'}>{menuGroups.map(([section, items]) => <div className="nav-group" key={section}><p className="space-label">{section}</p>{items.map(([label, path, icon]) => <a key={path} href={`${path}`} aria-current={route === path ? 'page' : undefined} onClick={() => setMenu(false)}><NavIcon name={icon} /><span className="nav-label">{label}</span>{path.endsWith('/notifications') && count > 0 && <span className="nav-unread">{count}</span>}</a>)}</div>)}</nav>;
   if (initializing) return <main className="not-found"><Brand /><p role="status">로그인 정보를 확인하고 있어요.</p></main>;
   if (restoreError) return <main className="not-found"><Brand /><p role="alert">{restoreError}</p><button type="button" className="secondary-button" onClick={() => {
       setRestoreError('');
@@ -217,7 +217,7 @@ export default function App() {
       notify(detailError(error));
     }
   }} />;
-  if (adminRoute && !admin) return <main className="not-found"><Brand /><h1>접근 권한이 없어요</h1><a href="#/coverage">홈으로 돌아가기</a></main>;
+  if (adminRoute && !admin) return <main className="not-found"><Brand /><h1>접근 권한이 없어요</h1><a href="/coverage">홈으로 돌아가기</a></main>;
   let screen;
   switch (route) {
     case '/coverage':
@@ -267,7 +267,7 @@ export default function App() {
       screen = <Audit notify={notify} />;
       break;
     default:
-      screen = <p>현재 이용할 수 없는 메뉴예요. <a href={`#${admin ? '/admin' : '/coverage'}`}>홈으로 이동</a></p>;
+      screen = <p>현재 이용할 수 없는 메뉴예요. <a href={`${admin ? '/admin' : '/coverage'}`}>홈으로 이동</a></p>;
   }
   const homePath = adminRoute ? '/admin' : '/coverage';
   const studentPath = adminRoute ? '/admin/rosters' : '/students';
@@ -277,5 +277,5 @@ export default function App() {
   return <div className={`app-shell ${adminRoute ? 'admin-shell' : ''}`}><a className="skip-link" href="#main-content" onClick={e => {
       e.preventDefault();
       document.getElementById('main-content')?.focus();
-    }}>본문으로 이동</a><aside className="sidebar"><Brand /><div className="sidebar-scroll">{nav}</div><a className="profile-button" href={`#${adminRoute ? '/admin/settings' : '/settings'}`}><span className="avatar" aria-hidden="true">{(account.name || '교').slice(0, 1)}</span><span className="profile-copy"><strong>{account.name}</strong><span>{admin ? '관리자' : '선생님'}</span></span></a></aside><header className="topbar"><span>{schoolName || '학교 연결'}</span><span>{year}학년도</span></header><div className="workspace"><header className="mobile-brand"><Brand onClick={() => setMenu(true)} /><span className="mobile-school">{schoolName || '학교 연결'}</span></header><main id="main-content" tabIndex={-1} className="screen"><div className="screen-heading"><div className="screen-title"><h1>{titles[route] || '메뉴 안내'}</h1>{descriptions[route] && <p className="page-description">{descriptions[route]}</p>}</div><div className="heading-tools"><div className="year-anchor"><div className={`year-return${showThisYear ? ' is-open' : ''}`}><div className="year-return-clip"><button type="button" tabIndex={showThisYear ? 0 : -1} aria-hidden={showThisYear ? undefined : true} onClick={event => { event.currentTarget.blur(); changeYear(currentYear); }}>올해</button></div></div><div className="year-switch" role="group" aria-label="학년도"><button type="button" aria-label="이전 학년도" disabled={Number(year) <= 2000} onClick={() => changeYear(Number(year) - 1)}>‹</button><strong>{year}</strong><button type="button" aria-label="다음 학년도" disabled={Number(year) >= 2100} onClick={() => changeYear(Number(year) + 1)}>›</button></div></div>{route === '/coverage' && <a className="primary-button" href="#/timetable">시간표 보기</a>}</div></div><div key={`${account.id}:${route}:${classId}:${studentId}:${year}`}>{screen}</div></main><footer className="mobile-footer"><nav className="bottom-nav" aria-label="하단 메뉴"><a href={`#${homePath}`} aria-current={route === homePath ? 'page' : undefined}>홈</a><a href={`#${studentPath}`} aria-current={route === studentPath ? 'page' : undefined}>학생</a><a href={`#${noticePath}`} aria-current={route === noticePath ? 'page' : undefined}>알림{count > 0 ? ` ${count}` : ''}</a><button type="button" onClick={() => setMenu(true)}>더보기</button></nav></footer></div>{menu && <Modal title="전체 메뉴" className="navigation-drawer" onClose={() => setMenu(false)}>{nav}</Modal>}<div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></div>;
+    }}>본문으로 이동</a><aside className="sidebar"><Brand /><div className="sidebar-scroll">{nav}</div><a className="profile-button" href={`${adminRoute ? '/admin/settings' : '/settings'}`}><span className="avatar" aria-hidden="true">{(account.name || '교').slice(0, 1)}</span><span className="profile-copy"><strong>{account.name}</strong><span>{admin ? '관리자' : '선생님'}</span></span></a></aside><header className="topbar"><span>{schoolName || '학교 연결'}</span><span>{year}학년도</span></header><div className="workspace"><header className="mobile-brand"><Brand onClick={() => setMenu(true)} /><span className="mobile-school">{schoolName || '학교 연결'}</span></header><main id="main-content" tabIndex={-1} className="screen"><div className="screen-heading"><div className="screen-title"><h1>{titles[route] || '메뉴 안내'}</h1>{descriptions[route] && <p className="page-description">{descriptions[route]}</p>}</div><div className="heading-tools"><div className="year-anchor"><div className={`year-return${showThisYear ? ' is-open' : ''}`}><div className="year-return-clip"><button type="button" tabIndex={showThisYear ? 0 : -1} aria-hidden={showThisYear ? undefined : true} onClick={event => { event.currentTarget.blur(); changeYear(currentYear); }}>올해</button></div></div><div className="year-switch" role="group" aria-label="학년도"><button type="button" aria-label="이전 학년도" disabled={Number(year) <= 2000} onClick={() => changeYear(Number(year) - 1)}>‹</button><strong>{year}</strong><button type="button" aria-label="다음 학년도" disabled={Number(year) >= 2100} onClick={() => changeYear(Number(year) + 1)}>›</button></div></div>{route === '/coverage' && <a className="primary-button" href="/timetable">시간표 보기</a>}</div></div><div key={`${account.id}:${route}:${classId}:${studentId}:${year}`}>{screen}</div></main><footer className="mobile-footer"><nav className="bottom-nav" aria-label="하단 메뉴"><a href={`${homePath}`} aria-current={route === homePath ? 'page' : undefined}>홈</a><a href={`${studentPath}`} aria-current={route === studentPath ? 'page' : undefined}>학생</a><a href={`${noticePath}`} aria-current={route === noticePath ? 'page' : undefined}>알림{count > 0 ? ` ${count}` : ''}</a><button type="button" onClick={() => setMenu(true)}>더보기</button></nav></footer></div>{menu && <Modal title="전체 메뉴" className="navigation-drawer" onClose={() => setMenu(false)}>{nav}</Modal>}<div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></div>;
 }

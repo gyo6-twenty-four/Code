@@ -28,6 +28,9 @@ service cloud.firestore {
         && request.resource.data.classIds == resource.data.classIds
         && request.resource.data.recordTypes == resource.data.recordTypes;
     }
+    function sameList(stored, next) {
+      return next is list && (stored == next || stored == null);
+    }
 
     match /schools/{schoolCode} {
       allow get: if true;
@@ -95,8 +98,8 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.accepted == false
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.email == request.auth.token.email
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.role == request.resource.data.role
-            && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.classIds == request.resource.data.classIds
-            && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.recordTypes == request.resource.data.recordTypes
+            && sameList(get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.classIds, request.resource.data.classIds)
+            && sameList(get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.recordTypes, request.resource.data.recordTypes)
             && request.resource.data.schoolCode == ''
           )
         );
@@ -163,10 +166,9 @@ service cloud.firestore {
       allow update: if signedIn()
         && resource.data.accepted == false
         && request.resource.data.accepted == true
-        && resource.data.keys().hasAny(['email'])
         && request.resource.data.email == resource.data.email
-        && request.auth.token.keys().hasAny(['email'])
-        && request.auth.token.email == resource.data.email;
+        && request.auth.token.email == resource.data.email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['accepted', 'acceptedAt']);
       allow delete: if isAdmin()
         && storedSchool(resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
     }

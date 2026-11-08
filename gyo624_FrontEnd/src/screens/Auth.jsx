@@ -40,13 +40,13 @@ export function Auth({ route, notify, onLogin }) {
   }
   return <main className={`auth-page ${route === '/login' ? 'login-page' : ''}`}><form className="auth-card" onSubmit={submit} aria-busy={busy}>
     <Brand /><p className="auth-step">{step}</p><h1>{title}</h1><p className="auth-description">{description}</p>
-    {settingPassword && !pending ? <div className="auth-fields"><p className="field-error" role="alert">먼저 초대 가입 정보를 입력해 주세요. 가입 정보는 30분 동안 유지돼요.</p><a className="inline-link" href="#/invite">초대 가입으로 이동 →</a></div> : <>
+    {settingPassword && !pending ? <div className="auth-fields"><p className="field-error" role="alert">먼저 초대 가입 정보를 입력해 주세요. 가입 정보는 30분 동안 유지돼요.</p><a className="inline-link" href="/invite">초대 가입으로 이동 →</a></div> : <>
       <div className="auth-fields">
         {route === '/invite' && <><Field label="초대 코드" name="code" required placeholder="학교에서 받은 초대 코드를 입력해 주세요" /><Field label="이름" name="name" required pattern=".*\S.*" autoComplete="name" placeholder="선생님 이름" /></>}
         {settingPassword ? <><p className="signup-identity"><strong>{pending.name}</strong><span>{pending.email}</span></p><Field label="새 비밀번호" name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" placeholder="영문, 숫자 포함 8자 이상" /><Field label="비밀번호 확인" name="confirmation" type="password" required minLength={8} maxLength={128} autoComplete="new-password" placeholder="비밀번호를 한 번 더 입력해 주세요" /></> : <Field label="학교 이메일" name="email" type="email" value={email} onChange={event => { setEmail(event.target.value); setError('') }} required autoComplete="email" placeholder="name@school.kr" />}
-        {route === '/login' && <><Field label="비밀번호" name="password" type="password" required autoComplete="current-password" placeholder="비밀번호를 입력해 주세요" /><a className="forgot-link" href="#/reset-password">비밀번호를 잊으셨나요?</a></>}
+        {route === '/login' && <><Field label="비밀번호" name="password" type="password" required autoComplete="current-password" placeholder="비밀번호를 입력해 주세요" /><a className="forgot-link" href="/reset-password">비밀번호를 잊으셨나요?</a></>}
       </div>
-      <div className="auth-footer"><p className="field-error auth-error" role={error ? 'alert' : undefined}>{error}</p><PrimaryButton type="submit" disabled={busy}>{busy ? '처리 중…' : action}</PrimaryButton><p className="auth-hint">{route === '/login' ? <a href="#/invite">초대를 받으셨나요? 초대 코드로 가입해요.</a> : route === '/invite' ? '초대 코드는 학교 관리자에게 문의해 주세요.' : settingPassword ? '영문과 숫자를 포함해 8자 이상으로 설정해 주세요.' : '가입한 학교 이메일을 입력해 주세요.'}</p>{route !== '/login' && <a className="cancel-link" href="#/login">로그인으로 돌아가기</a>}</div>
+      <div className="auth-footer"><p className="field-error auth-error" role={error ? 'alert' : undefined}>{error}</p><PrimaryButton type="submit" disabled={busy}>{busy ? '처리 중…' : action}</PrimaryButton><p className="auth-hint">{route === '/login' ? <a href="/invite">초대를 받으셨나요? 초대 코드로 가입해요.</a> : route === '/invite' ? '초대 코드는 학교 관리자에게 문의해 주세요.' : settingPassword ? '영문과 숫자를 포함해 8자 이상으로 설정해 주세요.' : '가입한 학교 이메일을 입력해 주세요.'}</p>{route !== '/login' && <a className="cancel-link" href="/login">로그인으로 돌아가기</a>}</div>
     </>}
   </form></main>
 }
@@ -60,6 +60,6 @@ export function Onboarding({ settings, setSettings, notify, account }) {
     <Brand /><p className="onboarding-step">학교 정보</p><h1>사용 환경을 설정해요</h1><p className="onboarding-description">담당 학급에 맞춰 교육24를 준비해요.</p>
 
     <div className="onboarding-fields"><Field label="학교" required pattern=".*\S.*" value={draft.school} onChange={change('school')} /><Field label="담당 학년" value={draft.grade} onChange={change('grade')}>{[1, 2, 3, 4, 5, 6].map(grade => <option key={grade} value={grade}>{grade}학년</option>)}</Field><Field label="담당 반" required value={draft.classroom} onChange={change('classroom')}>{Array.from({ length: 99 }, (_, i) => <option key={i} value={i + 1}>{i + 1}반</option>)}</Field></div>
-    <p className="onboarding-hint">학급은 나중에 설정에서 바꿀 수 있어요.</p><PrimaryButton type="submit">설정 저장하기</PrimaryButton><a className="cancel-link" href={`#${canSettingsReturn(account)}`}>취소하고 설정으로</a>
+    <p className="onboarding-hint">학급은 나중에 설정에서 바꿀 수 있어요.</p><PrimaryButton type="submit">설정 저장하기</PrimaryButton><a className="cancel-link" href={`${canSettingsReturn(account)}`}>취소하고 설정으로</a>
   </form><p className="onboarding-after desktop-only">계정 설정은 언제든 바꿀 수 있어요.</p></main>
 }
