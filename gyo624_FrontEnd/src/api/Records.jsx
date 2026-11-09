@@ -102,17 +102,17 @@ export function Observation({
     setCategory(record.category);
   }
   const fields = <><Field label="관찰 날짜" type="date" required max={todayValue()} value={date} onChange={e => changed(() => setDate(e.target.value))} /><Field label="관찰 범주" value={category} onChange={e => changed(() => setCategory(e.target.value))}>{Object.entries(categories).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Field><Field label={batch ? '공통 관찰 내용' : '관찰 내용'} multiline required={!batch} maxLength={2000} value={content} onChange={e => changed(() => setContent(e.target.value))} placeholder="확인한 학생의 말과 행동을 기록해 주세요." /></>;
-  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={value => {
+  return <section className="api-stack"><div className="api-toolbar"><div className="api-toolbar-field"><ClassSelect classes={classes} value={classId} onChange={value => {
         selectClass(value);
         setSelected({});
         setValidated(false);
         setEditor(null);
         setContent('');
-      }} />{!batch && <StudentSelect students={students} value={studentId} onChange={value => {
+      }} /></div>{!batch && <div className="api-toolbar-field"><StudentSelect students={students} value={studentId} onChange={value => {
         selectStudent(value);
         setEditor(null);
         setContent('');
-      }} />}</div>
+      }} /></div>}</div>
     {batch ? <form className="api-panel api-stack" onSubmit={submit}>{fields}<ApiState state={students}>{Array.isArray(students.data) && students.data.map(student => <div className="api-panel" key={student.id}><label className="api-check"><input type="checkbox" checked={Object.hasOwn(selected, student.id)} onChange={e => changed(() => setSelected(previous => {
               const next = {
                 ...previous
@@ -124,7 +124,7 @@ export function Observation({
             [student.id]: e.target.value
           }))} />}</div>)}</ApiState><Pagination state={students} /><p>{Object.keys(selected).length}명 선택, {validated ? '사전 검증 완료' : '저장 전 사전 검증이 필요해요.'}</p>{localError && <p role="alert" className="field-error">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={admin || !classId || !Object.keys(selected).length}>{validated ? '선택한 관찰 저장하기' : '입력 내용 검증하기'}</SaveButton></form> : <>
       {!admin && <form className="api-panel api-stack" onSubmit={submit}>{fields}{localError && <p className="field-error" role="alert">{localError}</p>}<SaveButton mutation={mutation} showError={false} disabled={!studentId}>관찰 저장하기</SaveButton></form>}
-      <ApiState state={list} empty={studentId ? '저장된 관찰이 없어요.' : '학생을 선택해 주세요.'}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel api-stack" key={item.id}><header className="exchange-heading"><strong>{item.observedAt}, {categories[item.category] || item.category}</strong></header><p className="detail-copy">{item.content}</p>{!admin && <div className="exchange-actions"><button className="secondary-button" type="button" onClick={() => edit(item)}>수정</button><button className="text-button danger" type="button" onClick={() => {
+      <ApiState state={list} empty={studentId ? '저장된 관찰이 없어요.' : '학생을 선택해 주세요.'}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel api-stack" key={item.id}><header className="exchange-heading"><strong>{item.observedAt}, {categories[item.category] || item.category}</strong></header><p className="detail-copy">{item.content}</p>{!admin && <div className="record-actions" aria-label="관찰 기록 작업"><button className="secondary-button record-action-button" type="button" onClick={() => edit(item)}>수정</button><button className="danger-button record-action-button" type="button" onClick={() => {
               setEditor(item);
               setDeleting(true);
             }}>삭제</button></div>}</article>)}</ApiState><Pagination state={list} />
@@ -167,7 +167,7 @@ export function Career({
   const mutation = useMutation(notify),
     [draft, setDraft] = useState(null),
     [remove, setRemove] = useState(false);
-  return <section className="api-stack"><div className="api-toolbar"><ClassSelect classes={classes} value={classId} onChange={selectClass} /><StudentSelect students={students} value={studentId} onChange={selectStudent} /></div>{account.role === 'TEACHER' && <PrimaryButton disabled={!studentId} onClick={() => {
+  return <section className="api-stack"><div className="api-toolbar"><div className="api-toolbar-field"><ClassSelect classes={classes} value={classId} onChange={selectClass} /></div><div className="api-toolbar-field"><StudentSelect students={students} value={studentId} onChange={selectStudent} /></div></div>{account.role === 'TEACHER' && <PrimaryButton disabled={!studentId} onClick={() => {
       setRemove(false);
       setDraft({
         schoolYear: year,
@@ -177,13 +177,13 @@ export function Career({
         content: '',
         interests: []
       });
-    }}>진로 기록 추가</PrimaryButton>}<ApiState state={list}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{item.title}</h2><p>{item.activityDate}, {(item.interests || []).join(', ')}</p><p className="detail-copy">{item.content}</p>{account.role === 'TEACHER' && <button type="button" className="text-button" onClick={() => {
+    }}>진로 기록 추가</PrimaryButton>}<ApiState state={list}>{Array.isArray(list.data) && list.data.map(item => <article className="api-panel" key={item.id}><h2>{item.title}</h2><p>{item.activityDate}, {(item.interests || []).join(', ')}</p><p className="detail-copy">{item.content}</p><div className="record-actions" aria-label="진로 기록 작업">{account.role === 'TEACHER' && <button type="button" className="secondary-button record-action-button" onClick={() => {
           setRemove(false);
           setDraft(item);
-        }}>수정</button>}<button type="button" className="text-button danger" onClick={() => {
+        }}>수정</button>}<button type="button" className="danger-button record-action-button" onClick={() => {
           setRemove(true);
           setDraft(item);
-        }}>삭제</button></article>)}</ApiState><Pagination state={list} />{draft && <Modal title={remove ? '진로 기록 삭제' : '진로 기록'} onClose={() => setDraft(null)}><form className="api-stack" onSubmit={async e => {
+        }}>삭제</button></div></article>)}</ApiState><Pagination state={list} />{draft && <Modal title={remove ? '진로 기록 삭제' : '진로 기록'} onClose={() => setDraft(null)}><form className="api-stack" onSubmit={async e => {
         e.preventDefault();
         const body = {
           schoolYear: draft.schoolYear,

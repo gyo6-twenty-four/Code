@@ -430,8 +430,8 @@ export default function Setek({ account, notify, year, school }) {
       source={<WritingPane variant="source" title="작성 자료" description="수업 활동과 학생의 변화에서 확인한 사실을 입력하세요.">
         <fieldset ref={sourceRef} className={hasTrace ? 'writing-input-lock setek-source-scroll' : 'writing-input-lock'} disabled={generating || busy} aria-label="초안 입력 자료">
           <div className="api-toolbar api-stack">
-            <ClassSelect classes={classes} value={form.classId} onChange={id => { students.setPage(1); patch({ classId: id, studentId: '' }) }} empty="이 학년도에 등록된 학급이 없어요." />
-            <StudentSelect students={students} value={form.studentId} onChange={id => patch({ studentId: id })} />
+            <div className="api-toolbar-field"><ClassSelect classes={classes} value={form.classId} onChange={id => { students.setPage(1); patch({ classId: id, studentId: '' }) }} empty="이 학년도에 등록된 학급이 없어요." /></div>
+            <div className="api-toolbar-field"><StudentSelect students={students} value={form.studentId} onChange={id => patch({ studentId: id })} /></div>
           </div>
           <ol className="setek-steps">{inputSteps.map((item, index) => <li key={item.id}><button type="button" className={`setek-step${item.id === step ? ' is-current' : ''}${index < stepIndex ? ' is-done' : ''}`} aria-current={item.id === step ? 'step' : undefined} disabled={index > stepIndex} onClick={() => { if (index <= stepIndex) { setStep(item.id); setStepError('') } }}>{index + 1}. {item.label}</button></li>)}</ol>
           {step === 'curriculum' && <section className="api-panel api-stack"><h2>교육과정</h2><ChoiceGroup label="교육과정">{curricula.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.curriculumId === item.id} onClick={() => { setSnapshots([]); setSubjectPage(1); setStandardPage(1); patch({ curriculumId: item.id, subjectId: '', standardIds: [] }) }}><strong>{item.name}</strong><span>{item.year ? `${item.year}년` : '연도 미입력'}{item.source === 'custom' ? ' · 학교에서 추가' : ''}</span></button>)}</ChoiceGroup></section>}
