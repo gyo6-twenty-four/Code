@@ -427,3 +427,61 @@ a.primary-button { text-decoration: none; }
   .metric-card .metric-value { font-size: 32px; }
   .api-stack .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 }
+
+.field .setek-linked-result,
+.field .setek-source-field {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 14px;
+}
+
+.field .setek-linked-result {
+  min-height: 260px;
+  line-height: 1.8;
+}
+
+.field .setek-source-field {
+  min-height: 140px;
+  line-height: 1.65;
+}
+
+.setek-source-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.setek-linked-sentence {
+  cursor: pointer;
+  text-decoration: underline 2px #e6ad00;
+  text-underline-offset: 0.22em;
+}
+
+.setek-linked-sentence[aria-pressed="true"] {
+  color: #332500;
+  background: #ffdf63;
+  border-radius: 3px;
+}
+
+.setek-linked-sentence:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.setek-source-underline {
+  color: inherit;
+  background: transparent;
+  text-decoration: underline 2px #d52d38;
+  text-underline-offset: 0.2em;
+}
+
+@media (max-width: 480px) {
+  .field .setek-linked-result { min-height: 180px; }
+}
+
+@media (min-width: 1051px) {
+  .setek .writing-pane--source .writing-pane-body:has(> .setek-source-scroll) {
+    max-block-size: max(18rem, calc(100dvh - 14rem));
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}

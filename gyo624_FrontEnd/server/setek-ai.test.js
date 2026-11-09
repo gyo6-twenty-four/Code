@@ -160,3 +160,44 @@ test('Gemini와 Anthropic 응답을 같은 형식으로 읽는다', async () => 
   }, { AI_PROVIDER: 'anthropic' }, createRateLimiter({ limit: 8, windowMs: 600000, now: () => 9000 })))
   assert.equal((await anthropic.json()).content, '식을 변형함.')
 })
+
+test('짧은 초안을 보강한 뒤에도 원문 입력란과 문자 위치를 반환한다', async () => {
+  const first = '12.3cm와 12.8cm를 비교했다.'
+  const second = '차이를 0.5cm로 계산했다.'
+  let calls = 0
+  const response = await handleSetekRequest(request({
+    ...payload,
+    includeSources: true,
+    lesson: { lessonActivities: `  ${first}\n  ${second}  ` },
+    growth: { learned: first },
+  }), deps(async (url, options) => {
+    if (String(url).includes('identitytoolkit')) return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+    const prompt = JSON.parse(options.body).messages[1].content
+    assert.ok(prompt.includes(JSON.stringify([[1, first], [2, second]])))
+    calls++
+    if (calls === 1) {
+      const content = JSON.stringify({ sentences: [{ text: '측정값을 비교함.', sourceIds: [1] }], notes: [] })
+      return jsonResponse({ choices: [{ message: { content } }] })
+    }
+    const content = JSON.stringify({ sentences: [{ text: '두 측정값을 비교하고 차이를 계산함.', sourceIds: [1, 2] }], notes: [] })
+    return jsonResponse({ choices: [{ message: { content } }] })
+  }))
+  assert.equal(response.status, 200)
+  assert.equal(calls, 2)
+  const result = await response.json()
+  assert.equal(result.content, '두 측정값을 비교하고 차이를 계산함.')
+  assert.deepEqual(result.sentences[0].sources, [
+    { field: 'lesson.lessonActivities', start: 0, text: first },
+    { field: 'lesson.lessonActivities', start: first.length + 3, text: second },
+  ])
+})
+
+test('입력에 없는 원문 번호는 근거로 반환하지 않는다', async () => {
+  const response = await handleSetekRequest(request({ ...payload, includeSources: true }), deps(async url => {
+    if (String(url).includes('identitytoolkit')) return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+    const content = JSON.stringify({ sentences: [{ text: '그래프를 설명함.', sourceIds: [99] }], notes: [] })
+    return jsonResponse({ choices: [{ message: { content } }] })
+  }))
+  assert.equal(response.status, 502)
+  assert.equal((await response.json()).sentences, undefined)
+})
