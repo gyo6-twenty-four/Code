@@ -23,6 +23,9 @@ describe('backend student roster', () => {
     assert.equal(page.data[0].number, 1);
     assert.equal(page.data[0].schoolYear, 2026);
     assert.equal(page.meta.totalElements, 2);
+    const neis = rosterPage(roster, '/classes/neis:2:4/students?schoolYear=2026&page=1&size=20');
+    assert.equal(neis.data[0].name, '송성준');
+    assert.throws(() => rosterPage(roster, '/classes/neis:3:1/students'), /학급/);
   });
 
   it('rejects a row whose class labels disagree', () => {

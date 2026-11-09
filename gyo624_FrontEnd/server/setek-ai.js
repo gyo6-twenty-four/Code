@@ -1,4 +1,4 @@
-import { SYSTEM_PROMPT, buildUserPrompt, cleanGeneratedText, countUnits, validateGenerationPayload } from '../src/lib/setek.js'
+import { SYSTEM_PROMPT, buildUserPrompt, countUnits, splitGeneratedDraft, validateGenerationPayload } from '../src/lib/setek.js'
 
 const PROVIDERS = {
   openai: {
@@ -211,11 +211,13 @@ export async function handleSetekRequest(request, { env = {}, fetchImpl = fetch,
       maxTokens,
       fetchImpl,
     })
-    const content = cleanGeneratedText(generated)
-    if (!content) return withCors(json({ message: 'AI가 빈 초안을 돌려줬어요. 다시 생성해 주세요.' }, 502), request, allowedOrigins)
+    const draft = splitGeneratedDraft(generated)
+    if (!draft.content && draft.notes.length === 0) return withCors(json({ message: 'AI가 빈 초안을 돌려줬어요. 다시 생성해 주세요.' }, 502), request, allowedOrigins)
+    const content = draft.content
     const count = countUnits(content, parsed.value.unit)
     return withCors(json({
       content,
+      reviewNotes: draft.notes,
       count,
       characterCount: countUnits(content, 'characters'),
       byteCount: countUnits(content, 'bytes'),

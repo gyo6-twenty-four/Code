@@ -31,6 +31,11 @@ service cloud.firestore {
     function sameList(stored, next) {
       return next is list && (stored == next || stored == null);
     }
+    function optionalTeaching(data) {
+      return (!data.keys().hasAny(['homeroomClassId']) || (data.homeroomClassId is string && data.homeroomClassId.size() <= 80))
+        && (!data.keys().hasAny(['subjectIds']) || (data.subjectIds is list && data.subjectIds.size() <= 30))
+        && (!data.keys().hasAny(['teachingClassIds']) || (data.teachingClassIds is list && data.teachingClassIds.size() <= 60));
+    }
 
     match /schools/{schoolCode} {
       allow get: if true;
@@ -133,6 +138,7 @@ service cloud.firestore {
           && request.resource.data.officeCode is string
           && request.resource.data.officeCode.size() > 0
           && request.resource.data.officeCode.size() <= 10
+          && optionalTeaching(request.resource.data)
         )
         || (
           request.auth.uid == uid
@@ -148,6 +154,7 @@ service cloud.firestore {
               && blankSchool(request.resource.data)
             )
           )
+          && optionalTeaching(request.resource.data)
         )
       );
       allow delete: if false;
@@ -158,19 +165,24 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isAdmin()
         && request.resource.data.email is string
+        && request.resource.data.email.size() > 3
+        && request.resource.data.email.size() <= 160
         && request.resource.data.accepted == false
         && request.resource.data.role in ['TEACHER', 'ADMIN']
-        && storedSchool(request.resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
-      allow update: if isAdmin()
-        && storedSchool(resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
+        && (
+          request.resource.data.role == 'ADMIN' && storedSchool(request.resource.data) == ''
+          || request.resource.data.role == 'TEACHER'
+            && request.resource.data.schoolCode is string
+            && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$')
+        );
+      allow update: if isAdmin();
       allow update: if signedIn()
         && resource.data.accepted == false
         && request.resource.data.accepted == true
         && request.resource.data.email == resource.data.email
         && request.auth.token.email == resource.data.email
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['accepted', 'acceptedAt']);
-      allow delete: if isAdmin()
-        && storedSchool(resource.data) == storedSchool(get(userPath(request.auth.uid)).data);
+      allow delete: if isAdmin();
     }
 
     function setekText(value, maxBytes) {

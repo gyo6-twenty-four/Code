@@ -33,6 +33,8 @@
 .writing-result-label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--fg-secondary); }
 .writing-pane .setek-result { background: var(--bg-primary); }
 .writing-check { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.writing-check ul { margin: 8px 0 0; padding-left: 1.1em; }
+.writing-check li + li { margin-top: 4px; }
 .writing-metadata { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .writing-metadata p { margin: 0; }
 .writing-input-lock { min-width: 0; margin: 0; padding: 0; border: 0; }

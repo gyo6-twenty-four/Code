@@ -370,10 +370,15 @@ describe('Standalone UI workspace', () => {
     const saved = (await store.handle('/settings/school', {
       actorId: teacherId,
       method: 'PATCH',
-      body: { name: '한빛초등학교', schoolCode: 'b7010083', officeCode: 'B10', officeName: '서울', kind: '초등학교' }
+      body: { name: '한빛중학교', schoolCode: 'b7010083', officeCode: 'B10', officeName: '서울', kind: '중학교' }
     })).data;
     assert.equal(saved.schoolCode, 'B7010083');
-    assert.equal((await store.handle('/me', { actorId: teacherId })).data.school.name, '한빛초등학교');
+    assert.equal((await store.handle('/me', { actorId: teacherId })).data.school.name, '한빛중학교');
+    await assert.rejects(store.handle('/settings/school', {
+      actorId: teacherId,
+      method: 'PATCH',
+      body: { name: '한빛초등학교', schoolCode: 'B7010001', officeCode: 'B10', kind: '초등학교' }
+    }), /중학교와 고등학교/);
     const invited = (await store.handle('/admin/teachers/invitations', {
       actorId: adminId,
       method: 'POST',
@@ -391,14 +396,63 @@ describe('Standalone UI workspace', () => {
     await store.handle('/settings/school', {
       actorId: setupId,
       method: 'PATCH',
-      body: { name: '한빛초등학교', schoolCode: 'B7010083', officeCode: 'B10' }
+      body: { name: '한빛중학교', schoolCode: 'B7010083', officeCode: 'B10', kind: '중학교' }
+    });
+    await assert.rejects(store.handle('/onboarding/complete', { actorId: setupId, method: 'POST', body: {} }), /과목/);
+    await store.handle('/settings/teaching', {
+      actorId: setupId,
+      method: 'PATCH',
+      body: { homeroomClassId: 'neis:2:1', subjectIds: ['2022:middle:국어'], teachingClassIds: ['neis:2:1', 'neis:2:2'] }
     });
     assert.equal((await store.handle('/onboarding/complete', { actorId: setupId, method: 'POST', body: {} })).data.onboardingCompleted, true);
+    assert.equal((await store.handle('/me', { actorId: setupId })).data.homeroomClassId, 'neis:2:1');
     assert.equal((await store.handle('/me', { actorId: adminId })).data.school.name, '');
     const listed = (await store.handle('/admin/teachers', { actorId: adminId })).data;
     assert.equal(listed.some(item => item.id === teacherId), true);
     await store.handle(`/admin/teachers/${teacherId}`, { actorId: adminId, method: 'DELETE' });
     assert.equal((await store.handle('/admin/teachers', { actorId: adminId })).data.some(item => item.id === teacherId), false);
+  });
+  it('keeps a teacher assignment and clears it when the school changes', async () => {
+    const { store } = setup();
+    const adminId = await login(store, 'admin');
+    const teacherId = await login(store, 'teacher2');
+    await assert.rejects(store.handle('/settings/teaching', {
+      actorId: adminId,
+      method: 'PATCH',
+      body: { subjectIds: ['2022:middle:국어'], teachingClassIds: ['neis:1:1'] }
+    }), /교사/);
+    await store.handle('/settings/school', {
+      actorId: teacherId,
+      method: 'PATCH',
+      body: { name: '한빛중학교', schoolCode: 'B7010083', officeCode: 'B10', kind: '중학교' }
+    });
+    const saved = (await store.handle('/settings/teaching', {
+      actorId: teacherId,
+      method: 'PATCH',
+      body: { homeroomClassId: 'neis:1:1', subjectIds: ['2022:middle:국어'], teachingClassIds: ['neis:1:1'] }
+    })).data;
+    assert.deepEqual(saved.subjectIds, ['2022:middle:국어']);
+    await store.handle('/settings/school', {
+      actorId: teacherId,
+      method: 'PATCH',
+      body: { name: '한빛중학교', schoolCode: 'B7010083', officeCode: 'B10', kind: '중학교' }
+    });
+    assert.equal((await store.handle('/settings/teaching', { actorId: teacherId })).data.homeroomClassId, 'neis:1:1');
+    await store.handle('/settings/school', {
+      actorId: teacherId,
+      method: 'PATCH',
+      body: { name: '다른고등학교', schoolCode: 'B0000002', officeCode: 'B10', kind: '고등학교' }
+    });
+    const cleared = (await store.handle('/settings/teaching', { actorId: teacherId })).data;
+    assert.equal(cleared.homeroomClassId, '');
+    assert.deepEqual(cleared.teachingClassIds, []);
+    assert.deepEqual(cleared.subjectIds, []);
+    assert.deepEqual((await store.handle('/me', { actorId: teacherId })).data.classIds, []);
+    await assert.rejects(store.handle('/settings/teaching', {
+      actorId: teacherId,
+      method: 'PATCH',
+      body: { subjectIds: [], teachingClassIds: ['neis:1:1'] }
+    }), /과목/);
   });
   it('lets an admin limit which report types a teacher can write', async () => {
     const { store } = setup();
@@ -466,6 +520,60 @@ describe('Standalone UI workspace', () => {
     assert.equal((await restored.handle('/timetables?classId=demo-class', { actorId })).data[0].id, 'kept-lesson');
     const teacherId = await login(restored);
     assert.equal((await restored.handle('/notifications', { actorId: teacherId })).data.length, 0);
+  });
+  it('separates classes, teachers, and dashboard totals by school', async () => {
+    const { store } = setup();
+    const adminId = await login(store, 'admin');
+    const firstTeacher = await login(store, 'teacher');
+    const secondTeacher = await login(store, 'teacher2');
+    const hanbit = { name: '한빛중학교', schoolCode: 'B7010083', officeCode: 'B10', officeName: '서울', kind: '중학교' };
+    const other = { name: '다른고등학교', schoolCode: 'B0000002', officeCode: 'B10', kind: '고등학교' };
+    await store.handle('/settings/school', { actorId: firstTeacher, method: 'PATCH', body: hanbit });
+    await store.handle('/settings/school', { actorId: secondTeacher, method: 'PATCH', body: other });
+    const firstClass = (await store.handle('/admin/classes', {
+      actorId: adminId,
+      method: 'POST',
+      body: { schoolYear: 2026, grade: 1, classNumber: 1, school: hanbit }
+    })).data;
+    const secondClass = (await store.handle('/admin/classes', {
+      actorId: adminId,
+      method: 'POST',
+      body: { schoolYear: 2026, grade: 1, classNumber: 1, school: other }
+    })).data;
+    assert.equal(firstClass.schoolCode, 'B7010083');
+    assert.notEqual(firstClass.id, secondClass.id);
+    assert.deepEqual((await store.handle('/classes?schoolYear=2026&schoolCode=B7010083', { actorId: adminId })).data.map(item => item.id), [firstClass.id]);
+    await addStudent(store, adminId, firstClass.id, '한빛 학생', 1);
+    await store.handle('/admin/teachers/invitations', {
+      actorId: adminId,
+      method: 'POST',
+      body: { email: 'hanbit-teacher@school.kr', name: '한빛 교사', role: 'TEACHER', classIds: [], school: hanbit }
+    });
+    const schools = (await store.handle('/admin/schools?schoolYear=2026', { actorId: adminId })).data;
+    assert.equal(schools.find(item => item.schoolCode === 'B7010083').teacherCount, 1);
+    assert.equal(schools.find(item => item.schoolCode === 'B7010083').classCount, 1);
+    assert.equal(schools.find(item => item.schoolCode === 'B7010083').studentCount, 1);
+    assert.equal(schools.find(item => item.schoolCode === 'B7010083').pendingInvitations, 1);
+    assert.equal(schools.find(item => item.schoolCode === 'B0000002').classCount, 1);
+    assert.equal(schools.find(item => item.schoolCode === 'B0000002').studentCount, 0);
+    const summary = (await store.handle('/admin/dashboard/summary?schoolYear=2026&schoolCode=B7010083', { actorId: adminId })).data;
+    assert.equal(summary.classCount, 1);
+    assert.equal(summary.studentCount, 1);
+    assert.equal(summary.teacherCount, 1);
+    assert.equal(summary.pendingInvitations, 1);
+    const listed = (await store.handle('/admin/teachers?schoolCode=B7010083', { actorId: adminId })).data;
+    assert.equal(listed.some(item => item.id === firstTeacher), true);
+    assert.equal(listed.some(item => item.id === secondTeacher), false);
+    assert.equal(listed.some(item => item.email === 'hanbit-teacher@school.kr'), true);
+    assert.equal((await store.handle('/admin/dashboard/summary?schoolYear=2026', { actorId: adminId })).data.classCount, 2);
+    const logs = (await store.handle('/admin/audit-logs?schoolCode=B7010083', { actorId: adminId })).data;
+    assert.equal(logs.length > 0, true);
+    assert.equal(logs.every(item => item.schoolCode === 'B7010083'), true);
+    await assert.rejects(store.handle('/admin/timetables/entries', {
+      actorId: adminId,
+      method: 'POST',
+      body: { classId: firstClass.id, teacherId: secondTeacher, schoolYear: 2026, semester: 1, dayOfWeek: 'MONDAY', period: 1, subject: '국어' }
+    }), /학교/);
   });
 
 });

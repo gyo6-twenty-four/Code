@@ -5,16 +5,16 @@ import { todayValue } from './components/field-utils';
 import Auth, { Onboarding } from './api/Auth';
 import { Observation, Career } from './api/Records';
 import { Reports, RecordEditor, Transfer } from './api/Reports';
-import { AdminHome, Teachers, Rosters, Audit } from './api/Admin';
+import { AdminHome, AdminSchoolSwitch, Teachers, Rosters, Audit } from './api/Admin';
 import Settings, { Notifications } from './api/Settings';
 import Timetable from './api/Timetable';
 import Setek from './api/Setek';
 import SetekAdmin from './api/SetekAdmin';
-import { clearSession, detailError, onSessionExpired, refreshToken, request, restoreSession } from './api/client';
-import { usePage, useResource } from './api/hooks';
+import { clearSession, detailError, onSessionExpired, refreshToken, request, resource, restoreSession } from './api/client';
+import { mergeClassLists, useNeisClasses, usePage, useResource } from './api/hooks';
 import { assertUser } from './api/model';
 import { onNeisSchool, readNeisSchool, writeNeisSchool } from './api/neis';
-import { toNeisSchool } from './lib/school';
+import { readAdminSchool, toNeisSchool, writeAdminSchool } from './lib/school';
 import './App.css';
 import './components/fields.css';
 import './ux.css';
@@ -37,35 +37,13 @@ const titles = {
   '/admin/transfer': '학생 기록 이관',
   '/notifications': '알림함',
   '/settings': '설정',
-  '/admin': '학교 운영 현황',
+  '/admin': '담당 학교',
   '/admin/teachers': '교사 계정 관리',
   '/admin/rosters': '학생 명단 관리',
   '/admin/timetable': '시간표 관리',
   '/admin/audit': '변경 이력',
   '/admin/settings': '설정',
   '/admin/notifications': '알림함'
-};
-const descriptions = {
-  '/coverage': '이번 달 수업과 선택한 날의 교시를 확인해요.',
-  '/timetable': '요일과 교시별 수업을 확인해요.',
-  '/students': '학생 한 명의 관찰을 이어서 적어요.',
-  '/observations/batch': '같은 수업의 관찰을 학급 단위로 적어요.',
-  '/career': '진로 활동과 상담 내용을 남겨요.',
-  '/reports': '학생별 생기부 작성 상태를 봐요.',
-  '/reports/edit': '관찰을 바탕으로 항목을 다듬어요.',
-  '/reports/check': '저장 전에 내용을 확인해요.',
-  '/setek': '과목과 성취기준, 수업 활동을 바탕으로 세부능력 및 특기사항 초안을 만들어요.',
-  '/admin/setek': '교과세특에 쓸 과목, 성취기준, 분량 상한을 관리해요.',
-  '/admin/transfer': '학년도가 바뀐 학생의 기록을 옮겨요.',
-  '/notifications': '확인하지 않은 알림을 모아요.',
-  '/settings': '이름, 알림, 화면 테마, 로그인 정보를 바꿔요.',
-  '/admin': '학교 기록 작성이 어디까지 됐는지 봐요.',
-  '/admin/teachers': '이 학교의 교사 계정을 보고, 초대와 제거를 관리해요.',
-  '/admin/rosters': '학급과 학생 명단을 관리해요.',
-  '/admin/timetable': '학급 시간표를 확인해요.',
-  '/admin/audit': '누가 무엇을 바꿨는지 확인해요.',
-  '/admin/settings': '이름, 알림, 화면 테마, 로그인 정보를 바꿔요.',
-  '/admin/notifications': '확인하지 않은 알림을 모아요.'
 };
 function NavIcon({ name }) {
   const icons = {
@@ -99,13 +77,20 @@ export default function App() {
     [neisSchool, setNeisSchool] = useState(readNeisSchool);
   useEffect(() => onNeisSchool(() => setNeisSchool(readNeisSchool())), []);
   useEffect(() => {
+    if (account?.role === 'ADMIN') {
+      if (readNeisSchool()) writeNeisSchool(null);
+      return;
+    }
     const next = toNeisSchool(account?.school);
     if (next) writeNeisSchool(next);
   }, [account]);
   const currentYear = todayValue().slice(0, 4);
   const [year, setYear] = useState(currentYear),
     [classId, setClassId] = useState(''),
-    [studentId, setStudentId] = useState('');
+    [studentId, setStudentId] = useState(''),
+    [adminSchool, setAdminSchool] = useState(readAdminSchool);
+  const admin = account?.role === 'ADMIN';
+  const schools = useResource(admin ? resource('/admin/schools', { schoolYear: year }) : null);
   useEffect(() => onSessionExpired(() => {
     setAccount(null);
     setClassId('');
@@ -138,25 +123,41 @@ export default function App() {
   useEffect(() => {
     document.title = `${titles[route] || (route === '/onboarding' ? '처음 설정' : '학교 계정')}, 교육24`;
   }, [route]);
-  const classes = usePage(account ? '/classes' : null, {
-    schoolYear: year
+  const storedClasses = usePage(account ? '/classes' : null, {
+    schoolYear: year,
+    ...(admin && adminSchool?.schoolCode ? { schoolCode: adminSchool.schoolCode } : {})
   });
+  const catalogSchool = admin ? toNeisSchool(adminSchool) : null;
+  const catalogClasses = useNeisClasses(catalogSchool, year);
+  const classes = catalogSchool ? {
+    loading: catalogClasses.loading,
+    error: catalogClasses.error,
+    data: catalogClasses.loading || catalogClasses.error ? null : mergeClassLists(storedClasses.data || [], catalogClasses.data),
+    reload: () => {
+      catalogClasses.reload();
+      storedClasses.reload();
+    }
+  } : storedClasses;
   const students = usePage(account && classId ? `/classes/${classId}/students` : null, {
     schoolYear: year
   });
   const unread = useResource(account ? '/notifications/unread-count' : null);
-  const admin = account?.role === 'ADMIN',
-    adminRoute = route.startsWith('/admin');
+  const adminRoute = route.startsWith('/admin');
   function selectClass(id) {
     setClassId(id);
     setStudentId('');
     students.setPage(1);
   }
+  function selectSchool(school) {
+    setAdminSchool(writeAdminSchool(school));
+    storedClasses.setPage(1);
+    selectClass('');
+  }
   function changeYear(next) {
     const number = Number(next);
     if (!Number.isInteger(number) || number < 2000 || number > 2100) return;
     setYear(String(number));
-    classes.setPage(1);
+    storedClasses.setPage(1);
     selectClass('');
   }
   function onLogin(value) {
@@ -202,7 +203,11 @@ export default function App() {
     selectStudent: setStudentId,
     year,
     notify,
-    query
+    query,
+    adminSchool,
+    schools,
+    selectSchool,
+    reloadSchools: schools.reload
   };
   const count = typeof unread.data === 'number' ? unread.data : unread.data?.count ?? unread.data?.unreadCount ?? 0;
   const menuGroups = adminRoute ? adminMenu : teacherMenu;
@@ -269,7 +274,7 @@ export default function App() {
       screen = <Notifications notify={notify} refreshUnread={unread.reload} />;
       break;
     case '/admin':
-      screen = <AdminHome year={year} />;
+      screen = <AdminHome year={year} adminSchool={adminSchool} schools={schools} selectSchool={selectSchool} />;
       break;
     case '/admin/teachers':
       screen = <Teachers {...common} />;
@@ -278,7 +283,7 @@ export default function App() {
       screen = <Rosters {...common} />;
       break;
     case '/admin/audit':
-      screen = <Audit notify={notify} />;
+      screen = <Audit notify={notify} adminSchool={adminSchool} />;
       break;
     default:
       screen = <p>현재 이용할 수 없는 메뉴예요. <a href={`${admin ? '/admin' : '/coverage'}`}>홈으로 이동</a></p>;
@@ -286,10 +291,12 @@ export default function App() {
   const homePath = adminRoute ? '/admin' : '/coverage';
   const studentPath = adminRoute ? '/admin/rosters' : '/students';
   const noticePath = adminRoute ? '/admin/notifications' : '/notifications';
-  const schoolName = [account.school?.name, account.schoolName, neisSchool?.schoolName].find(value => typeof value === 'string' && value.trim()) || '';
+  const schoolName = admin ? '' : [account.school?.name, account.schoolName, neisSchool?.schoolName].find(value => typeof value === 'string' && value.trim()) || '';
+  const headerLabel = admin ? '관리자' : schoolName || '학교 연결';
+  const renderSchoolSwitch = () => admin ? <AdminSchoolSwitch school={adminSchool} schools={schools} onChange={selectSchool} notify={notify} /> : null;
   const showThisYear = String(year) !== currentYear;
   return <div className={`app-shell ${adminRoute ? 'admin-shell' : ''}`}><a className="skip-link" href="#main-content" onClick={e => {
       e.preventDefault();
       document.getElementById('main-content')?.focus();
-    }}>본문으로 이동</a><aside className="sidebar"><Brand /><div className="sidebar-scroll">{nav}</div><a className="profile-button" href={`${adminRoute ? '/admin/settings' : '/settings'}`}><span className="avatar" aria-hidden="true">{(account.name || '교').slice(0, 1)}</span><span className="profile-copy"><strong>{account.name}</strong><span>{admin ? '관리자' : '선생님'}</span></span></a></aside><header className="topbar"><span>{schoolName || '학교 연결'}</span><span>{year}학년도</span></header><div className="workspace"><header className="mobile-brand"><Brand onClick={() => setMenu(true)} /><span className="mobile-school">{schoolName || '학교 연결'}</span></header><main id="main-content" tabIndex={-1} className="screen"><div className="screen-heading"><div className="screen-title"><h1>{titles[route] || '메뉴 안내'}</h1>{descriptions[route] && <p className="page-description">{descriptions[route]}</p>}</div><div className="heading-tools"><div className="year-anchor"><div className={`year-return${showThisYear ? ' is-open' : ''}`}><div className="year-return-clip"><button type="button" tabIndex={showThisYear ? 0 : -1} aria-hidden={showThisYear ? undefined : true} onClick={event => { event.currentTarget.blur(); changeYear(currentYear); }}>올해</button></div></div><div className="year-switch" role="group" aria-label="학년도"><button type="button" aria-label="이전 학년도" disabled={Number(year) <= 2000} onClick={() => changeYear(Number(year) - 1)}>‹</button><strong>{year}</strong><button type="button" aria-label="다음 학년도" disabled={Number(year) >= 2100} onClick={() => changeYear(Number(year) + 1)}>›</button></div></div>{route === '/coverage' && <a className="primary-button" href="/timetable">시간표 보기</a>}</div></div><div key={`${account.id}:${route}:${classId}:${studentId}:${year}`}>{screen}</div></main><footer className="mobile-footer"><nav className="bottom-nav" aria-label="하단 메뉴"><a href={`${homePath}`} aria-current={route === homePath ? 'page' : undefined}>홈</a><a href={`${studentPath}`} aria-current={route === studentPath ? 'page' : undefined}>학생</a><a href={`${noticePath}`} aria-current={route === noticePath ? 'page' : undefined}>알림{count > 0 ? ` ${count}` : ''}</a><button type="button" onClick={() => setMenu(true)}>더보기</button></nav></footer></div>{menu && <Modal title="전체 메뉴" className="navigation-drawer" onClose={() => setMenu(false)}>{nav}</Modal>}<div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></div>;
+    }}>본문으로 이동</a><aside className="sidebar"><Brand /><div className="sidebar-scroll">{nav}</div><a className="profile-button" href={`${adminRoute ? '/admin/settings' : '/settings'}`}><span className="avatar" aria-hidden="true">{(account.name || '교').slice(0, 1)}</span><span className="profile-copy"><strong>{account.name}</strong><span>{admin ? '관리자' : '선생님'}</span></span></a></aside><header className="topbar">{renderSchoolSwitch() || <span>{headerLabel}</span>}<span>{year}학년도</span></header><div className="workspace"><header className="mobile-brand"><Brand onClick={() => setMenu(true)} />{renderSchoolSwitch() || <span className="mobile-school">{headerLabel}</span>}</header><main id="main-content" tabIndex={-1} className="screen"><div className="screen-heading"><div className="screen-title"><h1>{titles[route] || '메뉴 안내'}</h1></div><div className="heading-tools"><div className="year-anchor"><div className={`year-return${showThisYear ? ' is-open' : ''}`}><div className="year-return-clip"><button type="button" tabIndex={showThisYear ? 0 : -1} aria-hidden={showThisYear ? undefined : true} onClick={event => { event.currentTarget.blur(); changeYear(currentYear); }}>올해</button></div></div><div className="year-switch" role="group" aria-label="학년도"><button type="button" aria-label="이전 학년도" disabled={Number(year) <= 2000} onClick={() => changeYear(Number(year) - 1)}>‹</button><strong>{year}</strong><button type="button" aria-label="다음 학년도" disabled={Number(year) >= 2100} onClick={() => changeYear(Number(year) + 1)}>›</button></div></div>{route === '/coverage' && <a className="primary-button" href="/timetable">시간표 보기</a>}</div></div><div key={`${account.id}:${route}:${classId}:${studentId}:${year}:${adminSchool?.schoolCode || ''}`}>{screen}</div></main><footer className="mobile-footer"><nav className="bottom-nav" aria-label="하단 메뉴"><a href={`${homePath}`} aria-current={route === homePath ? 'page' : undefined}>홈</a><a href={`${studentPath}`} aria-current={route === studentPath ? 'page' : undefined}>학생</a><a href={`${noticePath}`} aria-current={route === noticePath ? 'page' : undefined}>알림{count > 0 ? ` ${count}` : ''}</a><button type="button" onClick={() => setMenu(true)}>더보기</button></nav></footer></div>{menu && <Modal title="전체 메뉴" className="navigation-drawer" onClose={() => setMenu(false)}>{nav}</Modal>}<div className={`toast${notice ? ' is-visible' : ''}`} role="status">{notice}</div></div>;
 }

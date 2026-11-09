@@ -15,6 +15,7 @@
 :root[data-theme="dark"] .metric-card,
 :root[data-theme="dark"] .home-calendar-panel,
 :root[data-theme="dark"] .selected-day-panel,
+:root[data-theme="dark"] .day-card,
 :root[data-theme="dark"] .info-panel,
 :root[data-theme="dark"] .schedule-toolbar,
 :root[data-theme="dark"] .schedule-scroll,
@@ -141,8 +142,7 @@
 :root[data-theme="dark"] .select-option.is-active,
 :root[data-theme="dark"] .select-option.is-active.is-selected,
 :root[data-theme="dark"] .side-nav a:hover,
-:root[data-theme="dark"] .navigation-drawer .side-nav a:hover,
-:root[data-theme="dark"] .home-calendar-grid .home-calendar-day:hover .day-number {
+:root[data-theme="dark"] .navigation-drawer .side-nav a:hover {
   background: var(--bg-secondary);
   color: var(--fg-primary);
 }
@@ -182,7 +182,6 @@
   background: #274468;
 }
 
-:root[data-theme="dark"] .page-description,
 :root[data-theme="dark"] .field-placeholder,
 :root[data-theme="dark"] .select-search input::placeholder {
   color: var(--fg-secondary);
@@ -217,15 +216,43 @@
   color: var(--fg-primary);
 }
 
+:root[data-theme="dark"] .home-calendar-grid tr > :first-child .day-number,
+:root[data-theme="dark"] .home-calendar-grid thead th:first-child {
+  color: #f0a8a6;
+}
 :root[data-theme="dark"] .home-calendar-grid tr > :last-child .day-number,
 :root[data-theme="dark"] .home-calendar-grid thead th:last-child {
   color: #9dc0ee;
 }
 
-:root[data-theme="dark"] .home-calendar-grid .adjacent-month .day-number { color: #6d7580; }
+:root[data-theme="dark"] .home-calendar-grid .adjacent-month .day-number { color: #7d8692; }
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day:hover .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  background: #2a3340;
+}
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-pressed='true'] .day-number,
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-pressed='true']:hover .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px #c5ccd4;
+}
 :root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-current='date'] .day-number,
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-current='date']:hover .day-number,
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-current='date'][aria-pressed='true'] .day-number,
 :root[data-theme="dark"] .home-calendar-grid .adjacent-month[aria-current='date'] .day-number {
-  color: #fff;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  background: #6ea0e4;
+  box-shadow: none;
+  color: #0e1724;
 }
 
 :root[data-theme="dark"] .period-label {
@@ -257,6 +284,14 @@
 :root[data-theme="dark"] .field .field-control:disabled {
   background: var(--bg-secondary);
   color: var(--fg-tertiary);
+}
+
+:root[data-theme="dark"] .school-switch .field .field-control,
+:root[data-theme="dark"] .school-switch .field .field-control:hover:not(:disabled),
+:root[data-theme="dark"] .school-switch .field .field-control[aria-expanded='true'] {
+  background: transparent;
+  border-color: transparent;
+  color: inherit;
 }
 
 :root[data-theme="dark"] .number-step {

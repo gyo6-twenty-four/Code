@@ -64,7 +64,6 @@ button:disabled { color: #8b95a1; cursor: default; }
 .mobile-school { min-width: 0; overflow: hidden; color: var(--fg-secondary); font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .screen-heading { margin-top: 28px; }
 .screen-heading h1 { height: 56px; font-size: 18px; font-weight: 600; line-height: 26px; letter-spacing: -.18px; }
-.page-description { min-height: 38px; margin-top: 2px; color: var(--fg-secondary); }
 .screen > .filters { margin-top: 18px; }
 .content-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 .content-columns .info-panel p:not(:first-of-type) { display: none; }
@@ -143,8 +142,7 @@ button:disabled { color: #8b95a1; cursor: default; }
   .screen-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-top: 0; }
   .screen-heading > div:first-child { min-width: 0; }
   .screen-heading h1 { height: 42px; font-size: 28px; font-weight: 700; line-height: 37px; letter-spacing: -.56px; }
-  .page-description { min-height: 24px; margin-top: 5px; font-size: 15px; font-weight: 400; line-height: 23px; }
-  .desktop-action { display: block; flex-shrink: 0; width: 176px; margin-top: 4px; }
+.desktop-action { display: block; flex-shrink: 0; width: 176px; margin-top: 4px; }
   .desktop-action .primary-button { min-height: 44px; border-radius: 14px; white-space: nowrap; }
   .screen > .filters { gap: 12px; margin-top: 37px; }
   .filter:nth-child(1) { width: 82px; }

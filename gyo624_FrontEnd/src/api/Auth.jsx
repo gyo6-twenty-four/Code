@@ -10,6 +10,8 @@ import PhoneField from '../components/PhoneField';
 import { invitationEmailMatches, phoneDigits } from '../lib/phone';
 import { toNeisSchool } from '../lib/school';
 import { SchoolPicker } from './NeisConnect';
+import { TeachingFields } from './TeachingAssignment';
+import { listsMessage, listsReady, readTeaching, teachingError } from '../lib/teaching';
 import { writeNeisSchool } from './neis';
 import '../components/dashboard-calendar.css';
 
@@ -36,7 +38,6 @@ export default function Auth({
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [terms, setTerms] = useState(false);
-  const [registerSchool, setRegisterSchool] = useState(false);
   const [resetPath, setResetPath] = useState('');
   const invite = route === '/invite' || route === '/set-password';
   const reset = route === '/reset-password' && !!checkedToken;
@@ -47,7 +48,7 @@ export default function Auth({
   const [busy, setBusy] = useState(false);
   const setup = useResource(route === '/login' ? '/auth/bootstrap' : null, true);
   const firstAdmin = route === '/login' && !!setup.data?.required;
-  const creatingSchool = firstAdmin || registerSchool;
+  const creatingSchool = firstAdmin;
   const invitedSchool = details.data?.schoolCode ? `학교 코드 ${details.data.schoolCode}` : '';
 
   async function submit(event) {
@@ -64,7 +65,7 @@ export default function Auth({
       setBusy(true);
       setLoginError('');
       try {
-        const result = await request(creatingSchool ? firstAdmin ? '/auth/bootstrap' : '/auth/schools' : '/auth/login', {
+        const result = await request(creatingSchool ? '/auth/bootstrap' : '/auth/login', {
           method: 'POST',
           public: true,
           body: creatingSchool ? {
@@ -161,7 +162,7 @@ export default function Auth({
       <MutationError mutation={mutation} />
       {(reset || invite && checkedToken) && details.error ? null : <PrimaryButton type="submit" busy={busy || mutation.busy} disabled={setup.loading || reset && (!details.data || details.loading) || invite && !!checkedToken && !details.data}>{busy || mutation.busy ? '처리 중…' : action}</PrimaryButton>}
     </div>
-    {route === '/login' && !firstAdmin ? <div className="auth-links"><a href="/reset-password">비밀번호를 잊으셨나요?</a><a href="/invite">학교 초대로 가입하기</a>{registerSchool ? <button type="button" className="text-button" onClick={() => { setRegisterSchool(false); setLoginError(''); }}>로그인으로 돌아가기</button> : <button type="button" className="text-button" onClick={() => { setRegisterSchool(true); setLoginError(''); }}>새 관리자 계정 만들기</button>}</div> : route !== '/login' ? <div className="auth-links"><a href="/login">로그인으로 돌아가기</a>{reset ? <a href="/reset-password">재설정 메일 다시 받기</a> : null}</div> : null}
+    {route === '/login' && !firstAdmin ? <div className="auth-links"><a href="/reset-password">비밀번호를 잊으셨나요?</a><a href="/invite">학교 초대로 가입하기</a></div> : route !== '/login' ? <div className="auth-links"><a href="/login">로그인으로 돌아가기</a>{reset ? <a href="/reset-password">재설정 메일 다시 받기</a> : null}</div> : null}
   </div></form></main>;
 }
 
@@ -206,21 +207,43 @@ function OnboardingDraft({
 }) {
   const mutation = useMutation(notify);
   const teacher = account.role === 'TEACHER';
-  const [school, setSchool] = useState(account.school?.schoolCode ? account.school : null),
-    [name, setName] = useState(initial.profile?.displayName || account.name || ''),
-    [phone, setPhone] = useState(phoneDigits(initial.profile?.phone || '')),
-    [email, setEmail] = useState(initial.preferences?.notificationEmail ?? true),
-    [app, setApp] = useState(initial.preferences?.notificationInApp ?? true);
+  const [school, setSchool] = useState(account.school?.schoolCode ? account.school : null);
+  const [teaching, setTeaching] = useState({
+    homeroomClassId: account.homeroomClassId || '',
+    subjectIds: Array.isArray(account.subjectIds) ? account.subjectIds : [],
+    teachingClassIds: Array.isArray(account.teachingClassIds) ? account.teachingClassIds : [],
+  });
+  const [lists, setLists] = useState({ classes: 'idle', subjects: 'idle' });
+  const [name, setName] = useState(initial.profile?.displayName || account.name || '');
+  const [phone, setPhone] = useState(phoneDigits(initial.profile?.phone || ''));
+  const [email, setEmail] = useState(initial.preferences?.notificationEmail ?? true);
+  const [app, setApp] = useState(initial.preferences?.notificationInApp ?? true);
+  function chooseSchool(next) {
+    if ((next?.schoolCode || '') !== (school?.schoolCode || '')) {
+      setTeaching({ homeroomClassId: '', subjectIds: [], teachingClassIds: [] });
+    }
+    setSchool(next);
+  }
   async function submit(event) {
     event.preventDefault();
     if (teacher && !school?.schoolCode) {
       notify('학교를 선택해 주세요.');
       return;
     }
+    if (teacher && !listsReady(lists)) {
+      notify(listsMessage(lists));
+      return;
+    }
     if (teacher) {
+      const issue = teachingError(readTeaching(teaching));
+      if (issue) {
+        notify(issue);
+        return;
+      }
       const saved = await mutation.run('/settings/school', { method: 'PATCH', body: school });
       if (!saved) return;
       writeNeisSchool(toNeisSchool(school));
+      if (!(await mutation.run('/settings/teaching', { method: 'PATCH', body: teaching }))) return;
     }
     if (!(await mutation.run('/onboarding', {
       method: 'PATCH',
@@ -240,5 +263,5 @@ function OnboardingDraft({
       body: {}
     }, '설정을 저장했어요.')) onComplete();
   }
-  return <div className="onboarding-layout"><form className="api-stack" onSubmit={submit}>{teacher ? <SchoolPicker value={school} onChange={setSchool} notify={notify} /> : null}<Field label="학교 이메일" type="email" value={account.email || ''} readOnly autoComplete="email" /><Field label="표시 이름" required value={name} onChange={e => setName(e.target.value)} /><PhoneField value={phone} onChange={setPhone} /><label className="api-check"><input type="checkbox" checked={email} onChange={e => setEmail(e.target.checked)} />이메일 알림</label><label className="api-check"><input type="checkbox" checked={app} onChange={e => setApp(e.target.checked)} />서비스 내 알림</label><SaveButton mutation={mutation}>설정 완료하기</SaveButton></form><OnboardingSchedule account={account} /></div>;
+  return <div className="onboarding-layout"><form className="api-stack" onSubmit={submit}>{teacher ? <SchoolPicker value={school} onChange={chooseSchool} notify={notify} /> : null}{teacher && school?.schoolCode ? <TeachingFields school={school} value={teaching} onChange={setTeaching} onStatus={setLists} /> : null}<Field label="학교 이메일" type="email" value={account.email || ''} readOnly autoComplete="email" /><Field label="표시 이름" required value={name} onChange={e => setName(e.target.value)} /><PhoneField value={phone} onChange={setPhone} /><label className="api-check"><input type="checkbox" checked={email} onChange={e => setEmail(e.target.checked)} />이메일 알림</label><label className="api-check"><input type="checkbox" checked={app} onChange={e => setApp(e.target.checked)} />서비스 내 알림</label><SaveButton mutation={mutation}>설정 완료하기</SaveButton></form><OnboardingSchedule account={account} /></div>;
 }

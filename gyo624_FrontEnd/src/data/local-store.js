@@ -1,6 +1,8 @@
 import { observationDateError } from '../lib/observations.js';
 import { passwordError } from '../lib/passwords.js';
 import { compareClassItems } from '../lib/classrooms.js';
+import { elementarySchool, normalizeSchool } from '../lib/school.js';
+import { assignmentAfterSchoolChange, readTeaching, teachingError } from '../lib/teaching.js';
 import { ALL_RECORD_TYPES, assignedRecordTypes, sanitizeRecordTypes } from '../api/model.js';
 // Browser-only workspace. No HTTP requests or production credentials are used here.
 const STORE_KEY = 'education24-ui-workspace-v1';
@@ -28,6 +30,27 @@ function cleanRecordTypes(value) {
   return types;
 }
 const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))).map(n => n.toString(16).padStart(2, '0')).join('');
+function readSchool(value) {
+  const nested = value?.school && typeof value.school === 'object' ? value.school : null;
+  const source = nested || value || {};
+  return normalizeSchool({
+    name: nested ? nested.name || nested.schoolName : source.schoolName,
+    schoolCode: source.schoolCode,
+    officeCode: source.officeCode,
+    officeName: source.officeName,
+    kind: source.kind
+  });
+}
+function writeSchool(school) {
+  const next = normalizeSchool(school);
+  return {
+    schoolName: next.name,
+    schoolCode: next.schoolCode,
+    officeCode: next.officeCode,
+    officeName: next.officeName,
+    kind: next.kind
+  };
+}
 function completeUser(user, passwordHash, classIds) {
   return {
     id: user.id || uuid(),
@@ -39,6 +62,9 @@ function completeUser(user, passwordHash, classIds) {
     onboardingCompleted: true,
     phone: '',
     classIds: [...classIds],
+    homeroomClassId: '',
+    subjectIds: [],
+    teachingClassIds: [],
     preferences: {
       notificationEmail: true,
       notificationInApp: true
@@ -176,7 +202,11 @@ export function createLocalStore({
     delete view.passwordHash;
     return {
       ...view,
-      school: accountSchool(user)
+      school: accountSchool(user),
+      homeroomClassId: String(user.homeroomClassId || ''),
+      subjectIds: Array.isArray(user.subjectIds) ? [...user.subjectIds] : [],
+      teachingClassIds: Array.isArray(user.teachingClassIds) ? [...user.teachingClassIds] : [],
+      classIds: Array.isArray(user.classIds) ? [...user.classIds] : []
     };
   }
   function page(values, q) {
@@ -266,11 +296,13 @@ export function createLocalStore({
       requireValue(invite, '유효한 초대 링크를 확인해 주세요.');
       if (method === 'GET') return result({
         email: invite.email,
-        schoolName: '',
-        schoolCode: ''
+        schoolName: invite.schoolName || '',
+        schoolCode: invite.schoolCode || '',
+        name: invite.name
       });
       checkPassword();
       requireValue(body.name?.trim() && body.termsAgreed, '이름과 이용약관 동의를 확인해 주세요.');
+      const school = readSchool(invite);
       db.users.push({
         id: uuid(),
         email: invite.email,
@@ -278,7 +310,10 @@ export function createLocalStore({
         role: invite.role,
         status: 'ACTIVE',
         classIds: invite.classIds,
-        schoolCode: '',
+        homeroomClassId: '',
+        subjectIds: [],
+        teachingClassIds: [],
+        ...writeSchool(school),
         recordTypes: sanitizeRecordTypes(invite.recordTypes)?.length ? sanitizeRecordTypes(invite.recordTypes) : [...ALL_RECORD_TYPES],
         onboardingCompleted: false,
         passwordHash: await digest(body.password),
@@ -301,7 +336,22 @@ export function createLocalStore({
       if (stored) classAccess(s.classId);
       return s;
     };
-    const save = (data, title = '정보 변경') => {
+    const linkedSchoolCode = data => {
+      const direct = readSchool(data).schoolCode;
+      if (direct) return direct;
+      const classId = data?.classId;
+      if (classId) {
+        const code = readSchool(db.classes.find(item => item.id === classId)).schoolCode;
+        if (code) return code;
+      }
+      if (data?.studentId) {
+        const student = db.students.find(item => item.id === data.studentId);
+        const code = student ? readSchool(db.classes.find(item => item.id === student.classId)).schoolCode : '';
+        if (code) return code;
+      }
+      return '';
+    };
+    const save = (data, title = '정보 변경', schoolCode = '') => {
       db.logs.unshift({
         id: uuid(),
         actor: {
@@ -310,10 +360,21 @@ export function createLocalStore({
         },
         action: method === 'DELETE' ? 'DELETE' : method === 'PATCH' ? 'UPDATE' : 'CREATE',
         resourceType: title,
-        occurredAt: now().toISOString()
+        occurredAt: now().toISOString(),
+        schoolCode: String(schoolCode || linkedSchoolCode(data) || '').trim().toUpperCase()
       });
       persist();
       return result(data);
+    };
+    const logSchoolCode = log => String(log?.schoolCode || '').trim().toUpperCase() || readSchool(db.users.find(item => item.id === log?.actor?.id)).schoolCode;
+    const presentLog = log => {
+      const schoolCode = logSchoolCode(log);
+      const named = [...db.users.map(readSchool), ...db.classes.map(readSchool), ...db.invitations.map(readSchool)].find(school => school.schoolCode === schoolCode && school.name);
+      return {
+        ...log,
+        schoolCode,
+        schoolName: named?.name || ''
+      };
     };
     if (p === '/me') return result(userView(user));
     if (p === '/auth/logout') return result(null);
@@ -331,7 +392,11 @@ export function createLocalStore({
       return save(userView(user));
     }
     if (p === '/onboarding/complete') {
-      if (user.role === 'TEACHER') requireValue(accountSchool(user).schoolCode, '학교를 선택해 주세요.');
+      if (user.role === 'TEACHER') {
+        requireValue(accountSchool(user).schoolCode, '학교를 선택해 주세요.');
+        const issue = teachingError(readTeaching(user));
+        requireValue(!issue, issue);
+      }
       user.onboardingCompleted = true;
       return save(userView(user));
     }
@@ -359,18 +424,32 @@ export function createLocalStore({
     if (p === '/settings/school') {
       requireValue(user.role === 'TEACHER', '학교는 교사 계정에서 등록해요.', 403);
       if (method !== 'GET') {
-        const name = String(body.name || '').trim();
-        const schoolCode = String(body.schoolCode || '').trim().toUpperCase();
-        const officeCode = String(body.officeCode || '').trim();
-        requireValue(name && schoolCode && officeCode, '학교 이름과 학교 코드를 확인해 주세요.');
-        user.schoolName = name;
-        user.schoolCode = schoolCode;
-        user.officeCode = officeCode;
-        user.officeName = String(body.officeName || '').trim();
-        user.kind = String(body.kind || '').trim();
+        const next = normalizeSchool(body);
+        requireValue(next.name && next.schoolCode && next.officeCode, '학교 이름과 학교 코드를 확인해 주세요.');
+        requireValue(!elementarySchool(next), '중학교와 고등학교만 연결할 수 있어요.');
+        const teaching = assignmentAfterSchoolChange(accountSchool(user), next, user);
+        user.schoolName = next.name;
+        user.schoolCode = next.schoolCode;
+        user.officeCode = next.officeCode;
+        user.officeName = next.officeName;
+        user.kind = next.kind;
+        user.homeroomClassId = teaching.homeroomClassId;
+        user.teachingClassIds = teaching.teachingClassIds;
+        user.subjectIds = teaching.subjectIds;
         return save(accountSchool(user));
       }
       return result(accountSchool(user));
+    }
+    if (p === '/settings/teaching') {
+      requireValue(user.role === 'TEACHER', '담당 수업은 교사 계정에서 등록해요.', 403);
+      if (method === 'GET') return result(readTeaching(user));
+      const next = readTeaching(body);
+      const issue = teachingError(next);
+      requireValue(!issue, issue);
+      user.homeroomClassId = next.homeroomClassId;
+      user.subjectIds = next.subjectIds;
+      user.teachingClassIds = next.teachingClassIds;
+      return save(next);
     }
     if (p === '/settings/password/change') {
       requireValue(user.passwordHash === (await digest(body.currentPassword)), '현재 비밀번호가 일치하지 않아요.');
@@ -405,16 +484,27 @@ export function createLocalStore({
       if (student.classId === classroom.id) return true;
       const stored = db.classes.find(item => item.id === student.classId);
       const number = classNumberOf(classroom);
-      return stored && Number(stored.grade) === Number(classroom.grade) && classNumberOf(stored) === number && number > 0;
+      if (!stored || Number(stored.grade) !== Number(classroom.grade) || classNumberOf(stored) !== number || number <= 0) return false;
+      const actorCode = accountSchool(user).schoolCode;
+      const classCode = readSchool(stored).schoolCode;
+      return !actorCode || !classCode || actorCode === classCode;
     });
-    if (p === '/classes') return page(db.classes.filter(matchesYear).sort(compareClassItems), q);
+    const wantedSchool = (q.get('schoolCode') || '').trim().toUpperCase();
+    if (p === '/classes') return page(db.classes.filter(item => matchesYear(item) && (!wantedSchool || readSchool(item).schoolCode === wantedSchool)).sort(compareClassItems), q);
     if (parts[0] === 'classes' && parts[2] === 'students') {
       const catalog = neisClass(id);
       if (catalog) return page(studentsIn(catalog), q);
       classAccess(id);
       return page(db.students.filter(s => s.classId === id), q);
     }
-    if (p === '/timetables') return page(db.timetables.filter(t => (!q.get('classId') || t.classId === q.get('classId')) && (!q.get('schoolYear') || t.schoolYear === Number(q.get('schoolYear'))) && (!q.get('semester') || t.semester === Number(q.get('semester'))) && (admin || t.teacherId === user.id)).sort((a, b) => a.period - b.period), q);
+    if (p === '/timetables') return page(db.timetables.filter(t => {
+      if (q.get('schoolYear') && t.schoolYear !== Number(q.get('schoolYear'))) return false;
+      if (q.get('semester') && t.semester !== Number(q.get('semester'))) return false;
+      if (wantedSchool && readSchool(db.classes.find(item => item.id === t.classId)).schoolCode !== wantedSchool) return false;
+      if (q.get('classId')) return t.classId === q.get('classId');
+      if (q.get('teacherId')) return t.teacherId === q.get('teacherId');
+      return admin || t.teacherId === user.id;
+    }).sort((a, b) => a.period - b.period), q);
     if (p.startsWith('/notifications')) {
       const entries = db.notifications.filter(n => n.userId === user.id);
       if (p.endsWith('unread-count')) return result({
@@ -634,34 +724,80 @@ export function createLocalStore({
       db.transfers.push(transfer);
       return save(transfer, '학생 기록 이관');
     }
-    if (p.startsWith('/admin/dashboard/')) {
+    if (p === '/admin/schools' || p.startsWith('/admin/dashboard/')) {
       const year = Number(q.get('schoolYear'));
-      const classes = db.classes.filter(c => c.schoolYear === year);
-      if (parts[2] === 'summary') return result({
-        teacherCount: db.users.filter(u => u.role === 'TEACHER' && u.status !== 'DELETED').length,
-        classCount: classes.length,
-        studentCount: db.students.filter(s => classes.some(c => c.id === s.classId)).length,
-        recordCompletionRate: db.records.length ? Math.round(db.records.filter(r => r.status === 'SUBMITTED').length / db.records.length * 100) : 0,
-        pendingInvitations: db.invitations.filter(i => !i.accepted).length,
-        gateFailureCount: Object.values(db.gates).filter(check => check.status === 'ERROR').length
-      });
+      const schoolMatches = school => !wantedSchool || school.schoolCode === wantedSchool;
+      if (p === '/admin/schools') {
+        const map = new Map();
+        const ensure = school => {
+          if (!school.schoolCode) return null;
+          if (!map.has(school.schoolCode)) map.set(school.schoolCode, {
+            ...school,
+            teacherCount: 0,
+            pendingInvitations: 0,
+            classCount: 0,
+            studentCount: 0
+          });else {
+            const current = map.get(school.schoolCode);
+            if (!current.name && school.name) current.name = school.name;
+            if (!current.officeName && school.officeName) current.officeName = school.officeName;
+            if (!current.officeCode && school.officeCode) current.officeCode = school.officeCode;
+            if (!current.kind && school.kind) current.kind = school.kind;
+          }
+          return map.get(school.schoolCode);
+        };
+        for (const person of db.users) {
+          if (person.status === 'DELETED' || person.role !== 'TEACHER') continue;
+          const row = ensure(accountSchool(person));
+          if (row) row.teacherCount += 1;
+        }
+        for (const invite of db.invitations) {
+          if (invite.accepted) continue;
+          const row = ensure(readSchool(invite));
+          if (row) row.pendingInvitations += 1;
+        }
+        for (const classroom of db.classes) {
+          if (year && Number(classroom.schoolYear) !== year) continue;
+          const row = ensure(readSchool(classroom));
+          if (!row) continue;
+          row.classCount += 1;
+          row.studentCount += db.students.filter(student => student.classId === classroom.id).length;
+        }
+        return result([...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
+      }
+      const classes = db.classes.filter(c => c.schoolYear === year && schoolMatches(readSchool(c)));
+      const classIds = new Set(classes.map(c => c.id));
+      const inSchool = item => !wantedSchool || classIds.has(item.classId);
+      if (parts[2] === 'summary') {
+        const records = wantedSchool ? db.records.filter(inSchool) : db.records;
+        return result({
+          teacherCount: db.users.filter(u => u.role === 'TEACHER' && u.status !== 'DELETED' && schoolMatches(accountSchool(u))).length,
+          classCount: classes.length,
+          studentCount: db.students.filter(s => classes.some(c => c.id === s.classId)).length,
+          recordCompletionRate: records.length ? Math.round(records.filter(r => r.status === 'SUBMITTED').length / records.length * 100) : 0,
+          pendingInvitations: db.invitations.filter(i => !i.accepted && schoolMatches(readSchool(i))).length,
+          gateFailureCount: Object.values(db.gates).filter(check => check.status === 'ERROR').length
+        });
+      }
       if (parts[2] === 'completion') return result(classes.map(c => ({
-        className: c.name,
+        className: wantedSchool ? c.name : `${readSchool(c).name || '학교 미지정'} · ${c.name}`,
+        schoolName: readSchool(c).name,
         studentCount: db.students.filter(s => s.classId === c.id).length,
         recordCount: db.records.filter(r => r.classId === c.id).length,
         completedCount: db.records.filter(r => r.classId === c.id && r.status === 'SUBMITTED').length
       })));
       if (parts[2] === 'usage') return result(Array.from({ length: 12 }, (_, index) => {
         const month = `${year}-${String(index + 1).padStart(2, '0')}`;
-        const observations = db.observations.filter(item => item.schoolYear === year && String(item.observedAt || '').startsWith(month)).length;
-        const records = db.records.filter(item => Number(item.schoolYear) === year && String(item.updatedAt || item.createdAt || '').startsWith(month)).length;
-        const careers = db.careers.filter(item => Number(item.schoolYear) === year && String(item.activityDate || '').startsWith(month)).length;
+        const observations = db.observations.filter(item => item.schoolYear === year && String(item.observedAt || '').startsWith(month) && inSchool(item)).length;
+        const records = db.records.filter(item => Number(item.schoolYear) === year && String(item.updatedAt || item.createdAt || '').startsWith(month) && inSchool(item)).length;
+        const careers = db.careers.filter(item => Number(item.schoolYear) === year && String(item.activityDate || '').startsWith(month) && inSchool(item)).length;
         return { month, observations, records, careers, total: observations + records + careers };
       }));
-      return result(db.logs.slice(0, 5).map(log => ({
+      return result(db.logs.filter(log => !wantedSchool || logSchoolCode(log) === wantedSchool).slice(0, 5).map(log => ({
         name: log.actor.name,
         action: log.action,
-        occurredAt: log.occurredAt
+        occurredAt: log.occurredAt,
+        schoolName: presentLog(log).schoolName
       })));
     }
     if (p.startsWith('/admin/teachers')) {
@@ -671,6 +807,8 @@ export function createLocalStore({
           requireValue(input.email?.includes('@'), '이메일을 확인해 주세요.');
           const existing = db.users.find(u => u.email === input.email);
           requireValue(!existing, existing?.status === 'DELETED' ? '삭제한 계정의 이메일이에요. 같은 이메일로는 다시 가입할 수 없어요.' : '이미 등록된 이메일이에요.');
+          const school = readSchool(input);
+          if (school.schoolCode) requireValue(!elementarySchool(school), '중학교와 고등학교만 연결할 수 있어요.');
           return {
             ...input,
             id: uuid(),
@@ -678,8 +816,7 @@ export function createLocalStore({
             role: input.role || 'TEACHER',
             classIds: input.classIds || [],
             recordTypes: cleanRecordTypes(input.recordTypes),
-            schoolName: '',
-            schoolCode: '',
+            ...writeSchool(school),
             accepted: false
           };
         });
@@ -692,19 +829,20 @@ export function createLocalStore({
         }));
         return save(parts[3] === 'bulk' ? {
           invitations: data
-        } : data[0], '교사 초대');
+        } : data[0], '교사 초대', readSchool(invites[0]).schoolCode);
       }
       if (!parts[2]) return page([...db.users.filter(u => u.status !== 'DELETED').map(userView), ...db.invitations.filter(i => !i.accepted).map(i => ({
         ...i,
         token: undefined,
         invitationId: i.id,
-        status: 'INVITED'
-      }))].filter(u => !q.get('keyword') || `${u.name} ${u.email}`.includes(q.get('keyword'))), q);
+        status: 'INVITED',
+        school: readSchool(i)
+      }))].filter(u => (!q.get('keyword') || `${u.name} ${u.email}`.includes(q.get('keyword'))) && (!wantedSchool || readSchool(u).schoolCode === wantedSchool)), q);
       if (method === 'DELETE') {
         const invite = db.invitations.find(i => i.id === parts[2] && !i.accepted);
         if (invite) {
           db.invitations = db.invitations.filter(i => i.id !== invite.id);
-          return save(null, '교사 초대 취소');
+          return save(null, '교사 초대 취소', readSchool(invite).schoolCode);
         }
         const teacher = find('users', parts[2]);
         requireValue(teacher.id !== user.id, '자신의 계정은 삭제할 수 없어요.');
@@ -713,7 +851,7 @@ export function createLocalStore({
         requireValue(!(teacher.role === 'ADMIN' && teacher.status === 'ACTIVE' && activeAdmins.length <= 1), '마지막 관리자 계정은 삭제할 수 없어요.');
         teacher.status = 'DELETED';
         db.timetables = db.timetables.filter(t => t.teacherId !== teacher.id);
-        return save(null, '교사 계정 삭제');
+        return save(null, '교사 계정 삭제', accountSchool(teacher).schoolCode);
       }
       const teacher = find('users', parts[2]);
       if (method === 'GET') return result(userView(teacher));
@@ -734,17 +872,25 @@ export function createLocalStore({
           schoolYear: c.schoolYear
         };
         db.students.push(student);
-        return save(student, '학생 등록');
+        return save(student, '학생 등록', readSchool(c).schoolCode);
       }
       if (method === 'DELETE') {
+        const current = find('classes', parts[2]);
         requireValue(!db.students.some(s => s.classId === parts[2]), '학생이 있는 학급은 먼저 명단을 정리해 주세요.');
         db.classes = db.classes.filter(c => c.id !== parts[2]);
-        return save(null, '학급 삭제');
+        return save(null, '학급 삭제', readSchool(current).schoolCode);
       }
+      const explicitSchool = Boolean(body.school || body.schoolCode || body.schoolName);
+      const existing = parts[2] ? find('classes', parts[2]) : null;
+      const school = explicitSchool ? readSchool(body) : readSchool(existing || {});
+      if (school.schoolCode) requireValue(!elementarySchool(school), '중학교와 고등학교만 연결할 수 있어요.');
       requireValue(Number.isInteger(body.grade) && body.grade >= 1 && body.grade <= 6 && Number.isInteger(body.classNumber) && body.classNumber >= 1 && body.classNumber <= 99, '학년과 반을 확인해 주세요.');
-      requireValue(!db.classes.some(c => c.id !== parts[2] && c.schoolYear === Number(body.schoolYear) && c.grade === body.grade && c.classNumber === body.classNumber), '같은 학년과 반이 이미 있어요.');
+      requireValue(!db.classes.some(c => c.id !== parts[2] && c.schoolYear === Number(body.schoolYear) && c.grade === body.grade && c.classNumber === body.classNumber && readSchool(c).schoolCode === school.schoolCode), '같은 학년과 반이 이미 있어요.');
+      const classBody = { ...body };
+      delete classBody.school;
       const entry = {
-        ...body,
+        ...classBody,
+        ...writeSchool(school),
         schoolYear: Number(body.schoolYear),
         name: `${body.grade}학년 ${body.classNumber}반`
       };
@@ -752,23 +898,27 @@ export function createLocalStore({
         entry.id = uuid();
         db.classes.push(entry);
       }
-      return save(entry, '학급 관리');
+      return save(entry, '학급 관리', school.schoolCode);
     }
     if (parts[0] === 'admin' && parts[1] === 'students') {
       const student = find('students', parts[2]);
       requireValue(!db.students.some(s => s.id !== student.id && s.classId === student.classId && s.number === body.number), '같은 출석 번호가 있어요.');
       Object.assign(student, body);
-      return save(student, '학생 수정');
+      return save(student, '학생 수정', readSchool(db.classes.find(item => item.id === student.classId)).schoolCode);
     }
     if (p.startsWith('/admin/timetables/entries')) {
       const entryId = parts[3];
       if (method === 'DELETE') {
+        const current = db.timetables.find(t => t.id === entryId);
         db.timetables = db.timetables.filter(t => t.id !== entryId);
-        return save(null, '시간표 삭제');
+        return save(null, '시간표 삭제', readSchool(db.classes.find(item => item.id === current?.classId)).schoolCode);
       }
       const c = classAccess(body.classId);
       const teacher = find('users', body.teacherId);
       requireValue(teacher.role === 'TEACHER' && teacher.status === 'ACTIVE', '활성 교사 계정을 선택해 주세요.');
+      const classCode = readSchool(c).schoolCode;
+      const teacherCode = accountSchool(teacher).schoolCode;
+      requireValue(!classCode || !teacherCode || classCode === teacherCode, '이 학급과 교사의 학교가 달라요.');
       requireValue(body.period >= 1 && body.period <= 9 && body.subject?.trim(), '교시와 과목을 확인해 주세요.');
       requireValue(!db.timetables.some(t => t.id !== entryId && t.schoolYear === Number(body.schoolYear) && t.semester === body.semester && t.dayOfWeek === body.dayOfWeek && t.period === body.period && (t.teacherId === body.teacherId || t.classId === body.classId)), '동일한 시간에 교사 또는 학급의 수업이 있어요.');
       const entry = {
@@ -780,11 +930,11 @@ export function createLocalStore({
         entry.id = uuid();
         db.timetables.push(entry);
       }
-      return save(entry, '시간표 관리');
+      return save(entry, '시간표 관리', readSchool(c).schoolCode);
     }
     if (p.startsWith('/admin/audit-logs')) {
-      if (parts[2]) return result(find('logs', parts[2]));
-      return page(db.logs.filter(l => (!q.get('action') || l.action === q.get('action')) && (!q.get('actorId') || l.actor.id === q.get('actorId')) && (!q.get('from') || Date.parse(l.occurredAt) >= Date.parse(q.get('from'))) && (!q.get('to') || Date.parse(l.occurredAt) <= Date.parse(q.get('to')))), q);
+      if (parts[2]) return result(presentLog(find('logs', parts[2])));
+      return page(db.logs.filter(l => (!q.get('action') || l.action === q.get('action')) && (!q.get('actorId') || l.actor.id === q.get('actorId')) && (!q.get('from') || Date.parse(l.occurredAt) >= Date.parse(q.get('from'))) && (!q.get('to') || Date.parse(l.occurredAt) <= Date.parse(q.get('to'))) && (!wantedSchool || logSchoolCode(l) === wantedSchool)).map(presentLog), q);
     }
     throw new LocalError('이 기능은 현재 연결되어 있지 않아요.', 404, 'UNSUPPORTED_ACTION');
   }

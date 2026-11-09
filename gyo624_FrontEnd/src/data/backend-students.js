@@ -70,6 +70,22 @@ export function isStudentRosterPath(path) {
   return (parts.length === 1 && parts[0] === 'classes') || (parts.length === 3 && parts[0] === 'classes' && parts[2] === 'students');
 }
 
+function classPlace(item) {
+  const grade = Number(item?.grade);
+  const classNumber = Number(String(item?.classNumber ?? item?.classLabel ?? '').replace(/\D/g, ''));
+  if (!Number.isInteger(grade) || grade < 1 || !Number.isInteger(classNumber) || classNumber < 1) return null;
+  return { grade, classNumber };
+}
+
+function placeFromClassId(id) {
+  const text = String(id || '');
+  const backend = /^backend:(\d+)-(\d+)$/.exec(text);
+  if (backend) return { grade: Number(backend[1]), classNumber: Number(backend[2]) };
+  const neis = /^neis:(\d+):(.+)$/.exec(text);
+  if (!neis) return null;
+  return classPlace({ grade: neis[1], classNumber: neis[2] });
+}
+
 export function rosterPage(roster, path) {
   const url = new URL(path, 'http://local.invalid');
   const parts = url.pathname.split('/').filter(Boolean);
@@ -77,8 +93,14 @@ export function rosterPage(roster, path) {
   const stamp = item => Number.isInteger(year) ? { ...item, schoolYear: year } : { ...item };
   if (parts.length === 1) return page(roster.classes.map(stamp), url.searchParams);
   const classId = decodeURIComponent(parts[1]);
-  if (!roster.classes.some(item => item.id === classId)) throw new LocalError('학급을 확인해 주세요.', 404);
-  return page(roster.students.filter(item => item.classId === classId).map(stamp), url.searchParams);
+  const direct = roster.classes.find(item => item.id === classId);
+  const place = direct ? null : placeFromClassId(classId);
+  const matched = direct || roster.classes.find(item => {
+    const current = classPlace(item);
+    return place && current && current.grade === place.grade && current.classNumber === place.classNumber;
+  });
+  if (!matched) throw new LocalError('학급을 확인해 주세요.', 404);
+  return page(roster.students.filter(item => item.classId === matched.id).map(stamp), url.searchParams);
 }
 
 let cached = null;

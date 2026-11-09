@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/components/field-utils.test.js src/lib/classrooms.test.js src/lib/account.test.js src/lib/auth-entry.test.js src/lib/dashboard-calendar.test.js src/lib/passwords.test.js src/lib/phone.test.js src/lib/observations.test.js src/lib/schedule.test.js src/lib/theme.test.js src/lib/setek.test.js src/api/client.test.js src/api/neis-parse.test.js src/data/local-store.test.js src/data/backend-students.test.js server/setek-ai.test.js",
+    "test": "node --test src/components/field-utils.test.js src/lib/classrooms.test.js src/lib/account.test.js src/lib/auth-entry.test.js src/lib/dashboard-calendar.test.js src/lib/passwords.test.js src/lib/phone.test.js src/lib/observations.test.js src/lib/schedule.test.js src/lib/theme.test.js src/lib/teaching.test.js src/lib/setek.test.js src/api/client.test.js src/api/neis-parse.test.js src/data/local-store.test.js src/data/backend-students.test.js src/data/curriculum-catalog.test.js server/setek-ai.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

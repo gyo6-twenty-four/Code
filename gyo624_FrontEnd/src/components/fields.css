@@ -64,7 +64,8 @@
   scrollbar-color: #d1d6db transparent;
 }
 .select-popover { max-height: min(288px, calc(100svh - 24px)) !important; }
-.select-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; padding: 10px 12px; border-radius: 10px; cursor: pointer; }
+.select-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; padding: 10px 12px; border-radius: 10px; cursor: pointer; text-align: left; }
+.select-option > span { min-width: 0; overflow-wrap: anywhere; }
 .select-option.is-selected { color: var(--brand); }
 .select-option.is-active { background: #f2f4f6; }
 .select-option.is-active.is-selected { background: var(--brand-weak); }

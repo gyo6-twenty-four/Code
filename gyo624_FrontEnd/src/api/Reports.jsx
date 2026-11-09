@@ -247,7 +247,8 @@ export function Transfer({
   selectClass,
   students,
   year,
-  notify
+  notify,
+  adminSchool
 }) {
   const [selected, setSelected] = useState([]),
     [target, setTarget] = useState(''),
@@ -257,8 +258,11 @@ export function Transfer({
     [preview, setPreview] = useState(null),
     [jobId, setJobId] = useState(''),
     [confirm, setConfirm] = useState(false);
+  const sourceClass = (classes.data || []).find(item => item.id === classId);
+  const targetSchool = sourceClass?.schoolCode || adminSchool?.schoolCode || '';
   const targets = usePage('/classes', {
-      schoolYear: targetYear
+      schoolYear: targetYear,
+      schoolCode: targetSchool
     }),
     mutation = useMutation(notify),
     job = useResource(jobId ? `/transfers/${jobId}` : null);
@@ -281,13 +285,13 @@ export function Transfer({
     setPreview(null);
     setConfirm(false);
   };
-  return <section className="api-stack"><ClassSelect classes={classes} value={classId} label="이관할 학급" onChange={value => change(() => {
+  return <section className="api-stack"><ClassSelect classes={classes} value={classId} label="이관할 학급" showSchool={!adminSchool?.schoolCode} onChange={value => change(() => {
       selectClass(value);
       setSelected([]);
     })} /><Field label="이관 받을 학년도" type="number" min={2000} max={2100} required value={targetYear} onChange={e => change(() => {
       setTargetYear(e.target.value);
       setTarget('');
-    })} /><ClassSelect classes={targets} value={target} onChange={value => change(() => setTarget(value))} label="이관 받을 학급" /><Field label="충돌 처리" value={policy} onChange={e => change(() => setPolicy(e.target.value))}><option value="SKIP">기존 항목 건너뛰기</option><option value="CREATE_COPY">복사본 만들기</option><option value="OVERWRITE">기존 항목 덮어쓰기</option></Field><label className="api-check"><input type="checkbox" checked={includeCareers} onChange={e => change(() => setIncludeCareers(e.target.checked))} />진로 기록도 포함</label><ApiState state={students} empty={classId ? '이 학급에 등록된 학생이 없어요.' : '이관할 학급을 먼저 선택해 주세요.'}>{students.data?.map(item => <label className="api-check api-panel" key={item.id}><input type="checkbox" checked={selected.includes(item.id)} onChange={e => change(() => setSelected(e.target.checked ? [...selected, item.id] : selected.filter(id => id !== item.id)))} />{item.name}</label>)}</ApiState><Pagination state={students} /><PrimaryButton disabled={!selected.length || !target || mutation.busy || target === classId && targetYear === year} onClick={async () => {
+    })} /><ClassSelect classes={targets} value={target} onChange={value => change(() => setTarget(value))} label="이관 받을 학급" showSchool={!targetSchool} /><Field label="충돌 처리" value={policy} onChange={e => change(() => setPolicy(e.target.value))}><option value="SKIP">기존 항목 건너뛰기</option><option value="CREATE_COPY">복사본 만들기</option><option value="OVERWRITE">기존 항목 덮어쓰기</option></Field><label className="api-check"><input type="checkbox" checked={includeCareers} onChange={e => change(() => setIncludeCareers(e.target.checked))} />진로 기록도 포함</label><ApiState state={students} empty={classId ? '이 학급에 등록된 학생이 없어요.' : '이관할 학급을 먼저 선택해 주세요.'}>{students.data?.map(item => <label className="api-check api-panel" key={item.id}><input type="checkbox" checked={selected.includes(item.id)} onChange={e => change(() => setSelected(e.target.checked ? [...selected, item.id] : selected.filter(id => id !== item.id)))} />{item.name}</label>)}</ApiState><Pagination state={students} /><PrimaryButton disabled={!selected.length || !target || mutation.busy || target === classId && targetYear === year} onClick={async () => {
       const result = await mutation.run('/transfers/preview', {
         body
       });

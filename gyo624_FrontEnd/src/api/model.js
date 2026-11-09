@@ -12,6 +12,11 @@ export function assignedRecordTypes(user) {
   return types ?? [...ALL_RECORD_TYPES];
 }
 export const className = item => item?.name || item?.className || (item?.grade && item?.classNumber ? `${item.grade}학년 ${item.classNumber}반` : '학급');
+export const classOptionLabel = (item, showSchool = false) => {
+  const name = className(item);
+  if (!showSchool) return name;
+  return `${item?.schoolName || '학교 미지정'} · ${name}`;
+};
 export function assertUser(user) {
   if (!user?.id || !['TEACHER', 'ADMIN'].includes(user.role)) throw new Error('사용자 정보 응답을 확인할 수 없어요. 다시 로그인해 주세요.');
   return user;

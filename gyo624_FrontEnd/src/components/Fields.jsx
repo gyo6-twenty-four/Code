@@ -25,7 +25,9 @@ function useValidation(label, ref, focusRef) {
   }
   return { error, clear: () => setError(''), validate, invalid }
 }
-function usePanel(triggerRef, panelRef, calendar = false) {
+function usePanel(triggerRef, panelRef, options = false) {
+  const calendar = options === true || !!options?.calendar
+  const minWidth = typeof options === 'object' && options?.minWidth ? options.minWidth : calendar ? 320 : 180
   const [open, setOpen] = useState(false)
   const [host, setHost] = useState(null)
   const [style, setStyle] = useState({})
@@ -37,7 +39,7 @@ function usePanel(triggerRef, panelRef, calendar = false) {
     const panel = panelRef.current
     function position() {
       const anchor = trigger.getBoundingClientRect()
-      const width = Math.min(calendar ? 320 : Math.max(anchor.width, 180), window.innerWidth - 24)
+      const width = Math.min(Math.max(anchor.width, minWidth), window.innerWidth - 24)
       const height = Math.min(panel.getBoundingClientRect().height, window.innerHeight - 24)
       setStyle({ width, maxHeight: window.innerHeight - 24, ...placePanel(anchor, width, height, window.innerWidth, window.innerHeight) })
     }
@@ -48,7 +50,7 @@ function usePanel(triggerRef, panelRef, calendar = false) {
     window.addEventListener('resize', position)
     window.addEventListener('scroll', position, true)
     return () => { observer.disconnect(); window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true) }
-  }, [open, triggerRef, panelRef, calendar])
+  }, [open, triggerRef, panelRef, calendar, minWidth])
   useEffect(() => {
     if (!open) return
     function outside(event) { if (!triggerRef.current?.contains(event.target) && !panelRef.current?.contains(event.target)) setOpen(false) }
@@ -63,7 +65,7 @@ function optionText(node) { return Children.toArray(node).map(child => typeof ch
 function ErrorText({ id, error }) { return error ? <p className="field-error" id={`${id}-error`} role="alert">{error}</p> : null }
 const changeEvent = (value, name) => ({ target: { value, name }, currentTarget: { value, name } })
 
-function SelectField({ id, label, children, value, defaultValue = '', onChange, name, required, disabled, placeholder = '선택해 주세요' }) {
+function SelectField({ id, label, children, value, defaultValue = '', onChange, name, required, disabled, placeholder = '선택해 주세요', searchable = false, searchPlaceholder = '검색하세요', panelMinWidth = 180 }) {
   const options = Children.toArray(children).map(option => ({ value: String(option.props.value ?? optionText(option.props.children)), label: optionText(option.props.children), disabled: option.props.disabled }))
   const [internal, setInternal] = useState(defaultValue)
   const selected = String(value ?? internal)
@@ -74,7 +76,8 @@ function SelectField({ id, label, children, value, defaultValue = '', onChange, 
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
   const searchRef = useRef({ text: '', time: 0 })
-  const panel = usePanel(triggerRef, panelRef)
+  const showSearch = searchable || options.length > 5
+  const panel = usePanel(triggerRef, panelRef, { minWidth: showSearch ? Math.max(panelMinWidth, 240) : panelMinWidth })
   const inputRef = useRef(null)
   const validation = useValidation(label, inputRef, triggerRef)
   const listId = `${id}-list`
@@ -106,7 +109,7 @@ function SelectField({ id, label, children, value, defaultValue = '', onChange, 
   return <>
     <input className="field-validation-proxy" ref={inputRef} name={name} type="text" value={selectedIndex < 0 ? '' : selected} onChange={() => {}} required={required} disabled={disabled} tabIndex={-1} aria-hidden="true" onInvalid={validation.invalid} />
     <button ref={triggerRef} id={id} type="button" className="field-control field-select" role="combobox" aria-labelledby={`${id}-label`} aria-expanded={panel.open} aria-controls={listId} aria-haspopup="listbox" aria-activedescendant={panel.open && active >= 0 ? `${id}-option-${active}` : undefined} aria-required={required || undefined} aria-invalid={!!validation.error || undefined} aria-describedby={validation.error ? `${id}-error` : undefined} disabled={disabled} onClick={() => panel.open ? panel.close() : show()} onKeyDown={keydown}><span className={selectedIndex < 0 ? 'field-placeholder' : ''}>{options[selectedIndex]?.label || placeholder}</span><Icon name="chevron" className={panel.open ? 'is-rotated' : ''} /></button>
-    {panel.open && panel.host && createPortal(<div ref={panelRef} className="field-popover select-popover" style={panel.style}>{options.length > 5 && <div className="select-search"><input type="text" aria-label={`${label} 옵션 검색`} placeholder="검색어를 입력해 주세요" value={query} onChange={event => { setQuery(event.target.value); setActive(options.findIndex(option => !option.disabled && option.label.toLocaleLowerCase().includes(event.target.value.toLocaleLowerCase()))) }} onKeyDown={event => { if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) keydown(event); else if (event.key === 'Tab') panel.close(true) }} /></div>}<div id={listId} role="listbox" aria-labelledby={`${id}-label`}>{visibleOptions.map(({ option, index }) => <div key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={option.value === selected} aria-disabled={option.disabled || undefined} className={`select-option${index === active ? ' is-active' : ''}${option.value === selected ? ' is-selected' : ''}`} onPointerMove={() => { if (!option.disabled) setActive(index) }} onMouseDown={event => event.preventDefault()} onClick={() => choose(index)}><span>{option.label}</span>{option.value === selected && <Icon name="check" />}</div>)}{!visibleOptions.length && <p className="select-empty">검색 결과가 없어요.</p>}</div></div>, panel.host)}
+    {panel.open && panel.host && createPortal(<div ref={panelRef} className="field-popover select-popover" style={panel.style}>{showSearch && <div className="select-search"><input type="text" aria-label={`${label} 검색`} placeholder={searchPlaceholder} value={query} onChange={event => { setQuery(event.target.value); setActive(options.findIndex(option => !option.disabled && option.label.toLocaleLowerCase().includes(event.target.value.toLocaleLowerCase()))) }} onKeyDown={event => { if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) keydown(event); else if (event.key === 'Tab') panel.close(true) }} /></div>}<div id={listId} role="listbox" aria-labelledby={`${id}-label`}>{visibleOptions.map(({ option, index }) => <div key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={option.value === selected} aria-disabled={option.disabled || undefined} className={`select-option${index === active ? ' is-active' : ''}${option.value === selected ? ' is-selected' : ''}`} onPointerMove={() => { if (!option.disabled) setActive(index) }} onMouseDown={event => event.preventDefault()} onClick={() => choose(index)}><span>{option.label}</span>{option.value === selected && <Icon name="check" />}</div>)}{!visibleOptions.length && <p className="select-empty">검색 결과가 없어요.</p>}</div></div>, panel.host)}
     <ErrorText id={id} error={validation.error} />
   </>
 }

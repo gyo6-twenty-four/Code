@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { passwordResetPath } from './auth-link.js'
-import { normalizeSchool, schoolFromNeis, schoolSearchParams, toNeisSchool } from './school.js'
+import { elementarySchool, normalizeSchool, readAdminSchool, schoolFromNeis, schoolSearchParams, toNeisSchool, writeAdminSchool } from './school.js'
 
 test('학교 코드는 나이스 코드로, 이름은 학교명으로 찾는다', () => {
   assert.deepEqual(schoolSearchParams(' 7010084 '), { SD_SCHUL_CODE: '7010084' })
@@ -22,9 +22,18 @@ test('나이스 학교 행을 학교 코드가 있는 기록으로 맞춘다', (
   })
   assert.equal(school.schoolCode, '7010001')
   assert.equal(school.name, '한빛초등학교')
+  assert.equal(elementarySchool(school), true)
+  assert.equal(elementarySchool({ ...school, kind: '중학교' }), false)
   assert.equal(toNeisSchool(school).schoolName, '한빛초등학교')
   assert.equal(schoolFromNeis({ SCHUL_NM: '이름만' }), null)
   assert.equal(normalizeSchool({ schoolName: ' 가나다학교 ' }).name, '가나다학교')
+  const memory = new Map()
+  const storage = { getItem: key => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value), removeItem: key => memory.delete(key) }
+  const saved = writeAdminSchool({ name: '한빛중학교', schoolCode: 'b7010083', officeCode: 'B10', kind: '중학교' }, storage)
+  assert.equal(saved.schoolCode, 'B7010083')
+  assert.equal(readAdminSchool(storage).name, '한빛중학교')
+  assert.equal(writeAdminSchool(null, storage), null)
+  assert.equal(readAdminSchool(storage), null)
 })
 
 test('재설정 메일의 코드만 비밀번호 찾기 주소로 옮긴다', () => {

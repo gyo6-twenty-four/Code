@@ -15,6 +15,10 @@ export function schoolSearchParams(value) {
   return null
 }
 
+export function elementarySchool(school) {
+  return String(school?.kind || '').includes('초등')
+}
+
 export function schoolFromNeis(row) {
   const school = normalizeSchool({
     name: row?.SCHUL_NM,
@@ -37,4 +41,23 @@ export function toNeisSchool(school) {
     schoolName: next.name,
     kind: next.kind,
   }
+}
+
+const adminSchoolKey = 'education24-admin-school'
+
+export function readAdminSchool(storage = globalThis.localStorage) {
+  try {
+    const school = normalizeSchool(JSON.parse(storage?.getItem(adminSchoolKey) || 'null'))
+    return school.schoolCode ? school : null
+  } catch {
+    return null
+  }
+}
+
+export function writeAdminSchool(school, storage = globalThis.localStorage) {
+  const next = normalizeSchool(school)
+  if (!storage) return next.schoolCode ? next : null
+  if (!next.schoolCode) storage.removeItem(adminSchoolKey)
+  else storage.setItem(adminSchoolKey, JSON.stringify(next))
+  return next.schoolCode ? next : null
 }

@@ -25,7 +25,8 @@ import {
 import { ALL_RECORD_TYPES, sanitizeRecordTypes } from '../api/model.js'
 import { getFirebase } from '../lib/firebase.js'
 import { passwordError } from '../lib/passwords.js'
-import { normalizeSchool } from '../lib/school.js'
+import { elementarySchool, normalizeSchool } from '../lib/school.js'
+import { assignmentAfterSchoolChange, readTeaching, teachingError } from '../lib/teaching.js'
 import { LocalError } from './local-store.js'
 
 const INVITE_TTL = 7 * 24 * 60 * 60 * 1000
@@ -118,6 +119,9 @@ function profileFrom(id, data) {
     onboardingCompleted: data.onboardingCompleted !== false,
     phone: data.phone || '',
     classIds: data.classIds || [],
+    homeroomClassId: data.homeroomClassId || '',
+    subjectIds: Array.isArray(data.subjectIds) ? data.subjectIds : [],
+    teachingClassIds: Array.isArray(data.teachingClassIds) ? data.teachingClassIds : [],
     recordTypes: data.recordTypes || [...ALL_RECORD_TYPES],
     preferences: data.preferences || { notificationEmail: true, notificationInApp: true },
     invitationId: data.invitationId || '',
@@ -224,6 +228,9 @@ export function createAccountGateway() {
       onboardingCompleted: true,
       phone: '',
       classIds: [],
+      homeroomClassId: '',
+      subjectIds: [],
+      teachingClassIds: [],
       recordTypes: [...ALL_RECORD_TYPES],
       preferences: { notificationEmail: true, notificationInApp: true },
       ...emptySchool(),
@@ -306,6 +313,8 @@ export function createAccountGateway() {
       requireValue(email.includes('@'), '이메일을 확인해 주세요.')
       const taken = await emailTaken(email, ignoreId)
       requireValue(!taken, taken)
+      const nested = input?.school && typeof input.school === 'object' ? normalizeSchool(input.school) : null
+      if (nested?.schoolCode) requireValue(!elementarySchool(nested), '중학교와 고등학교만 연결할 수 있어요.')
       const token = crypto.randomUUID()
       const invite = {
         email,
@@ -314,7 +323,7 @@ export function createAccountGateway() {
         classIds: Array.isArray(input.classIds) ? input.classIds : [],
         recordTypes: cleanTypes(input.recordTypes),
         accepted: false,
-        ...inviteSchoolFields(profile),
+        ...(nested?.schoolCode ? schoolFields(nested) : inviteSchoolFields(profile)),
         expiresAt: new Date(Date.now() + INVITE_TTL).toISOString(),
         createdAt: new Date().toISOString(),
       }
@@ -397,7 +406,19 @@ export function createAccountGateway() {
         if (method === 'GET') return result(profile.school)
         const next = normalizeSchool(body)
         requireValue(next.name && next.schoolCode && next.officeCode, '학교 이름과 학교 코드를 확인해 주세요.')
-        await updateDoc(doc(services().db, 'users', profile.id), schoolFields(next))
+        requireValue(!elementarySchool(next), '중학교와 고등학교만 연결할 수 있어요.')
+        const teaching = assignmentAfterSchoolChange(profile.school, next, profile)
+        await updateDoc(doc(services().db, 'users', profile.id), { ...schoolFields(next), ...teaching })
+        return result(next)
+      }
+      if (p === '/settings/teaching') {
+        const profile = await activeProfile()
+        requireValue(profile.role === 'TEACHER', '담당 수업은 교사 계정에서 등록해요.', 403)
+        if (method === 'GET') return result(readTeaching(profile))
+        const next = readTeaching(body)
+        const issue = teachingError(next)
+        requireValue(!issue, issue)
+        await updateDoc(doc(services().db, 'users', profile.id), next)
         return result(next)
       }
       if (parts[0] === 'invitations') {
@@ -417,10 +438,13 @@ export function createAccountGateway() {
           onboardingCompleted: false,
           phone: '',
           classIds: Array.isArray(invite.classIds) ? invite.classIds : [],
+          homeroomClassId: '',
+          subjectIds: [],
+          teachingClassIds: [],
           recordTypes: Array.isArray(invite.recordTypes) ? invite.recordTypes : [...ALL_RECORD_TYPES],
           preferences: { notificationEmail: true, notificationInApp: true },
           invitationId: invite.id,
-          ...emptySchool(),
+          ...(schoolFields(schoolFromProfile(invite)).schoolCode ? schoolFields(schoolFromProfile(invite)) : emptySchool()),
         }, { created, inviteId: invite.id })
         await signOut(auth)
         if (outcome === 'exists') throw new LocalError('이미 가입된 이메일이에요. 로그인해 주세요.')
@@ -439,7 +463,11 @@ export function createAccountGateway() {
           return result({ ...profile, ...next })
         }
         if (p === '/onboarding/complete') {
-          if (profile.role === 'TEACHER') requireValue(profile.school?.schoolCode, '학교를 선택해 주세요.')
+          if (profile.role === 'TEACHER') {
+            requireValue(profile.school?.schoolCode, '학교를 선택해 주세요.')
+            const issue = teachingError(readTeaching(profile))
+            requireValue(!issue, issue)
+          }
           await updateDoc(ref, { onboardingCompleted: true })
           return result({ ...profile, onboardingCompleted: true })
         }
@@ -498,8 +526,14 @@ export function createAccountGateway() {
             classIds: item.classIds || [],
             recordTypes: item.recordTypes || [],
             schoolCode: item.schoolCode || '',
+            schoolName: item.schoolName || '',
+            school: schoolFromProfile(item),
           }))
-          const rows = [...directory.users.filter(item => item.status !== 'DELETED'), ...invites].filter(item => !keyword || `${item.name} ${item.email}`.toLowerCase().includes(keyword))
+          const schoolCode = (q.get('schoolCode') || '').trim().toUpperCase()
+          const rows = [...directory.users.filter(item => item.status !== 'DELETED'), ...invites].filter(item => {
+            const code = String(item.school?.schoolCode || item.schoolCode || '').toUpperCase()
+            return (!schoolCode || code === schoolCode) && (!keyword || `${item.name} ${item.email}`.toLowerCase().includes(keyword))
+          })
           return pageOf(rows, q)
         }
         const teacher = directory.users.find(item => item.id === parts[2])

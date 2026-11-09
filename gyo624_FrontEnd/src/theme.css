@@ -46,7 +46,6 @@ html:has(.app-shell) #root {
   line-height: 1.25;
 }
 
-.page-description,
 .auth-description {
   min-height: 0;
   margin-top: 6px;
@@ -76,6 +75,7 @@ html:has(.app-shell) #root {
 .metric-card,
 .home-calendar-panel,
 .selected-day-panel,
+.day-card,
 .settings-row,
 .info-panel,
 .schedule-toolbar,
@@ -99,6 +99,7 @@ html:has(.app-shell) #root {
 .api-panel,
 .home-calendar-panel,
 .selected-day-panel,
+.day-card,
 .info-panel,
 .schedule-toolbar,
 .chart-card,
@@ -261,25 +262,25 @@ html:has(.app-shell) #root {
 }
 
 .year-return {
-  display: grid;
-  grid-template-rows: 0fr;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  z-index: 2;
   pointer-events: none;
-  transition: grid-template-rows 0.42s ease-in-out;
+  transform: translateX(-50%);
 }
 
 .year-return.is-open {
-  grid-template-rows: 1fr;
   pointer-events: auto;
 }
 
 .year-return-clip {
-  min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .year-return button {
   height: 28px;
-  margin: 0 0 6px;
+  margin: 0;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -291,7 +292,7 @@ html:has(.app-shell) #root {
   white-space: nowrap;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(8px);
   transition: transform 0.42s ease-in-out, opacity 0.42s ease-in-out, background-color 0.15s ease;
 }
 
@@ -412,8 +413,8 @@ html:has(.app-shell) #root {
   font-weight: 700;
 }
 
-.home-calendar-grid thead th:first-child { color: var(--negative); }
-.home-calendar-grid thead th:last-child { color: #1e4d8c; }
+.home-calendar-grid thead th:first-child { color: #c4515a; }
+.home-calendar-grid thead th:last-child { color: #3a6ea5; }
 
 .home-calendar-grid td { vertical-align: middle; }
 
@@ -443,9 +444,13 @@ html:has(.app-shell) #root {
 .home-calendar-grid .day-number {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  flex: 0 0 36px;
+  box-sizing: border-box;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  border-radius: 4px;
   color: var(--ink);
   background: transparent;
   font-size: 14px;
@@ -453,26 +458,43 @@ html:has(.app-shell) #root {
   line-height: 1;
 }
 
-.home-calendar-grid tr > :first-child .day-number { color: var(--negative); }
-.home-calendar-grid tr > :last-child .day-number { color: #1e4d8c; }
+.home-calendar-grid tr > :first-child .day-number { color: #c4515a; }
+.home-calendar-grid tr > :last-child .day-number { color: #3a6ea5; }
 
-.home-calendar-grid .home-calendar-day:hover .day-number { background: var(--bg-secondary); }
+.home-calendar-grid .home-calendar-day:hover .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  background: #e7eef6;
+}
 
-.home-calendar-grid .home-calendar-day[aria-pressed='true'] .day-number {
-  border-radius: 8px;
-  background: var(--brand-weak);
-  box-shadow: inset 0 0 0 1.5px var(--brand);
+.home-calendar-grid .home-calendar-day[aria-pressed='true'] .day-number,
+.home-calendar-grid .home-calendar-day[aria-pressed='true']:hover .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px #6d7580;
 }
 
 .home-calendar-grid .home-calendar-day[aria-current='date'] .day-number,
-.home-calendar-grid .home-calendar-day[aria-current='date']:hover .day-number {
-  background: var(--brand);
+.home-calendar-grid .home-calendar-day[aria-current='date']:hover .day-number,
+.home-calendar-grid .home-calendar-day[aria-current='date'][aria-pressed='true'] .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background: #1f4f8f;
   box-shadow: none;
   color: #fff;
 }
 
 .home-calendar-grid .adjacent-month { opacity: 1; }
-.home-calendar-grid .adjacent-month .day-number { color: #6d7580; }
+.home-calendar-grid .adjacent-month .day-number { color: #a3acb8; }
 .home-calendar-grid .adjacent-month[aria-current='date'] .day-number { color: #fff; }
 
 .brand,
