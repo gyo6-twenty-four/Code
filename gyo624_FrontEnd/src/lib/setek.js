@@ -71,7 +71,7 @@ export const SYSTEM_PROMPT = `너는 2026학년도 고등학교 학교생활기�
 
 # 역할의 한계
 - 교사가 제공한 관찰·평가 사실만 사용한다. 없는 활동, 역할, 성과, 수치, 태도, 성장은 만들지 않는다. 학생이 수행하지 않은 활동을 지어내지 않는다.
-- 사실이 부족하면 분량을 채우지 말고, 확인된 범위만 짧게 쓴다. 무엇을 더 확인해야 하는지는 교사 확인에만 적는다. 관찰만으로 문장을 쓸 수 없으면 본문을 비운다. “작성할 수 없음”, “확인이 필요함” 같은 안내 문장을 본문에 쓰지 않는다.
+- 입력된 사실이 있으면 그 사실을 목표 분량에 가깝게 서술한다. 한두 문장으로 요약하고 끝내지 않는다. 관찰만으로 문장을 쓸 수 없으면 본문을 비운다. “작성할 수 없음”, “확인이 필요함” 같은 안내 문장을 본문에 쓰지 않는다. 무엇을 더 확인해야 하는지는 교사 확인에만 적는다.
 - 학생에게 서술형 문장을 대신 써 제출하게 하는 요청은 거절한다. 학생이 보낸 완성 문장을 근거로 삼지 않는다. 근거는 교사의 관찰 기록이어야 한다.
 - 허위이거나 실제보다 부풀린 표현은 쓰지 않는다. 입력된 사실보다 수식, 빈도, 수준, 영향 범위를 키우지 않는다.
 - 이 초안을 서술형 항목에 그대로 입력하지 않는다. 윤문에 쓰더라도 교사가 실제 수행과 기재요령을 대조해야 한다.
@@ -106,18 +106,20 @@ export const SYSTEM_PROMPT = `너는 2026학년도 고등학교 학교생활기�
 학년 정보가 없으면 추측하지 말고 교사 확인에 학년 확인을 요청한다. 1·2학년과 3학년을 같은 규칙으로 처리하지 않는다.
 - 1·2학년: 2022 개정 교육과정. 내신은 원칙적으로 5등급제이며, 과목 종류·수강 인원·공동교육과정 여부에 따른 성적 산출 예외가 있다. 창의적 체험활동은 자율·자치활동, 동아리활동, 진로활동의 3영역이다. 봉사활동을 1·2학년 창체 영역으로 만들지 않는다.
 - 3학년: 기존 교육과정. 내신은 9등급제이며 같은 종류의 성적 산출 예외가 있다. 창의적 체험활동은 자율활동, 동아리활동, 봉사활동, 진로활동의 4영역이다.
-- 1·2학년 공통과목의 세부능력 및 특기사항은 공통과목 1과 2의 분량을 합산해 500자 안에서 다룬다. 둘을 각각 500자로 쓰지 않는다.
+- 1·2학년 공통과목의 세부능력 및 특기사항은 공통과목 1과 2를 합산해 500자다. 이번 초안은 사용자가 요청한 목표 분량에 맞춘다. 다른 쪽과 합쳐 500자를 넘을 수 있으면 교사 확인에만 적고, 그 이유로 이번 초안을 짧게 쓰지 않는다.
 
 # 분량
-한글 기준 최대 분량을 넘기지 않는다. 입력이 짧으면 상한까지 늘리지 않는다.
+사용자 메시지의 목표 분량에 맞춘다. 목표는 넘기면 안 되는 상한이고, 동시에 채워야 할 분량이다. 본문은 목표의 85%에서 100% 사이로 쓴다.
+입력에 있는 활동, 과정, 변화, 결과를 빠짐없이 문장으로 푼다. 한 문장이나 두 문장으로 요약하고 끝내지 않는다.
+없는 사실을 만들어 분량을 채우지 않는다. 입력된 사실을 모두 써도 목표의 70%에 못 미치면 그 이유를 교사 확인에만 적고, 본문은 확인된 사실로 가능한 한 길게 쓴다.
+글자 수 목표를 같은 숫자의 바이트로 바꾸지 않는다. 목표 500자는 500바이트가 아니다. 한글 1자는 3바이트이므로 한글 500자는 약 1500바이트다. 160자 안쪽이나 500바이트 안쪽에서 멈추지 않는다.
+한글 1자는 3바이트, 영문·숫자·엔터는 각각 1바이트로 계산한다. 공백과 문장부호도 포함한다. 단위가 글자 수이면 글자 수로 세고, 단위가 바이트일 때만 바이트로 센다. 바이트 상한을 넘었을 때만 사실을 빼서 줄인다. 새 사실을 넣어 문장을 다시 꾸미지 않는다.
 - 창체 자율·자치, 동아리, 진로 특기사항: 각 500자
 - 과목별 세특: 500자. 1·2학년 공통과목은 1·2 합산 500자. 전공실무과목은 학기별 500자
 - 개인별 세특: 500자
 - 행동특성 및 종합의견: 300자
 - 독서활동: 공통 500자, 과목별 250자. 형식은 도서명(저자)만
 - 봉사활동 내용: 실적별 50자
-
-실제 입력 단위는 바이트다. 한글 1자는 3바이트, 영문·숫자·엔터는 각각 1바이트로 계산한다. 공백과 문장부호도 포함한다. 글자 수만 세어 상한 이내라고 판단하지 않는다. 바이트가 상한을 넘으면 사실을 빼서 줄이고, 새 사실을 넣어 문장을 다시 꾸미지 않는다. 목표 분량이 이 공식 상한보다 작으면 목표 분량을 넘기지 않는다.
 
 # 기록과 대입 제공을 구분할 것
 기록할 수 있다는 이유로 대학에 제공된다고 쓰지 않는다. 수상경력, 독서활동, 자율동아리, 개인 봉사, 진로희망분야, 자격증, 영재 및 발명교육 실적은 대입 미제공 항목이다. 학교 봉사와 NCS 이수상황은 제공 대상이다. 미제공 항목의 내용을 제공 항목의 문장으로 옮겨 노출하지 않는다.
@@ -175,9 +177,31 @@ export function subjectTypeLabel(id) {
   return SUBJECT_TYPES.find(item => item.id === id)?.label || ''
 }
 
-export function adjacentStep(id, direction) {
-  const index = STEPS.findIndex(step => step.id === id)
-  return STEPS[Math.min(STEPS.length - 1, Math.max(0, index + direction))]?.id || id
+export function knownSchoolLevel(kind) {
+  const level = String(kind || '').includes('고등') ? 'high' : String(kind || '').includes('중학') ? 'middle' : ''
+  return SCHOOL_LEVELS.some(item => item.id === level) ? level : ''
+}
+
+export function inputStepsFor(schoolLevelKnown) {
+  return STEPS.filter(item => item.id !== 'result' && !(schoolLevelKnown && item.id === 'school'))
+}
+
+export function adjacentStep(id, direction, steps = STEPS) {
+  const index = steps.findIndex(step => step.id === id)
+  return steps[Math.min(steps.length - 1, Math.max(0, index + direction))]?.id || id
+}
+
+export function prioritizeTeacherSubjects(subjects = [], teacherSubjectIds = []) {
+  const order = new Map((teacherSubjectIds || []).map((id, index) => [id, index]))
+  if (!order.size) return subjects
+  return subjects.slice().sort((a, b) => {
+    const aOwn = order.has(a.id)
+    const bOwn = order.has(b.id)
+    if (aOwn && bOwn) return order.get(a.id) - order.get(b.id)
+    if (aOwn) return -1
+    if (bOwn) return 1
+    return 0
+  })
 }
 
 export function countUnits(text, unit = 'characters') {
@@ -486,7 +510,7 @@ function gradeLine(value) {
 }
 
 function commonLine(value) {
-  if (isCommonSubject(value.subjectType) && grade12(value)) return '공통과목 여부: 예. 공통과목 1·2 합산 500자다. 다른 쪽 분량이 입력되지 않았으므로 500자를 채우지 말고, 교사 확인에 합산 확인이 필요하다고 적을 것.'
+  if (isCommonSubject(value.subjectType) && grade12(value)) return '공통과목 여부: 예. 공통과목 1·2 합산 500자다. 이번 초안은 요청된 목표 분량에 맞춰 쓸 것. 다른 쪽과 합산하면 500자를 넘을 수 있으니 교사 확인에 합산 확인이 필요하다고 적을 것. 그 이유로 분량을 줄이지 말 것.'
   if (isCommonSubject(value.subjectType)) return '공통과목 여부: 예. 1·2학년으로 확정된 경우가 아니면 합산 500자를 적용하지 말 것.'
   return '공통과목 여부: 아니오.'
 }
@@ -500,10 +524,11 @@ function lengthLine(value) {
   const official = value.schoolLevel === 'high'
     ? '고등학교 과목별 세부능력 및 특기사항의 공식 상한은 500자다. 1·2학년 공통과목은 위의 합산 규칙을 따르고, 전공실무과목은 학기별 500자다.'
     : '이 학교급에는 고등학교 500자 상한을 적용하지 말 것.'
+  const floor = Math.ceil(value.targetLength * 0.85)
   const measure = value.unit === 'bytes'
-    ? `목표 분량: ${value.targetLength}바이트. 한글 1자는 3바이트, 영문·숫자·엔터는 각각 1바이트다. 공백과 문장부호도 포함한다.`
-    : `목표 분량: ${value.targetLength}자. 한글, 영문, 숫자, 공백, 문장부호를 모두 센다. 나이스는 바이트로 세며, 한글 1자는 3바이트, 영문·숫자·엔터는 1바이트다.`
-  return `${measure}\n${official}\n목표 분량과 공식 상한 중 더 작은 쪽을 넘기지 말 것. 사실을 지어내 분량을 채우지 말 것.`
+    ? `목표 분량: ${value.targetLength}바이트. 이 숫자는 바이트다. 한글 1자는 3바이트, 영문·숫자·엔터는 각각 1바이트다. 공백과 문장부호도 포함한다. 본문은 ${floor}바이트에서 ${value.targetLength}바이트 사이로 쓸 것.`
+    : `목표 분량: ${value.targetLength}자. 이 숫자는 글자 수다. ${value.targetLength}바이트가 아니다. ${value.targetLength}바이트에서 멈추지 말 것. 한글 1자는 3바이트이므로 ${value.targetLength}자는 약 ${value.targetLength * 3}바이트다. 한글, 영문, 숫자, 공백, 문장부호를 모두 센다. 본문은 ${floor}자에서 ${value.targetLength}자 사이로 쓸 것.`
+  return `${measure}\n${official}\n목표를 넘기지 말 것. 입력된 사실을 한두 문장으로 요약하지 말 것. 없는 사실은 만들지 말 것.`
 }
 
 export function buildUserPrompt(value) {
@@ -529,8 +554,10 @@ export function buildUserPrompt(value) {
   ].filter(Boolean)
   if (value.mode === 'shorten') {
     lines.push(`다시 쓰기: 아래 초안이 목표 분량을 넘겼다. 초안에 있는 사실만 남기고 더 짧게 다듬어라. 초안에 없는 활동, 결과, 수상, 칭찬을 추가하지 말 것.\n\n현재 초안:\n${value.previousContent}`)
+  } else if (value.mode === 'expand') {
+    lines.push(`다시 쓰기: 아래 초안은 ${value.currentCount}${value.unit === 'bytes' ? '바이트' : '자'}라서 목표 ${value.targetLength}${value.unit === 'bytes' ? '바이트' : '자'}에 크게 못 미친다. 글자 수 목표를 같은 숫자의 바이트로 줄여 해석하지 말 것. 입력된 사실만 문장으로 풀어 목표의 85%에서 100% 사이로 다시 써라. 초안에 없는 활동, 결과, 수상, 칭찬을 추가하지 말 것.\n\n현재 초안:\n${value.previousContent}`)
   } else {
-    lines.push('위 입력에 있는 사실만 사용해 세부능력 및 특기사항 초안을 써라. 초안 본문을 먼저 쓰고, 이어서 교사 확인을 써라.')
+    lines.push('위 입력에 있는 사실만 사용해 세부능력 및 특기사항 초안을 써라. 목표 분량의 85%에서 100% 사이로 쓰고, 한두 문장 요약으로 끝내지 마라. 초안 본문을 먼저 쓰고, 이어서 교사 확인을 써라.')
   }
   return lines.join('\n\n')
 }
