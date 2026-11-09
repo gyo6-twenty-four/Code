@@ -10,6 +10,27 @@ export function compareClassroomNames(left, right) {
   return String(left || '').localeCompare(String(right || ''), 'ko', { numeric: true })
 }
 
+export function classPlaceKey(item) {
+  const grade = Number(item?.grade)
+  const classNumber = Number(String(item?.classNumber ?? item?.classLabel ?? '').replace(/\D/g, ''))
+  if (!Number.isInteger(grade) || grade < 1 || !Number.isInteger(classNumber) || classNumber < 1) return ''
+  return `${grade}:${classNumber}`
+}
+
+export function mergeClassLists(primary = [], extra = []) {
+  const seen = new Set()
+  const items = []
+  for (const item of [...primary, ...extra]) {
+    if (!item?.id) continue
+    const key = classPlaceKey(item)
+    if (seen.has(item.id) || (key && seen.has(key))) continue
+    seen.add(item.id)
+    if (key) seen.add(key)
+    items.push(item)
+  }
+  return items
+}
+
 export function compareClassItems(left, right) {
   const grade = Number(left?.grade) - Number(right?.grade)
   if (Number.isFinite(grade) && grade) return grade

@@ -32,6 +32,7 @@ import {
   validateGenerationPayload,
 } from '../lib/setek'
 import { generateSetek, setekStatus } from './setek-client'
+import { mergeClassLists } from '../lib/classrooms'
 import { usePage } from './hooks'
 import { loadClasses, onNeisSchool, readNeisSchool } from './neis'
 import { ClassSelect, StudentSelect } from './shared'
@@ -171,15 +172,10 @@ export default function Setek({ account, notify, year, school }) {
   const neisClasses = classQuery && classFetch.id === classQuery
     ? { loading: false, error: classFetch.error, data: classFetch.data }
     : { loading: Boolean(classQuery), error: '', data: [] }
-  const seenClasses = new Set()
   const classes = {
     loading: localClasses.loading || neisClasses.loading,
     error: localClasses.error || (neisClasses.error ? new Error(neisClasses.error) : null),
-    data: [...(localClasses.data || []), ...neisClasses.data].filter(item => {
-      if (!item?.id || seenClasses.has(item.id)) return false
-      seenClasses.add(item.id)
-      return true
-    }),
+    data: mergeClassLists(localClasses.data, neisClasses.data),
     reload: () => {
       localClasses.reload?.()
       setClassAttempt(value => value + 1)

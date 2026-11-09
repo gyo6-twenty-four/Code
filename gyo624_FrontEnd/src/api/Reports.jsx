@@ -4,6 +4,7 @@ import { Field, Modal, PrimaryButton } from '../components/ui';
 import { WritingPane, WritingWorkspace } from '../components/WritingWorkspace';
 import { navigate } from '../lib/state';
 import { resource } from './client';
+import { mergeClassLists } from '../lib/classrooms';
 import { useMutation, usePage, useResource } from './hooks';
 import { loadClasses, onNeisSchool, readNeisSchool } from './neis';
 import { ApiState, ClassSelect, StudentSelect, JsonDetails, MutationError, Pagination, SaveButton, StatusBoard } from './shared';
@@ -38,15 +39,10 @@ export function Reports({
   const neisClasses = classQuery && classFetch.id === classQuery
     ? { loading: false, error: classFetch.error, data: classFetch.data }
     : { loading: Boolean(classQuery), error: '', data: [] };
-  const seen = new Set();
   const classes = {
     loading: localClasses.loading || neisClasses.loading,
     error: localClasses.error || (neisClasses.error ? new Error(neisClasses.error) : null),
-    data: [...(localClasses.data || []), ...neisClasses.data].filter(item => {
-      if (!item?.id || seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    }),
+    data: mergeClassLists(localClasses.data, neisClasses.data),
     reload: () => {
       localClasses.reload?.();
       setAttempt(value => value + 1);

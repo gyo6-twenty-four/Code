@@ -1,27 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { mergeClassLists } from '../lib/classrooms';
 import { detailError, listAll, request, resource, sessionGeneration } from './client';
 import { loadClasses } from './neis';
 
-function classPlaceKey(item) {
-  const grade = Number(item?.grade);
-  const classNumber = Number(String(item?.classNumber ?? item?.classLabel ?? '').replace(/\D/g, ''));
-  if (!Number.isInteger(grade) || grade < 1 || !Number.isInteger(classNumber) || classNumber < 1) return '';
-  return `${grade}:${classNumber}`;
-}
-
-export function mergeClassLists(primary = [], extra = []) {
-  const seen = new Set();
-  const items = [];
-  for (const item of [...primary, ...extra]) {
-    if (!item?.id) continue;
-    const key = classPlaceKey(item);
-    if (seen.has(item.id) || (key && seen.has(key))) continue;
-    seen.add(item.id);
-    if (key) seen.add(key);
-    items.push(item);
-  }
-  return items;
-}
+export { mergeClassLists };
 
 export function useNeisClasses(school, year) {
   const officeCode = school?.officeCode || '';

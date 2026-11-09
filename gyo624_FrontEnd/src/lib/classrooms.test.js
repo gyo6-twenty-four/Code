@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeClassroom, classParts, classroomOptions, compareClassItems, timetableError } from './classrooms.js'
+import { normalizeClassroom, classParts, classroomOptions, compareClassItems, mergeClassLists, timetableError } from './classrooms.js'
 
 describe('학급 입력 제한', () => {
   it('학년/반을 표준 형식으로 정리한다', () => {
@@ -25,6 +25,18 @@ describe('학급 입력 제한', () => {
       { id: 'c1', grade: 1, classNumber: 1, name: '1학년 1반' },
       { id: 'c2', grade: 1, classNumber: 2, name: '1학년 2반' }
     ].sort(compareClassItems).map(item => item.name), ['1학년 1반', '1학년 2반', '1학년 10반'])
+  })
+  it('같은 학년·반은 출처가 달라도 한 학급만 남긴다', () => {
+    const merged = mergeClassLists(
+      [{ id: 'gsm:8750829:2026:1-1', grade: 1, classNumber: 1, name: '1학년 1반' }],
+      [
+        { id: 'neis:1:1', grade: 1, classNumber: '1', name: '1학년 1반' },
+        { id: 'neis:1:1반', grade: 1, classNumber: '1반', name: '1학년 1반' },
+        { id: 'local-uuid', grade: 1, classNumber: 1, name: '1학년 1반' },
+        { id: 'gsm:8750829:2026:1-2', grade: 1, classNumber: 2, name: '1학년 2반' },
+      ],
+    )
+    assert.deepEqual(merged.map(item => item.id), ['gsm:8750829:2026:1-1', 'gsm:8750829:2026:1-2'])
   })
 })
 const lesson = { id: 'one', day: '월요일', period: '1', classroom: '1학년 2반', subject: '국어', teacher: '김지현' }
