@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Field, Modal, PrimaryButton } from '../components/ui'
+import { WritingPane, WritingWorkspace } from '../components/WritingWorkspace'
 import { deleteDraft, getPolicy, listCurricula, listDrafts, listStandards, listSubjects, saveDraft } from '../data/setek-store'
 import {
   GROWTH_FIELDS,
@@ -29,6 +30,7 @@ import { generateSetek, setekStatus } from './setek-client'
 
 const sessionKey = id => `education24-setek-form-v1:${id}`
 const noRows = []
+const inputSteps = STEPS.filter(item => item.id !== 'result')
 
 function readSession(id) {
   if (!id || !globalThis.sessionStorage) return null
@@ -63,9 +65,10 @@ function FieldGroup({ title, hint, fields, values, onChange }) {
 }
 
 export default function Setek({ account, notify }) {
+  const resultRef = useRef(null)
   const [session] = useState(() => readSession(account?.id))
   const [form, setForm] = useState(() => restoreForm(session))
-  const [step, setStep] = useState(() => STEPS.some(item => item.id === session?.step) ? session.step : 'curriculum')
+  const [step, setStep] = useState(() => session?.step === 'result' ? 'growth' : inputSteps.some(item => item.id === session?.step) ? session.step : 'curriculum')
   const [resultText, setResultText] = useState(() => session?.resultText || '')
   const [baseline, setBaseline] = useState(() => session?.baseline || '')
   const [draftId, setDraftId] = useState(() => session?.draftId || '')
@@ -190,7 +193,7 @@ export default function Setek({ account, notify }) {
     setDraftId(record.id)
     setCreatedAt(restored.createdAt)
     setSavedRecord(record)
-    setStep(restored.resultText ? 'result' : 'lesson')
+    setStep(restored.resultText ? 'growth' : 'lesson')
     setShowDrafts(false)
     clearMessages()
   }
@@ -210,7 +213,7 @@ export default function Setek({ account, notify }) {
     if (generating) return
     const message = generationError(form, meta)
     if (message) { setStepError(message); return }
-    if (aiStatus === 'missing') { setError('AI 연결이 아직 설정되지 않았어요. 서버에 API 키를 넣은 뒤 다시 시도해 주세요.'); return }
+    if (aiStatus === 'missing') { setError('자동 초안 생성을 지금 사용할 수 없어요. 결과란에 직접 작성할 수 있어요.'); return }
     if (edited && confirm?.type !== mode) { setConfirm({ type: mode }); return }
     setConfirm(null)
     setGenerating(true)
@@ -222,7 +225,8 @@ export default function Setek({ account, notify }) {
       const result = await generateSetek(validated.value)
       setResultText(result.content || '')
       setBaseline(result.content || '')
-      setStep('result')
+      notify('초안이 생성됐어요. 결과란에서 확인해 주세요.')
+      if (window.matchMedia('(max-width: 1050px)').matches) resultRef.current?.scrollIntoView({ block: 'center' })
     } catch (generateError) {
       setError(generateError.message)
     } finally {
@@ -274,31 +278,53 @@ export default function Setek({ account, notify }) {
 
   const summary = [curriculum?.name, schoolLevelLabel(form.schoolLevel), subject?.name].filter(Boolean).join(' · ')
   return <section className="api-stack setek">
-    <ol className="setek-steps">{STEPS.map((item, index) => <li key={item.id}><button type="button" className={`setek-step${item.id === step ? ' is-current' : ''}${index < stepIndex ? ' is-done' : ''}`} aria-current={item.id === step ? 'step' : undefined} disabled={index > stepIndex} onClick={() => { if (index <= stepIndex) { setStep(item.id); setStepError('') } }}>{index + 1}. {item.label}</button></li>)}</ol>
-    {summary && step !== 'curriculum' && <p className="dialog-hint">{summary}</p>}
-    {aiStatus === 'missing' && <div className="api-error" role="status"><p>AI 연결이 아직 설정되지 않았어요. 입력과 저장은 할 수 있고, 생성은 서버에 API 키를 넣은 뒤 사용할 수 있어요.</p></div>}
+
+    {aiStatus === 'missing' && <div className="api-error" role="status"><p>자동 초안 생성을 지금 사용할 수 없어요. 직접 작성하고 저장할 수 있어요.</p></div>}
     {aiStatus === 'error' && <div className="api-error" role="alert"><p>{aiError}</p></div>}
 
-    {step === 'curriculum' && <section className="api-panel api-stack"><h2>교육과정</h2><p className="dialog-hint">국가 교육과정 이름만 기본으로 둡니다. 성취기준은 출처가 확인된 자료만 관리자가 등록합니다.</p><ChoiceGroup label="교육과정">{curricula.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.curriculumId === item.id} onClick={() => { setSnapshots([]); patch({ curriculumId: item.id, subjectId: '', standardIds: [] }) }}><strong>{item.name}</strong><span>{item.year ? `${item.year}년` : '연도 미입력'}{item.source === 'custom' ? ' · 학교에서 추가' : ''}</span></button>)}</ChoiceGroup><button type="button" className="text-button" onClick={() => setShowDrafts(value => !value)}>저장된 초안 {drafts.length}</button>{showDrafts && <div className="api-stack">{drafts.length === 0 && <p className="dialog-hint">저장된 초안이 없어요.</p>}{drafts.map(item => <article className="api-panel" key={item.id}><h3>{item.subjectName || '과목 미지정'}</h3><p>{item.curriculumName} · {schoolLevelLabel(item.schoolLevel)} · {textSize(item.editedContent || '').characters}자</p><div className="exchange-actions"><button type="button" className="secondary-button" onClick={() => openDraft(item)}>이어서 작성</button><button type="button" className="text-button" onClick={() => setConfirm({ type: 'delete', id: item.id })}>삭제</button></div></article>)}</div>}</section>}
+    <div className="writing-metadata"><p>{summary || '교육과정과 과목을 선택해 작성하세요.'}</p><div className="exchange-actions"><button type="button" className="text-button" disabled={generating || busy} aria-expanded={showDrafts} onClick={() => setShowDrafts(value => !value)}>저장된 초안 {drafts.length}</button>{(form.curriculumId || resultText) && <button type="button" className="text-button" disabled={generating || busy} onClick={() => setConfirm({ type: 'reset' })}>새로 작성</button>}</div></div>
+    {showDrafts && <div className="api-stack">{drafts.length === 0 && <p className="dialog-hint">저장된 초안이 없어요.</p>}{drafts.map(item => <article className="api-panel" key={item.id}><h3>{item.subjectName || '과목 미지정'}</h3><p>{item.curriculumName} · {schoolLevelLabel(item.schoolLevel)} · {textSize(item.editedContent || '').characters}자</p><div className="exchange-actions"><button type="button" className="secondary-button" disabled={generating || busy} onClick={() => openDraft(item)}>이어서 작성</button><button type="button" className="text-button" disabled={generating || busy} onClick={() => setConfirm({ type: 'delete', id: item.id })}>삭제</button></div></article>)}</div>}
+    <WritingWorkspace
+      source={<WritingPane variant="source" title="작성 자료" description="수업 활동과 학생의 변화에서 확인한 사실을 입력하세요.">
+        <fieldset className="writing-input-lock" disabled={generating || busy} aria-label="초안 입력 자료">
+          <ol className="setek-steps">{inputSteps.map((item, index) => <li key={item.id}><button type="button" className={`setek-step${item.id === step ? ' is-current' : ''}${index < stepIndex ? ' is-done' : ''}`} aria-current={item.id === step ? 'step' : undefined} disabled={index > stepIndex} onClick={() => { if (index <= stepIndex) { setStep(item.id); setStepError('') } }}>{index + 1}. {item.label}</button></li>)}</ol>
+          {step === 'curriculum' && <section className="api-panel api-stack"><h2>교육과정</h2><p className="dialog-hint">국가 교육과정 이름만 기본으로 둡니다. 성취기준은 출처가 확인된 자료만 관리자가 등록합니다.</p><ChoiceGroup label="교육과정">{curricula.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.curriculumId === item.id} onClick={() => { setSnapshots([]); patch({ curriculumId: item.id, subjectId: '', standardIds: [] }) }}><strong>{item.name}</strong><span>{item.year ? `${item.year}년` : '연도 미입력'}{item.source === 'custom' ? ' · 학교에서 추가' : ''}</span></button>)}</ChoiceGroup></section>}
 
-    {step === 'school' && <section className="api-panel api-stack"><h2>학교급</h2><ChoiceGroup label="학교급">{SCHOOL_LEVELS.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.schoolLevel === item.id} onClick={() => { setSnapshots([]); patch({ schoolLevel: item.id, subjectId: '', standardIds: [] }) }}><strong>{item.label}</strong></button>)}</ChoiceGroup></section>}
+          {step === 'school' && <section className="api-panel api-stack"><h2>학교급</h2><ChoiceGroup label="학교급">{SCHOOL_LEVELS.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.schoolLevel === item.id} onClick={() => { setSnapshots([]); patch({ schoolLevel: item.id, subjectId: '', standardIds: [] }) }}><strong>{item.label}</strong></button>)}</ChoiceGroup></section>}
 
-    {step === 'subject' && <section className="api-panel api-stack"><h2>과목</h2>{subjectsStatus === 'loading' && <p role="status">과목을 불러오고 있어요.</p>}{subjectsStatus === 'error' && <div className="api-error" role="alert"><p>{subjectsMessage}</p><button type="button" className="secondary-button" onClick={() => setSubjectsTick(value => value + 1)}>다시 불러오기</button></div>}{subjectsStatus === 'ready' && subjects.length === 0 && <p className="dialog-hint">이 교육과정과 학교급에 등록된 과목이 없어요. 관리자의 교과세특 자료 화면에서 과목을 추가하면 여기에 나타나요.</p>}{subjects.length > 0 && <Field label="과목 검색" value={subjectQuery} onChange={event => setSubjectQuery(event.target.value)} />}{filteredSubjects.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.subjectId === item.id} onClick={() => { setSnapshots([]); patch({ subjectId: item.id, standardIds: [] }) }}><strong>{item.name}</strong><span>{subjectTypeLabel(item.subjectType)}</span></button>)}{subjects.length > 0 && filteredSubjects.length === 0 && <p className="dialog-hint">검색 결과가 없어요.</p>}</section>}
+          {step === 'subject' && <section className="api-panel api-stack"><h2>과목</h2>{subjectsStatus === 'loading' && <p role="status">과목을 불러오고 있어요.</p>}{subjectsStatus === 'error' && <div className="api-error" role="alert"><p>{subjectsMessage}</p><button type="button" className="secondary-button" onClick={() => setSubjectsTick(value => value + 1)}>다시 불러오기</button></div>}{subjectsStatus === 'ready' && subjects.length === 0 && <p className="dialog-hint">이 교육과정과 학교급에 등록된 과목이 없어요. 관리자의 교과세특 자료 화면에서 과목을 추가하면 여기에 나타나요.</p>}{subjects.length > 0 && <Field label="과목 검색" value={subjectQuery} onChange={event => setSubjectQuery(event.target.value)} />}{filteredSubjects.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.subjectId === item.id} onClick={() => { setSnapshots([]); patch({ subjectId: item.id, standardIds: [] }) }}><strong>{item.name}</strong><span>{subjectTypeLabel(item.subjectType)}</span></button>)}{subjects.length > 0 && filteredSubjects.length === 0 && <p className="dialog-hint">검색 결과가 없어요.</p>}</section>}
 
-    {step === 'standards' && <section className="api-panel api-stack"><h2>성취기준</h2><p className="dialog-hint">여러 개를 고를 수 있어요. 등록되지 않은 과목은 미등록으로 두고, 활동 내용만으로 다음 단계로 갈 수 있어요.</p>{standardsStatus === 'loading' && <p role="status">성취기준을 불러오고 있어요.</p>}{standardsStatus === 'error' && <div className="api-error" role="alert"><p>{standardsMessage}</p><button type="button" className="secondary-button" onClick={() => setStandardsTick(value => value + 1)}>다시 불러오기</button></div>}{standardsStatus === 'ready' && standards.length === 0 && <p className="dialog-hint">이 과목의 성취기준은 미등록 상태예요. 코드를 임의로 만들어 넣지 않아요.</p>}{visibleStandards.length > 0 && <Field label="성취기준 검색" value={standardQuery} onChange={event => setStandardQuery(event.target.value)} />}{filteredStandards.map(item => <div className="setek-standard" key={item.id}><label className="api-check"><input type="checkbox" checked={form.standardIds.includes(item.id)} onChange={() => toggleStandard(item.id)} /><span><strong>{item.code}</strong>{item.category ? ` · ${item.category}` : ''}{item.archived ? ' · 저장된 기준' : ''}<br />{item.content}</span></label>{item.source && <p className="dialog-hint">출처: {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</p>}</div>)}{visibleStandards.length > 0 && filteredStandards.length === 0 && <p className="dialog-hint">검색 결과가 없어요.</p>}<p className="dialog-hint">선택 {form.standardIds.length}개</p></section>}
+          {step === 'standards' && <section className="api-panel api-stack"><h2>성취기준</h2><p className="dialog-hint">여러 개를 고를 수 있어요. 등록되지 않은 과목은 미등록으로 두고, 활동 내용만으로 다음 단계로 갈 수 있어요.</p>{standardsStatus === 'loading' && <p role="status">성취기준을 불러오고 있어요.</p>}{standardsStatus === 'error' && <div className="api-error" role="alert"><p>{standardsMessage}</p><button type="button" className="secondary-button" onClick={() => setStandardsTick(value => value + 1)}>다시 불러오기</button></div>}{standardsStatus === 'ready' && standards.length === 0 && <p className="dialog-hint">이 과목의 성취기준은 미등록 상태예요. 코드를 임의로 만들어 넣지 않아요.</p>}{visibleStandards.length > 0 && <Field label="성취기준 검색" value={standardQuery} onChange={event => setStandardQuery(event.target.value)} />}{filteredStandards.map(item => <div className="setek-standard" key={item.id}><label className="api-check"><input type="checkbox" checked={form.standardIds.includes(item.id)} onChange={() => toggleStandard(item.id)} /><span><strong>{item.code}</strong>{item.category ? ` · ${item.category}` : ''}{item.archived ? ' · 저장된 기준' : ''}<br />{item.content}</span></label>{item.source && <p className="dialog-hint">출처: {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</p>}</div>)}{visibleStandards.length > 0 && filteredStandards.length === 0 && <p className="dialog-hint">검색 결과가 없어요.</p>}<p className="dialog-hint">선택 {form.standardIds.length}개</p></section>}
 
-    {step === 'lesson' && <section className="api-panel"><FieldGroup title="수업 활동" hint="실제로 진행한 내용만 적어 주세요. 비워 둔 항목은 생성에 들어가지 않아요." fields={LESSON_FIELDS} values={form.lesson} onChange={(key, value) => patchGroup('lesson', key, value)} /></section>}
+          {step === 'lesson' && <section className="api-panel"><FieldGroup title="수업 활동" hint="실제로 진행한 내용만 적어 주세요. 비워 둔 항목은 생성에 들어가지 않아요." fields={LESSON_FIELDS} values={form.lesson} onChange={(key, value) => patchGroup('lesson', key, value)} /></section>}
 
-    {step === 'student' && <section className="api-panel api-stack"><FieldGroup title="학생의 개별 활동" hint="학생 이름, 학번, 연락처, 이메일은 입력하지 마세요. AI에는 활동 내용만 전달됩니다." fields={STUDENT_FIELDS} values={form.student} onChange={(key, value) => patchGroup('student', key, value)} /><div><h2>학생의 학습 특성</h2><p className="dialog-hint">해당하는 키워드를 고르거나, 관찰한 내용을 직접 적을 수 있어요. 키워드만으로는 생성하지 않아요.</p><div className="setek-keywords" role="group" aria-label="학생의 학습 특성">{TRAITS.map(([id, label]) => <button type="button" key={id} className="setek-keyword" aria-pressed={form.traits.includes(id)} onClick={() => toggleTrait(id)}>{label}</button>)}</div></div><Field label="학습 특성 메모" multiline value={form.traitNote} onChange={event => patch({ traitNote: event.target.value })} /></section>}
+          {step === 'student' && <section className="api-panel api-stack"><FieldGroup title="학생의 개별 활동" hint="학생 이름, 학번, 연락처, 이메일은 입력하지 마세요. AI에는 활동 내용만 전달됩니다." fields={STUDENT_FIELDS} values={form.student} onChange={(key, value) => patchGroup('student', key, value)} /><div><h2>학생의 학습 특성</h2><p className="dialog-hint">해당하는 키워드를 고르거나, 관찰한 내용을 직접 적을 수 있어요. 키워드만으로는 생성하지 않아요.</p><div className="setek-keywords" role="group" aria-label="학생의 학습 특성">{TRAITS.map(([id, label]) => <button type="button" key={id} className="setek-keyword" aria-pressed={form.traits.includes(id)} onClick={() => toggleTrait(id)}>{label}</button>)}</div></div><Field label="학습 특성 메모" multiline value={form.traitNote} onChange={event => patch({ traitNote: event.target.value })} /></section>}
 
-    {step === 'growth' && <section className="api-panel api-stack"><FieldGroup title="성장 및 발전" fields={GROWTH_FIELDS} values={form.growth} onChange={(key, value) => patchGroup('growth', key, value)} /><Field label="교사의 추가 요청" multiline value={form.teacherRequest} onChange={event => patch({ teacherRequest: event.target.value })} /><div><h2>희망 분량</h2><p className="dialog-hint">{plan.unit === 'bytes' ? '바이트는 UTF-8 기준입니다.' : '글자 수는 한글, 영문, 숫자, 공백, 문장부호를 모두 포함합니다.'} 학교생활기록부 입력란의 단위와 다를 수 있어, 학교급 상한은 관리자가 바꿀 수 있어요.{policy.note ? ` ${policy.note}` : ''}</p><div className="setek-keywords" role="group" aria-label="희망 분량">{lengthPresets(plan.unit).map(value => <button type="button" key={value} className="setek-keyword" aria-pressed={form.lengthMode === String(value)} disabled={plan.cap > 0 && value > plan.cap} onClick={() => patch({ lengthMode: String(value) })}>{value}{plan.unitLabel}</button>)}<button type="button" className="setek-keyword" aria-pressed={form.lengthMode === 'custom'} onClick={() => patch({ lengthMode: 'custom' })}>직접 입력</button></div>{form.lengthMode === 'custom' && <Field label={plan.unit === 'bytes' ? '직접 입력 바이트' : '직접 입력 글자 수'} type="number" min={plan.bounds.min} max={plan.cap > 0 ? Math.min(plan.cap, plan.bounds.max) : plan.bounds.max} value={form.customLength} onChange={event => patch({ customLength: event.target.value })} />}</div></section>}
+          {step === 'growth' && <section className="api-panel api-stack"><FieldGroup title="성장 및 발전" fields={GROWTH_FIELDS} values={form.growth} onChange={(key, value) => patchGroup('growth', key, value)} /><Field label="교사의 추가 요청" multiline value={form.teacherRequest} onChange={event => patch({ teacherRequest: event.target.value })} /><div><h2>희망 분량</h2><p className="dialog-hint">{plan.unit === 'bytes' ? '바이트는 UTF-8 기준입니다.' : '글자 수는 한글, 영문, 숫자, 공백, 문장부호를 모두 포함합니다.'} 학교생활기록부 입력란의 단위와 다를 수 있어, 학교급 상한은 관리자가 바꿀 수 있어요.{policy.note ? ` ${policy.note}` : ''}</p><div className="setek-keywords" role="group" aria-label="희망 분량">{lengthPresets(plan.unit).map(value => <button type="button" key={value} className="setek-keyword" aria-pressed={form.lengthMode === String(value)} disabled={plan.cap > 0 && value > plan.cap} onClick={() => patch({ lengthMode: String(value) })}>{value}{plan.unitLabel}</button>)}<button type="button" className="setek-keyword" aria-pressed={form.lengthMode === 'custom'} onClick={() => patch({ lengthMode: 'custom' })}>직접 입력</button></div>{form.lengthMode === 'custom' && <Field label={plan.unit === 'bytes' ? '직접 입력 바이트' : '직접 입력 글자 수'} type="number" min={plan.bounds.min} max={plan.cap > 0 ? Math.min(plan.cap, plan.bounds.max) : plan.bounds.max} value={form.customLength} onChange={event => patch({ customLength: event.target.value })} />}</div></section>}
 
-    {step === 'result' && <section className="api-panel api-stack"><h2>생성 결과</h2><div className="field"><label htmlFor="setek-result">세부능력 및 특기사항</label><textarea id="setek-result" className="field-input setek-result" rows={12} value={resultText} onChange={event => { setResultText(event.target.value); setError('') }} /></div><p className={`setek-count${overLimit ? ' is-over' : ''}`} aria-live="polite">{size.characters}자 · {size.bytes}바이트{plan.target ? ` / 목표 ${plan.target}${plan.unitLabel}` : ''}</p>{overLimit && <p className="dialog-hint">목표 분량을 넘었어요. 지금 글을 기준으로 다시 줄여 쓸 수 있어요.</p>}{!resultText && <p className="dialog-hint">아직 생성된 초안이 없어요. 이전 단계에서 생성하거나, 여기에 직접 적을 수 있어요.</p>}<div className="exchange-actions"><PrimaryButton busy={generating} disabled={aiStatus === 'missing'} onClick={() => runGenerate('draft')}>다시 생성</PrimaryButton><button type="button" className="secondary-button" disabled={!overLimit || generating} onClick={() => runGenerate('shorten')}>분량에 맞춰 다시 작성</button><button type="button" className="secondary-button" disabled={!resultText} onClick={copyResult}>복사</button><button type="button" className="secondary-button" disabled={busy} onClick={save}>저장</button><button type="button" className="text-button" onClick={() => setStep('growth')}>입력 내용으로 돌아가기</button></div></section>}
-
-    {stepError && <p className="field-error" role="alert">{stepError}</p>}
+        {stepError && <p className="field-error" role="alert">{stepError}</p>}
+        <div className="setek-nav">
+          {step !== 'curriculum' && <button type="button" className="secondary-button" onClick={() => { setStep(adjacentStep(step, -1)); setStepError('') }}>이전</button>}
+          {step !== 'growth' && <PrimaryButton onClick={next}>다음</PrimaryButton>}
+          {step === 'growth' && <PrimaryButton busy={generating} disabled={aiStatus === 'missing' || aiStatus === 'error'} onClick={() => runGenerate('draft')}>{baseline ? '다시 생성' : '초안 생성'}</PrimaryButton>}
+        </div>
+        </fieldset>
+      </WritingPane>}
+      result={<WritingPane variant="result" title="세특 초안" description="생성된 초안을 검토하거나 직접 작성할 수 있어요."
+        actions={<button type="button" className="secondary-button" disabled={!resultText.trim() || generating} onClick={copyResult}>복사</button>}
+        footer={<>
+          <p className={`setek-count${overLimit ? ' is-over' : ''}`}>{size.characters}자 · {size.bytes}바이트{plan.target ? ` / 목표 ${plan.target}${plan.unitLabel}` : ''}</p>
+          <PrimaryButton busy={busy} disabled={generating || !form.subjectId} onClick={save}>{resultText.trim() ? '초안 저장' : '입력 저장'}</PrimaryButton>
+        </>}>
+        <div className="field">
+          <label htmlFor="setek-result">세부능력 및 특기사항</label>
+          <textarea ref={resultRef} id="setek-result" className="field-input setek-result writing-text" rows={12} readOnly={generating || busy} value={resultText} placeholder="작성 자료를 입력해 초안을 생성하거나 여기에 직접 작성하세요." onChange={event => { setResultText(event.target.value); setError('') }} />
+        </div>
+        {generating && <p className="dialog-hint" role="status">입력한 자료를 바탕으로 초안을 작성하고 있어요.</p>}
+        {overLimit && <div className="writing-check"><p>목표 분량을 넘었어요.</p><button type="button" className="secondary-button" disabled={generating || busy || aiStatus === 'missing' || aiStatus === 'error'} onClick={() => runGenerate('shorten')}>분량에 맞춰 다시 작성</button></div>}
+      </WritingPane>}
+    />
     {error && <div className="api-error" role="alert"><p>{error}</p></div>}
-    {generating && <p className="dialog-hint" role="status">입력한 활동과 성취기준을 바탕으로 초안을 쓰고 있어요.</p>}
-    <div className="setek-nav">{step !== 'curriculum' && <button type="button" className="secondary-button" onClick={() => { setStep(adjacentStep(step, -1)); setStepError('') }}>이전</button>}{step !== 'growth' && step !== 'result' && <PrimaryButton onClick={next}>다음</PrimaryButton>}{step === 'growth' && <PrimaryButton busy={generating} disabled={aiStatus === 'missing'} onClick={() => runGenerate('draft')}>교과세특 생성</PrimaryButton>}{step !== 'result' && form.subjectId && <button type="button" className="secondary-button" disabled={busy} onClick={save}>입력 저장</button>}{(form.curriculumId || resultText) && <button type="button" className="text-button" onClick={() => setConfirm({ type: 'reset' })}>새로 작성</button>}</div>
 
     {(confirm?.type === 'draft' || confirm?.type === 'shorten') && <Modal title="초안을 다시 쓸까요?" onClose={() => setConfirm(null)}><p>수정한 결과가 새 초안으로 바뀝니다. 입력한 수업 활동과 성취기준은 그대로 남아요.</p><div className="exchange-actions"><PrimaryButton busy={generating} onClick={() => runGenerate(confirm.type)}>{confirm.type === 'shorten' ? '분량에 맞춰 다시 작성' : '다시 생성'}</PrimaryButton><button type="button" className="secondary-button" onClick={() => setConfirm(null)}>취소</button></div></Modal>}
     {confirm?.type === 'delete' && <Modal title="초안을 삭제할까요?" onClose={() => setConfirm(null)}><p>삭제한 초안은 다시 볼 수 없어요.</p><div className="exchange-actions"><PrimaryButton busy={busy} onClick={removeDraft}>삭제</PrimaryButton><button type="button" className="secondary-button" onClick={() => setConfirm(null)}>취소</button></div></Modal>}

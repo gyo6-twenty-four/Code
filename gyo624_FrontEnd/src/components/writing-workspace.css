@@ -1,0 +1,52 @@
+.writing-workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-primary);
+}
+.writing-pane { display: flex; flex-direction: column; min-width: 0; }
+.writing-pane--result {
+  background: var(--bg-secondary);
+  border-inline-start: 1px solid var(--line);
+  border-radius: 0 15px 15px 0;
+}
+.writing-pane-heading, .writing-pane-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 20px;
+}
+.writing-pane-heading { min-height: 84px; border-bottom: 1px solid var(--line); }
+.writing-pane-heading h2 { margin: 0; font-size: 16px; }
+.writing-pane-heading p { margin: 4px 0 0; color: var(--fg-secondary); font-size: 13px; }
+.writing-pane-body { flex: 1; min-width: 0; padding: 20px; }
+.writing-pane-footer { margin-top: auto; border-top: 1px solid var(--line); }
+.writing-pane .primary-button, .writing-pane .secondary-button { width: auto; }
+.writing-pane .setek-nav { margin-top: 18px; }
+.writing-pane .field textarea.writing-text { min-height: 260px; line-height: 1.8; }
+.writing-preview { min-height: 260px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
+.writing-preview.is-empty { color: var(--fg-secondary); }
+.writing-result-label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--fg-secondary); }
+.writing-pane .setek-result { background: var(--bg-primary); }
+.writing-check { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.writing-metadata { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.writing-metadata p { margin: 0; }
+.writing-input-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
+@media (max-width: 1050px) {
+  .writing-workspace { grid-template-columns: minmax(0, 1fr); }
+  .writing-pane--result { border-inline-start: 0; border-top: 1px solid var(--line); border-radius: 0 0 15px 15px; }
+}
+@media (max-width: 480px) {
+  .writing-pane-heading, .writing-pane-body, .writing-pane-footer { padding: 14px; }
+  .writing-pane .field textarea.writing-text, .writing-preview { min-height: 180px; }
+}
+.writing-pane .writing-record-form textarea.field-input { min-height: 260px; line-height: 1.8; }
+.writing-input-lock .setek-steps { flex-wrap: wrap; margin-bottom: 14px; }
+.writing-input-lock > .api-panel { padding: 0; border: 0; background: transparent; }
+@media (max-width: 480px) {
+  .writing-pane .writing-record-form textarea.field-input { min-height: 180px; }
+}
