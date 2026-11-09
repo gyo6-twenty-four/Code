@@ -211,7 +211,28 @@ export async function handleSetekRequest(request, { env = {}, fetchImpl = fetch,
       maxTokens,
       fetchImpl,
     })
-    const draft = splitGeneratedDraft(generated)
+    let draft = splitGeneratedDraft(generated)
+    const unit = parsed.value.unit
+    const firstCount = countUnits(draft.content, unit)
+    const floor = Math.ceil(parsed.value.targetLength * 0.8)
+    if (parsed.value.mode !== 'shorten' && firstCount > 0 && firstCount < floor) {
+      const expanded = await config.provider.generate({
+        apiKey: config.apiKey,
+        model: config.model,
+        system: SYSTEM_PROMPT,
+        user: buildUserPrompt({
+          ...parsed.value,
+          mode: 'expand',
+          previousContent: draft.content,
+          currentCount: firstCount,
+        }),
+        maxTokens,
+        fetchImpl,
+      })
+      const second = splitGeneratedDraft(expanded)
+      const secondCount = countUnits(second.content, unit)
+      if (secondCount > firstCount) draft = second
+    }
     if (!draft.content && draft.notes.length === 0) return withCors(json({ message: 'AI가 빈 초안을 돌려줬어요. 다시 생성해 주세요.' }, 502), request, allowedOrigins)
     const content = draft.content
     const count = countUnits(content, parsed.value.unit)

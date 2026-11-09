@@ -121,6 +121,24 @@ test('OpenAI 응답으로 글자 수를 계산하고 학생 이름을 프롬프�
   assert.equal(prompt.includes('server-key'), false)
 })
 
+test('목표보다 많이 짧으면 입력된 사실만으로 한 번 더 늘린다', async () => {
+  const calls = []
+  const longDraft = `${'이차함수 그래프에서 꼭짓점과 축을 설명함. '.repeat(20)}`
+  const response = await handleSetekRequest(request(payload), deps(async (url, options) => {
+    if (String(url).includes('identitytoolkit')) return jsonResponse({ users: [{ localId: 'teacher-1' }] })
+    calls.push(JSON.parse(options.body).messages[1].content)
+    const content = calls.length === 1 ? '그래프에서 꼭짓점을 설명함.' : longDraft
+    return jsonResponse({ choices: [{ message: { content } }] })
+  }))
+  const body = await response.json()
+  assert.equal(response.status, 200)
+  assert.equal(calls.length, 2)
+  assert.match(calls[1], /크게 못 미친다/)
+  assert.match(calls[1], /없는 활동/)
+  assert.equal(body.content, longDraft.trim())
+  assert.equal(body.characterCount > 80, true)
+})
+
 test('요청이 많으면 잠시 후 다시 시도하게 한다', async () => {
   const limiter = createRateLimiter({ limit: 1, windowMs: 10000, now: () => 5000 })
   const fetchImpl = async url => String(url).includes('identitytoolkit') ? jsonResponse({ users: [{ localId: 'teacher-1' }] }) : jsonResponse({ choices: [{ message: { content: '설명함.' } }] })

@@ -104,6 +104,8 @@ test('생성 요청에서 개인정보와 목록 밖 필드를 뺀다', () => {
   assert.match(prompt, /1·2학년/)
   assert.match(prompt, /과목별 세부능력 및 특기사항/)
   assert.match(prompt, /공식 상한은 500자/)
+  assert.match(prompt, /85%에서 100%/)
+  assert.match(prompt, /바이트가 아니다/)
   assert.match(SYSTEM_PROMPT, /수행하지 않은 활동/)
   assert.match(SYSTEM_PROMPT, /교내상은 수상경력에만/)
   assert.match(SYSTEM_PROMPT, /공인어학시험/)
