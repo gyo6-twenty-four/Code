@@ -402,9 +402,14 @@ describe('Standalone UI workspace', () => {
     await store.handle('/settings/teaching', {
       actorId: setupId,
       method: 'PATCH',
-      body: { homeroomClassId: 'neis:2:1', subjectIds: ['2022:middle:국어'], teachingClassIds: ['neis:2:1', 'neis:2:2'] }
+      body: { homeroomClassId: '', subjectIds: ['2022:middle:국어'], teachingClassIds: [] }
     });
     assert.equal((await store.handle('/onboarding/complete', { actorId: setupId, method: 'POST', body: {} })).data.onboardingCompleted, true);
+    await store.handle('/settings/teaching', {
+      actorId: setupId,
+      method: 'PATCH',
+      body: { homeroomClassId: 'neis:2:1', subjectIds: ['2022:middle:국어'], teachingClassIds: ['neis:2:1', 'neis:2:2'] }
+    });
     assert.equal((await store.handle('/me', { actorId: setupId })).data.homeroomClassId, 'neis:2:1');
     assert.equal((await store.handle('/me', { actorId: adminId })).data.school.name, '');
     const listed = (await store.handle('/admin/teachers', { actorId: adminId })).data;

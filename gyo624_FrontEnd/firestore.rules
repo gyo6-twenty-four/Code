@@ -25,14 +25,14 @@ service cloud.firestore {
       return request.resource.data.role == resource.data.role
         && request.resource.data.status == resource.data.status
         && request.resource.data.email == resource.data.email
-        && request.resource.data.classIds == resource.data.classIds
-        && request.resource.data.recordTypes == resource.data.recordTypes;
+        && request.resource.data.get('classIds', []) == resource.data.get('classIds', [])
+        && request.resource.data.get('recordTypes', []) == resource.data.get('recordTypes', []);
     }
     function sameList(stored, next) {
       return next is list && (stored == next || stored == null);
     }
     function optionalTeaching(data) {
-      return (!data.keys().hasAny(['homeroomClassId']) || (data.homeroomClassId is string && data.homeroomClassId.size() <= 80))
+      return (!data.keys().hasAny(['homeroomClassId']) || (data.homeroomClassId is string && data.homeroomClassId.size() <= 240))
         && (!data.keys().hasAny(['subjectIds']) || (data.subjectIds is list && data.subjectIds.size() <= 30))
         && (!data.keys().hasAny(['teachingClassIds']) || (data.teachingClassIds is list && data.teachingClassIds.size() <= 60));
     }
@@ -40,13 +40,11 @@ service cloud.firestore {
     match /schools/{schoolCode} {
       allow get: if true;
       allow list: if isAdmin();
-      allow create: if signedIn()
+      allow create: if isAdmin()
         && request.auth.uid == request.resource.data.adminUid
         && request.resource.data.schoolCode == schoolCode
-        && exists(userPath(request.auth.uid))
-        && get(userPath(request.auth.uid)).data.role == 'ADMIN'
-        && get(userPath(request.auth.uid)).data.status == 'ACTIVE'
-        && get(userPath(request.auth.uid)).data.schoolCode == schoolCode;
+        && request.resource.data.schoolCode is string
+        && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$');
       allow update, delete: if false;
     }
 
@@ -56,16 +54,16 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['name', 'schoolCode', 'officeCode', 'officeName', 'kind'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 40
+        && request.resource.data.name.size() <= 300
         && request.resource.data.schoolCode is string
         && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$')
         && request.resource.data.officeCode is string
         && request.resource.data.officeCode.size() > 0
         && request.resource.data.officeCode.size() <= 10
         && request.resource.data.officeName is string
-        && request.resource.data.officeName.size() <= 40
+        && request.resource.data.officeName.size() <= 180
         && request.resource.data.kind is string
-        && request.resource.data.kind.size() <= 40;
+        && request.resource.data.kind.size() <= 120;
       allow delete: if false;
     }
 
@@ -88,7 +86,7 @@ service cloud.firestore {
         && request.resource.data.status == 'ACTIVE'
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 30
+        && request.resource.data.name.size() <= 120
         && request.resource.data.schoolCode is string
         && (
           (
@@ -103,9 +101,9 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.accepted == false
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.email == request.auth.token.email
             && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.role == request.resource.data.role
-            && sameList(get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.classIds, request.resource.data.classIds)
-            && sameList(get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.recordTypes, request.resource.data.recordTypes)
-            && request.resource.data.schoolCode == ''
+            && sameList(get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.get('classIds', null), request.resource.data.classIds)
+            && sameList(get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.get('recordTypes', null), request.resource.data.recordTypes)
+            && request.resource.data.schoolCode == storedSchool(get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data)
           )
         );
       allow update: if signedIn() && (
@@ -134,7 +132,7 @@ service cloud.firestore {
           && request.resource.data.schoolCode.matches('^[A-Z0-9]{7,10}$')
           && request.resource.data.schoolName is string
           && request.resource.data.schoolName.size() > 0
-          && request.resource.data.schoolName.size() <= 40
+          && request.resource.data.schoolName.size() <= 300
           && request.resource.data.officeCode is string
           && request.resource.data.officeCode.size() > 0
           && request.resource.data.officeCode.size() <= 10
@@ -252,7 +250,7 @@ service cloud.firestore {
         && setekText(request.resource.data.code, 160)
         && request.resource.data.code.size() > 0
         && setekText(request.resource.data.category, 300)
-        && setekText(request.resource.data.content, 8000)
+        && setekText(request.resource.data.content, 12000)
         && request.resource.data.content.size() > 0
         && setekText(request.resource.data.source, 800)
         && request.resource.data.source.size() > 0
@@ -286,8 +284,8 @@ service cloud.firestore {
         && request.resource.data.traits.size() <= 8
         && setekText(request.resource.data.generatedContent, 30000)
         && setekText(request.resource.data.editedContent, 30000)
-        && setekText(request.resource.data.teacherRequest, 4000)
-        && setekText(request.resource.data.traitNote, 8000)
+        && setekText(request.resource.data.teacherRequest, 12000)
+        && setekText(request.resource.data.traitNote, 24000)
         && setekText(request.resource.data.subjectName, 300)
         && (resource == null || request.resource.data.createdAt == resource.data.createdAt);
     }

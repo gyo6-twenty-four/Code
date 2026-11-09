@@ -43,7 +43,6 @@ export function teachingError(value) {
   if (value.subjectIds.length > 30 || value.subjectIds.some(id => id.length > 80)) return '담당 과목을 확인해 주세요.'
   if (value.teachingClassIds.length > 60 || value.teachingClassIds.some(id => id.length > 80)) return '수업 들어가는 반을 확인해 주세요.'
   if (!value.subjectIds.length) return '담당 과목을 하나 이상 선택해 주세요.'
-  if (!value.teachingClassIds.length) return '수업 들어가는 반을 하나 이상 선택해 주세요.'
   return ''
 }
 

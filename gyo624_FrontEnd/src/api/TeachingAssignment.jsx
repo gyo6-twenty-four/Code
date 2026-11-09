@@ -105,7 +105,7 @@ export function TeachingFields({ school, value, onChange, onStatus }) {
     </fieldset>
     <fieldset className="type-picker">
       <legend>수업 들어가는 반</legend>
-      <p className="dialog-hint">{year}학년도 학급에서 수업 들어가는 반만 고르세요.</p>
+      <p className="dialog-hint">{year}학년도 학급에서 수업 들어가는 반을 고르세요. 지금은 비워 두고 나중에 정해도 돼요.</p>
       {classes.status === 'loading' ? <p role="status">학급을 불러오고 있어요.</p> : null}
       {classes.status === 'error' ? <div className="api-error" role="alert"><p>{classes.message}</p><button type="button" className="secondary-button" onClick={() => setClassTick(tick => tick + 1)}>다시 불러오기</button></div> : null}
       {classes.status === 'ready' && classItems.length === 0 ? <p className="dialog-hint">{classes.message}</p> : null}

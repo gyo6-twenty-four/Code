@@ -20,13 +20,13 @@ test('학교 종류와 학년도를 담당 수업 조회에 맞게 고른다', (
   assert.equal(schoolYearOf(new Date(2026, 10, 9)), 2026)
 })
 
-test('담임은 비워 둘 수 있고 과목과 수업 반은 하나 이상이어야 한다', () => {
+test('담임과 수업 반은 비워 둘 수 있고 과목은 하나 이상이어야 한다', () => {
   const value = readTeaching({ homeroomClassId: '  ', subjectIds: ['2022:elementary:국어', '2022:elementary:국어'], teachingClassIds: ['neis:3:1'] })
   assert.equal(value.homeroomClassId, '')
   assert.deepEqual(value.subjectIds, ['2022:elementary:국어'])
   assert.equal(teachingError(value), '')
+  assert.equal(teachingError(readTeaching({ subjectIds: ['수학'], teachingClassIds: [] })), '')
   assert.match(teachingError(readTeaching({ subjectIds: [], teachingClassIds: ['neis:3:1'] })), /과목/)
-  assert.match(teachingError(readTeaching({ subjectIds: ['수학'], teachingClassIds: [] })), /반/)
   assert.match(teachingError(readTeaching({ subjectIds: '수학', teachingClassIds: [] })), /확인/)
 })
 
