@@ -91,17 +91,18 @@ export async function loadClasses(school, year, signal) {
   return rows.flatMap(row => {
     const grade = String(row.GRADE || '')
     const classLabel = String(row.CLASS_NM || '')
-    const id = `neis:${grade}:${classLabel}`
-    if (!grade || !classLabel || seen.has(id)) return []
+    const classNumber = Number(String(classLabel).replace(/\D/g, ''))
+    const id = `neis:${grade}:${classNumber}`
+    if (!grade || !classNumber || seen.has(id)) return []
     seen.add(id)
     return [{
       id,
       grade: Number(grade),
-      classNumber: classLabel,
+      classNumber,
       classLabel,
-      name: classLabel.endsWith('반') ? `${grade}학년 ${classLabel}` : `${grade}학년 ${classLabel}반`
+      name: `${grade}학년 ${classNumber}반`
     }]
-  }).sort((a, b) => a.grade - b.grade || String(a.classLabel).localeCompare(String(b.classLabel), 'ko', { numeric: true }))
+  }).sort((a, b) => a.grade - b.grade || a.classNumber - b.classNumber)
 }
 
 export async function loadTimetable(school, { year, semester, grade, classLabel, from, to }, signal) {
@@ -129,7 +130,7 @@ export async function loadTimetable(school, { year, semester, grade, classLabel,
       period: Number(row.PERIO),
       subject: row.ITRT_CNTNT || '수업',
       className: String(row.CLASS_NM || '').endsWith('반') ? `${row.GRADE}학년 ${row.CLASS_NM}` : `${row.GRADE}학년 ${row.CLASS_NM}반`,
-      classId: `neis:${row.GRADE}:${row.CLASS_NM}`,
+      classId: `neis:${row.GRADE}:${Number(String(row.CLASS_NM || '').replace(/\D/g, ''))}`,
       schoolYear: Number(row.AY || year),
       semester: Number(row.SEM || semester),
       room: ''

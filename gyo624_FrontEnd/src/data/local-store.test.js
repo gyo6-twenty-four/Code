@@ -582,6 +582,9 @@ describe('Standalone UI workspace', () => {
     const classStudents = await store.handle(`/classes/${roster.data[0].id}/students?schoolYear=2026&page=1&size=100`, { actorId: adminId, virtualSchool: meister });
     assert.equal(classStudents.data.length, 16);
     assert.equal(classStudents.data[0].name.length > 0, true);
+    const neisStudents = await store.handle('/classes/neis:1:2/students?schoolYear=2026&page=1&size=100', { actorId: adminId, virtualSchool: meister });
+    assert.equal(neisStudents.data.length, 16);
+    assert.equal(neisStudents.data[0].name.length > 0, true);
     const again = await store.handle('/classes?schoolYear=2026&schoolCode=R1000001&page=1&size=100', { actorId: adminId, virtualSchool: meister });
     assert.equal(again.data.length, 12);
     const schoolsAfter = (await store.handle('/admin/schools?schoolYear=2026', { actorId: adminId, virtualSchool: meister })).data;
@@ -590,6 +593,24 @@ describe('Standalone UI workspace', () => {
     assert.equal(meisterRow.classCount, 12);
     assert.equal(meisterRow.studentCount, 192);
     assert.equal(schoolsAfter.find(item => item.schoolCode === 'B7010083').studentCount, 1);
+    await store.mergeSchoolRoster('R1000001', 2026, {
+      classes: [
+        ...roster.data.slice(0, 1).map(item => ({ ...item, schoolCode: 'R1000001', schoolYear: 2026 })),
+        { id: 'local-uuid', schoolCode: 'R1000001', schoolYear: 2026, grade: 3, classNumber: 3, name: '3학년 3반' },
+      ],
+      students: [
+        ...classStudents.data.slice(0, 2).map(item => ({ ...item, schoolCode: 'R1000001', schoolYear: 2026 })),
+        { id: 'local-stu', schoolCode: 'R1000001', schoolYear: 2026, classId: 'local-uuid', name: '김강민', number: 1, grade: 3, classNumber: 3 },
+      ],
+    });
+    const replaced = await store.handle('/classes?schoolYear=2026&schoolCode=R1000001&page=1&size=100', { actorId: adminId, virtualSchool: meister, seedVirtualStudents: false });
+    assert.equal(replaced.data.length, 1);
+    assert.equal(String(replaced.data[0].id).startsWith('gsm:'), true);
+    const rosterStudents = await store.handle(`/classes/${replaced.data[0].id}/students?schoolYear=2026&page=1&size=100`, { actorId: adminId, virtualSchool: meister, seedVirtualStudents: false });
+    assert.equal(rosterStudents.data.some(item => item.name === '김강민'), false);
+    assert.equal(rosterStudents.data.length > 0, true);
+    const neisFromFirebase = await store.handle('/classes/neis:1:1/students?schoolYear=2026&page=1&size=100', { actorId: adminId, virtualSchool: meister, seedVirtualStudents: false });
+    assert.equal(neisFromFirebase.data.length, rosterStudents.data.length);
     const teacherClasses = await store.handle('/classes?schoolYear=2026&page=1&size=100', { actorId: firstTeacher });
     assert.equal(teacherClasses.data.some(item => String(item.id).startsWith('gsm:')), false);
     await assert.rejects(store.handle('/admin/timetables/entries', {

@@ -296,8 +296,9 @@ export function Rosters({
   const mutation = useMutation(notify);
   const showSchool = !schoolCodeOf(adminSchool);
   const draftSchool = draft?.school?.schoolCode ? draft.school : null;
-  const catalogClass = String(classId || '').startsWith('neis:');
-  return <section className="api-stack"><p className="dialog-hint">{showSchool ? '전체 학교 학급이에요. 학급을 만들 때는 학교를 고릅니다.' : `${adminSchool.name} 학급과 학생이에요.`}</p><ClassSelect classes={classes} value={classId} onChange={selectClass} showSchool={showSchool} empty={showSchool ? undefined : '이 학년도의 나이스 학급이 없어요.'} /><div className="exchange-actions"><PrimaryButton onClick={() => {
+  const neisClass = String(classId || '').startsWith('neis:');
+  const usesNeis = (classes.data || []).some(item => String(item.id).startsWith('neis:'));
+  return <section className="api-stack"><p className="dialog-hint">{showSchool ? '전체 학교 학급이에요. 학급을 만들 때는 학교를 고릅니다.' : `${adminSchool.name} 학급은 나이스, 학생은 Firebase에 저장해요.`}</p><ClassSelect classes={classes} value={classId} onChange={selectClass} showSchool={showSchool} empty={showSchool ? undefined : '이 학년도의 나이스 학급이 없어요.'} /><div className="exchange-actions">{!usesNeis && <PrimaryButton onClick={() => {
         setRemove(false);
         setDraft({
           name: '',
@@ -305,11 +306,11 @@ export function Rosters({
           classNumber: '1',
           school: schoolCodeOf(adminSchool) ? adminSchool : null
         });
-      }}>학급 추가</PrimaryButton><button className="secondary-button" type="button" disabled={!classId || catalogClass} onClick={() => {
+      }}>학급 추가</PrimaryButton>}{!usesNeis && <button className="secondary-button" type="button" disabled={!classId || neisClass} onClick={() => {
         setRemove(false);
         const current = (classes.data || []).find(item => item.id === classId);
         setDraft(current ? { ...current, school: current.schoolCode ? { name: current.schoolName, schoolCode: current.schoolCode, officeCode: current.officeCode, officeName: current.officeName, kind: current.kind } : null } : null);
-      }}>학급 수정</button><button className="secondary-button" type="button" disabled={!classId || catalogClass} onClick={() => setStudentDraft({
+      }}>학급 수정</button>}<button className="secondary-button" type="button" disabled={!classId} onClick={() => setStudentDraft({
         name: '',
         number: ''
       })}>학생 등록</button></div><ApiState state={students}>{students.data?.map(item => <article className="api-panel" key={item.id}><strong>{item.number}번, {item.name}</strong><button type="button" className="text-button" onClick={() => setStudentDraft(item)}>학생 정보 수정</button></article>)}</ApiState><Pagination state={students} />
@@ -348,11 +349,13 @@ export function Rosters({
           })} /></>}<SaveButton mutation={mutation}>{remove ? '삭제 확인' : '저장하기'}</SaveButton>{draft.id && !remove && <button type="button" className="text-button danger" onClick={() => setRemove(true)}>학급 삭제</button>}</form></Modal>}
     {studentDraft && <Modal title="학생 정보" onClose={() => setStudentDraft(null)}><form onSubmit={async e => {
         e.preventDefault();
-        if (await mutation.run(studentDraft.id ? `/admin/students/${studentDraft.id}` : `/admin/classes/${classId}/students`, {
+        if (await mutation.run(studentDraft.id ? `/admin/students/${studentDraft.id}` : `/admin/classes/${encodeURIComponent(classId)}/students`, {
           method: studentDraft.id ? 'PATCH' : 'POST',
           body: {
             name: studentDraft.name.trim(),
-            number: Number(studentDraft.number)
+            number: Number(studentDraft.number),
+            schoolYear: year,
+            school: adminSchool
           }
         }, '학생 정보를 저장했어요.')) {
           setStudentDraft(null);

@@ -1,9 +1,12 @@
 export const VIRTUAL_STUDENT_SCHOOL_NAME = "경북소프트웨어마이스터고등학교";
 
 export function usesVirtualStudentRoster(school) {
-  const compact = normalizeSchool(school).name.replace(/\s+/g, "");
+  const next = normalizeSchool(school);
+  const compact = next.name.replace(/\s+/g, "");
   return (
-    compact.includes("경북소프트웨어마이스터고") || compact.includes("경소마고")
+    compact.includes("경북소프트웨어마이스터고") ||
+    compact.includes("경소마고") ||
+    next.schoolCode === "8750829"
   );
 }
 

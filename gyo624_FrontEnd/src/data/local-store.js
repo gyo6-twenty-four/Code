@@ -316,7 +316,10 @@ export function createLocalStore({
           name: place.name,
           number: place.number,
           classId: `${prefix}${place.grade}-${place.classNumber}`,
-          schoolYear: year
+          schoolYear: year,
+          schoolCode: school.schoolCode,
+          grade: place.grade,
+          classNumber: place.classNumber
         };
         if (ids.has(student.id)) continue;
         students.push(student);
@@ -361,7 +364,8 @@ export function createLocalStore({
     method = 'GET',
     body = {},
     actorId,
-    virtualSchool = null
+    virtualSchool = null,
+    seedVirtualStudents = true
   } = {}) {
     const db = await load();
     const url = new URL(path, 'http://local.invalid');
@@ -461,7 +465,7 @@ export function createLocalStore({
     const user = db.users.find(u => u.id === actorId && u.status === 'ACTIVE');
     requireValue(user, '로그인해 주세요.', 401);
     const admin = user.role === 'ADMIN';
-    if (method === 'GET') ensureVirtualStudents(db, virtualSchool, new URL(path, 'http://local.invalid').searchParams.get('schoolYear'));
+    if (method === 'GET' && seedVirtualStudents) ensureVirtualStudents(db, virtualSchool, new URL(path, 'http://local.invalid').searchParams.get('schoolYear'));
     if (p.startsWith('/admin/') || p.startsWith('/transfers')) requireValue(admin, '관리자만 이용할 수 있어요.', 403);
     const classAccess = value => find('classes', value);
     const studentAccess = value => {
@@ -594,7 +598,7 @@ export function createLocalStore({
         changed: true
       });
     }
-    const requestedYear = q.get('schoolYear');
+    const requestedYear = q.get('schoolYear') || body.schoolYear;
     const matchesYear = item => !requestedYear || item.schoolYear == null || Number(item.schoolYear) === Number(requestedYear);
     const neisClass = value => {
       if (!String(value).startsWith('neis:')) return null;
@@ -615,29 +619,44 @@ export function createLocalStore({
     };
     const classNumberOf = item => Number(String(item?.classNumber ?? item?.classLabel ?? '').replace(/\D/g, ''));
     const wantedSchool = (q.get('schoolCode') || '').trim().toUpperCase();
-    const studentsIn = classroom => db.students.filter(student => {
-      if (student.classId === classroom.id) return true;
-      const stored = db.classes.find(item => item.id === student.classId);
+    const rosterSchoolCode = wantedSchool || accountSchool(user).schoolCode || readSchool(virtualSchool).schoolCode;
+    const studentsIn = classroom => {
       const number = classNumberOf(classroom);
-      if (!stored || Number(stored.grade) !== Number(classroom.grade) || classNumberOf(stored) !== number || number <= 0) return false;
-      const classCode = readSchool(stored).schoolCode;
-      const requested = wantedSchool || accountSchool(user).schoolCode;
-      if (String(stored.id).startsWith('gsm:')) return Boolean(requested) && requested === classCode;
-      const actorCode = accountSchool(user).schoolCode;
-      return !actorCode || !classCode || actorCode === classCode;
-    });
-    if (p === '/classes') return page(db.classes.filter(item => {
-      if (!matchesYear(item)) return false;
-      const schoolCode = readSchool(item).schoolCode;
-      if (wantedSchool && schoolCode !== wantedSchool) return false;
-      if (!admin && String(item.id).startsWith('gsm:')) return schoolCode && schoolCode === accountSchool(user).schoolCode;
-      return true;
-    }).sort(compareClassItems), q);
+      const grade = Number(classroom.grade);
+      return db.students.filter(student => {
+        if (student.classId === classroom.id) return true;
+        const studentNumber = classNumberOf(student);
+        const studentGrade = Number(student.grade);
+        const studentCode = String(student.schoolCode || '').toUpperCase();
+        if (studentGrade === grade && studentNumber === number && number > 0) {
+          if (requestedYear && student.schoolYear != null && Number(student.schoolYear) !== Number(requestedYear)) return false;
+          if (studentCode && rosterSchoolCode) return studentCode === rosterSchoolCode;
+        }
+        const stored = db.classes.find(item => item.id === student.classId);
+        if (!stored || Number(stored.grade) !== grade || classNumberOf(stored) !== number || number <= 0) return false;
+        const classCode = readSchool(stored).schoolCode;
+        if (String(stored.id).startsWith('gsm:')) return Boolean(rosterSchoolCode) && rosterSchoolCode === classCode;
+        const actorCode = accountSchool(user).schoolCode || readSchool(virtualSchool).schoolCode;
+        return !actorCode || !classCode || actorCode === classCode;
+      });
+    };
+    if (p === '/classes') {
+      const virtualContext = virtualStudentSchool(virtualSchool) || virtualStudentSchool(accountSchool(user));
+      const virtualCode = wantedSchool || virtualContext?.schoolCode || '';
+      return page(db.classes.filter(item => {
+        if (!matchesYear(item)) return false;
+        const schoolCode = readSchool(item).schoolCode;
+        if (wantedSchool && schoolCode && schoolCode !== wantedSchool) return false;
+        const fromFirebase = String(item.id).startsWith('gsm:');
+        if (virtualContext && (!schoolCode || schoolCode === virtualCode)) return fromFirebase;
+        if (!admin && String(item.id).startsWith('gsm:')) return schoolCode && schoolCode === accountSchool(user).schoolCode;
+        return true;
+      }).sort(compareClassItems), q);
+    }
     if (parts[0] === 'classes' && parts[2] === 'students') {
       const catalog = neisClass(id);
       if (catalog) return page(studentsIn(catalog), q);
-      classAccess(id);
-      return page(db.students.filter(s => s.classId === id), q);
+      return page(studentsIn(classAccess(id)), q);
     }
     if (p === '/timetables') return page(db.timetables.filter(t => {
       if (q.get('schoolYear') && t.schoolYear !== Number(q.get('schoolYear'))) return false;
@@ -1005,20 +1024,34 @@ export function createLocalStore({
     }
     if (parts[0] === 'admin' && parts[1] === 'classes') {
       if (parts[3] === 'students') {
-        const c = classAccess(parts[2]);
-        requireValue(!db.students.some(s => s.classId === c.id && s.number === body.number), '같은 출석 번호가 있어요.');
-        const school = readSchool(c);
+        const classId = decodeURIComponent(parts[2] || '');
+        const catalog = neisClass(classId);
+        const c = catalog || classAccess(classId);
+        const school = readSchool(c).schoolCode ? readSchool(c) : readSchool(body.school || virtualSchool);
+        const grade = Number(c.grade);
+        const classNumber = classNumberOf(c);
+        const schoolYear = Number(c.schoolYear || body.schoolYear);
+        if (school.schoolCode) {
+          requireValue(!db.students.some(s => Number(s.number) === Number(body.number) && Number(s.grade) === grade && classNumberOf(s) === classNumber && String(s.schoolCode || '').toUpperCase() === school.schoolCode), '같은 출석 번호가 있어요.');
+        } else {
+          requireValue(!catalog, '학급의 학교를 확인해 주세요.');
+          requireValue(!db.students.some(s => s.classId === c.id && s.number === body.number), '같은 출석 번호가 있어요.');
+        }
+        const storedClassId = school.schoolCode && virtualStudentSchool(school) && Number.isInteger(schoolYear)
+          ? `gsm:${school.schoolCode}:${schoolYear}:${grade}-${classNumber}`
+          : c.id;
         const student = {
-          ...body,
+          name: body.name,
+          number: Number(body.number),
           id: uuid(),
-          classId: c.id,
-          schoolYear: c.schoolYear,
+          classId: storedClassId,
+          schoolYear,
           schoolCode: school.schoolCode,
-          grade: c.grade,
-          classNumber: classNumberOf(c)
+          grade,
+          classNumber
         };
         db.students.push(student);
-        return save(student, '학생 등록', readSchool(c).schoolCode);
+        return save(student, '학생 등록', school.schoolCode);
       }
       if (method === 'DELETE') {
         const current = find('classes', parts[2]);
@@ -1041,7 +1074,9 @@ export function createLocalStore({
         name: `${body.grade}학년 ${body.classNumber}반`
       };
       if (parts[2]) Object.assign(find('classes', parts[2]), entry);else {
-        entry.id = uuid();
+        entry.id = virtualStudentSchool(school)
+          ? `gsm:${school.schoolCode}:${Number(body.schoolYear)}:${body.grade}-${body.classNumber}`
+          : uuid();
         db.classes.push(entry);
       }
       return save(entry, '학급 관리', school.schoolCode);
@@ -1133,21 +1168,30 @@ export function createLocalStore({
     if (index >= 0) list[index] = { ...list[index], ...record };
     else list.push(record);
   }
+  function rosterOwnerCode(item) {
+    const direct = String(item?.schoolCode || readSchool(item).schoolCode || '').toUpperCase();
+    if (direct) return direct;
+    const match = /^gsm:([A-Za-z0-9]+):/.exec(String(item?.id || item?.classId || ''));
+    return match ? match[1].toUpperCase() : '';
+  }
+  function inSchoolYear(item, code, year) {
+    if (rosterOwnerCode(item) !== code) return false;
+    const itemYear = Number(item?.schoolYear);
+    if (Number.isInteger(itemYear)) return itemYear === year;
+    const yearMatch = /^gsm:[A-Za-z0-9]+:(\d+):/.exec(String(item?.id || item?.classId || ''));
+    return yearMatch ? Number(yearMatch[1]) === year : false;
+  }
   async function mergeSchoolRoster(schoolCode, schoolYear, records) {
     const db = await load();
     const code = String(schoolCode || '').trim().toUpperCase();
     const year = Number(schoolYear);
     if (!code || !Number.isInteger(year)) return false;
-    db.classes = db.classes || [];
-    db.students = db.students || [];
-    for (const classroom of records?.classes || []) {
-      if (readSchool(classroom).schoolCode !== code || Number(classroom.schoolYear) !== year) continue;
-      mergeRecord(db.classes, { ...classroom, storedIn: 'firebase' });
-    }
-    for (const student of records?.students || []) {
-      if (String(student.schoolCode || '').toUpperCase() !== code || Number(student.schoolYear) !== year) continue;
-      mergeRecord(db.students, { ...student, storedIn: 'firebase' });
-    }
+    const classes = (records?.classes || []).filter(item => readSchool(item).schoolCode === code && Number(item.schoolYear) === year);
+    const students = (records?.students || []).filter(item => String(item.schoolCode || '').toUpperCase() === code && Number(item.schoolYear) === year);
+    db.classes = (db.classes || []).filter(item => !inSchoolYear(item, code, year));
+    db.students = (db.students || []).filter(item => !inSchoolYear(item, code, year));
+    for (const classroom of classes) mergeRecord(db.classes, { ...classroom, storedIn: 'firebase' });
+    for (const student of students) mergeRecord(db.students, { ...student, storedIn: 'firebase' });
     persist();
     return true;
   }

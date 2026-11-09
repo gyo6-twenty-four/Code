@@ -11,7 +11,7 @@ import Timetable from './api/Timetable';
 import Setek from './api/Setek';
 import SetekAdmin from './api/SetekAdmin';
 import { clearSession, detailError, onSessionExpired, refreshToken, request, resource, restoreSession } from './api/client';
-import { mergeClassLists, useNeisClasses, usePage, useResource } from './api/hooks';
+import { usePage, useResource, useRosterClasses } from './api/hooks';
 import { assertUser } from './api/model';
 import { onNeisSchool, readNeisSchool, writeNeisSchool } from './api/neis';
 import { readAdminSchool, toNeisSchool, writeAdminSchool } from './lib/school';
@@ -123,23 +123,12 @@ export default function App() {
   useEffect(() => {
     document.title = `${titles[route] || (route === '/onboarding' ? '처음 설정' : '학교 계정')}, 교육24`;
   }, [route]);
-  const storedClasses = usePage(account ? '/classes' : null, {
+  const classes = useRosterClasses(admin ? adminSchool : account?.school, year, {
+    ...(admin && adminSchool?.schoolCode ? { schoolCode: adminSchool.schoolCode } : {})
+  }, Boolean(account));
+  const students = usePage(account && classId ? `/classes/${classId}/students` : null, {
     schoolYear: year,
     ...(admin && adminSchool?.schoolCode ? { schoolCode: adminSchool.schoolCode } : {})
-  });
-  const catalogSchool = admin ? toNeisSchool(adminSchool) : null;
-  const catalogClasses = useNeisClasses(catalogSchool, year);
-  const classes = catalogSchool ? {
-    loading: catalogClasses.loading,
-    error: catalogClasses.error,
-    data: catalogClasses.loading || catalogClasses.error ? null : mergeClassLists(storedClasses.data || [], catalogClasses.data),
-    reload: () => {
-      catalogClasses.reload();
-      storedClasses.reload();
-    }
-  } : storedClasses;
-  const students = usePage(account && classId ? `/classes/${classId}/students` : null, {
-    schoolYear: year
   });
   const unread = useResource(account ? '/notifications/unread-count' : null);
   const adminRoute = route.startsWith('/admin');
@@ -150,14 +139,14 @@ export default function App() {
   }
   function selectSchool(school) {
     setAdminSchool(writeAdminSchool(school));
-    storedClasses.setPage(1);
+    classes.setPage(1);
     selectClass('');
   }
   function changeYear(next) {
     const number = Number(next);
     if (!Number.isInteger(number) || number < 2000 || number > 2100) return;
     setYear(String(number));
-    storedClasses.setPage(1);
+    classes.setPage(1);
     selectClass('');
   }
   function onLogin(value) {

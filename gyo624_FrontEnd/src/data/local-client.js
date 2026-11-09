@@ -90,6 +90,7 @@ export async function request(path, options = {}) {
         ...options,
         actorId: profile.id,
         virtualSchool,
+        seedVirtualStudents: false,
       });
       if (method !== "GET" && isRosterRequest(path, method))
         await mirrorRosterWrite(path, method, response);

@@ -32,9 +32,7 @@ import {
   validateGenerationPayload,
 } from '../lib/setek'
 import { generateSetek, setekStatus } from './setek-client'
-import { mergeClassLists } from '../lib/classrooms'
-import { usePage } from './hooks'
-import { loadClasses, onNeisSchool, readNeisSchool } from './neis'
+import { usePage, useRosterClasses } from './hooks'
 import { ClassSelect, StudentSelect } from './shared'
 
 const sessionKey = id => `education24-setek-form-v1:${id}`
@@ -147,43 +145,14 @@ export default function Setek({ account, notify, year, school }) {
   const [generating, setGenerating] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState(null)
-  const localClasses = usePage('/classes', {
-    schoolYear: year,
+  const classes = useRosterClasses(school, year, {
     scope: 'school',
     ...(account?.role === 'ADMIN' && school?.schoolCode ? { schoolCode: school.schoolCode } : {}),
   })
-  const [neisSchool, setNeisSchool] = useState(readNeisSchool)
-  const [classFetch, setClassFetch] = useState({ id: '', error: '', data: [] })
-  const [classAttempt, setClassAttempt] = useState(0)
-  const classQuery = neisSchool ? `${year}|${classAttempt}|${neisSchool.officeCode}|${neisSchool.schoolCode}` : ''
-  useEffect(() => onNeisSchool(() => {
-    setNeisSchool(readNeisSchool())
-    setForm(current => ({ ...current, classId: '', studentId: '' }))
-  }), [])
-  useEffect(() => {
-    if (!classQuery) return undefined
-    const controller = new AbortController()
-    const id = classQuery
-    loadClasses(neisSchool, year, controller.signal)
-      .then(data => setClassFetch({ id, error: '', data }))
-      .catch(loadError => { if (loadError.name !== 'AbortError') setClassFetch({ id, error: loadError.message, data: [] }) })
-    return () => controller.abort()
-  }, [classQuery, neisSchool, year])
-  const neisClasses = classQuery && classFetch.id === classQuery
-    ? { loading: false, error: classFetch.error, data: classFetch.data }
-    : { loading: Boolean(classQuery), error: '', data: [] }
-  const classes = {
-    loading: localClasses.loading || neisClasses.loading,
-    error: localClasses.error || (neisClasses.error ? new Error(neisClasses.error) : null),
-    data: mergeClassLists(localClasses.data, neisClasses.data),
-    reload: () => {
-      localClasses.reload?.()
-      setClassAttempt(value => value + 1)
-    },
-    setPage: localClasses.setPage,
-    page: localClasses.page,
-  }
-  const students = usePage(form.classId ? `/classes/${form.classId}/students` : null, { schoolYear: year })
+  const students = usePage(form.classId ? `/classes/${form.classId}/students` : null, {
+    schoolYear: year,
+    ...(account?.role === 'ADMIN' && school?.schoolCode ? { schoolCode: school.schoolCode } : {}),
+  })
 
   useEffect(() => {
     if (!detectedLevel) return
@@ -461,7 +430,7 @@ export default function Setek({ account, notify, year, school }) {
       source={<WritingPane variant="source" title="작성 자료" description="수업 활동과 학생의 변화에서 확인한 사실을 입력하세요.">
         <fieldset ref={sourceRef} className={hasTrace ? 'writing-input-lock setek-source-scroll' : 'writing-input-lock'} disabled={generating || busy} aria-label="초안 입력 자료">
           <div className="api-toolbar api-stack">
-            <ClassSelect classes={classes} value={form.classId} onChange={id => { students.setPage(1); patch({ classId: id, studentId: '' }) }} empty={neisSchool ? '이 학년도의 나이스 학급이 없어요.' : '이 학년도에 등록된 학급이 없어요.'} />
+            <ClassSelect classes={classes} value={form.classId} onChange={id => { students.setPage(1); patch({ classId: id, studentId: '' }) }} empty="이 학년도에 등록된 학급이 없어요." />
             <StudentSelect students={students} value={form.studentId} onChange={id => patch({ studentId: id })} />
           </div>
           <ol className="setek-steps">{inputSteps.map((item, index) => <li key={item.id}><button type="button" className={`setek-step${item.id === step ? ' is-current' : ''}${index < stepIndex ? ' is-done' : ''}`} aria-current={item.id === step ? 'step' : undefined} disabled={index > stepIndex} onClick={() => { if (index <= stepIndex) { setStep(item.id); setStepError('') } }}>{index + 1}. {item.label}</button></li>)}</ol>

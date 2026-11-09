@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { mergeClassLists } from '../lib/classrooms';
+import { toNeisSchool } from '../lib/school';
 import { detailError, listAll, request, resource, sessionGeneration } from './client';
 import { loadClasses } from './neis';
-
-export { mergeClassLists };
 
 export function useNeisClasses(school, year) {
   const officeCode = school?.officeCode || '';
@@ -152,5 +151,27 @@ export function usePage(path, filters = {}) {
     ...data,
     page,
     setPage
+  };
+}
+
+export function useRosterClasses(school, year, storedFilters = {}, enabled = true) {
+  const stored = usePage(enabled ? '/classes' : null, {
+    schoolYear: year,
+    ...storedFilters
+  });
+  const catalogSchool = school?.officeCode && school?.schoolCode ? school : toNeisSchool(school);
+  const catalog = useNeisClasses(catalogSchool, year);
+  const hasCatalog = Boolean(catalogSchool?.officeCode && catalogSchool?.schoolCode);
+  return {
+    loading: stored.loading || (hasCatalog && catalog.loading),
+    error: stored.error || catalog.error,
+    data: mergeClassLists(catalog.data, stored.data),
+    reload: () => {
+      stored.reload?.();
+      catalog.reload?.();
+    },
+    setPage: stored.setPage,
+    page: stored.page,
+    meta: stored.meta
   };
 }

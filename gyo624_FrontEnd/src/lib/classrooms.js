@@ -17,18 +17,23 @@ export function classPlaceKey(item) {
   return `${grade}:${classNumber}`
 }
 
-export function mergeClassLists(primary = [], extra = []) {
-  const seen = new Set()
-  const items = []
-  for (const item of [...primary, ...extra]) {
+function classSourceRank(item) {
+  const id = String(item?.id || '')
+  if (id.startsWith('neis:')) return 0
+  if (id.startsWith('gsm:')) return 1
+  if (item?.storedIn === 'firebase') return 2
+  return 3
+}
+
+export function mergeClassLists(primary, extra) {
+  const groups = new Map()
+  for (const item of [...(Array.isArray(primary) ? primary : []), ...(Array.isArray(extra) ? extra : [])]) {
     if (!item?.id) continue
-    const key = classPlaceKey(item)
-    if (seen.has(item.id) || (key && seen.has(key))) continue
-    seen.add(item.id)
-    if (key) seen.add(key)
-    items.push(item)
+    const key = classPlaceKey(item) || `id:${item.id}`
+    const current = groups.get(key)
+    if (!current || classSourceRank(item) < classSourceRank(current)) groups.set(key, item)
   }
-  return items
+  return [...groups.values()]
 }
 
 export function compareClassItems(left, right) {

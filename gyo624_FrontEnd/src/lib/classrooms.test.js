@@ -36,7 +36,12 @@ describe('학급 입력 제한', () => {
         { id: 'gsm:8750829:2026:1-2', grade: 1, classNumber: 2, name: '1학년 2반' },
       ],
     )
-    assert.deepEqual(merged.map(item => item.id), ['gsm:8750829:2026:1-1', 'gsm:8750829:2026:1-2'])
+    assert.deepEqual(merged.map(item => item.id), ['neis:1:1', 'gsm:8750829:2026:1-2'])
+    assert.equal(mergeClassLists(
+      [{ id: 'local-uuid', grade: 1, classNumber: 2, name: '1학년 2반' }],
+      [{ id: 'neis:1:2', grade: 1, classNumber: 2, name: '1학년 2반' }],
+    )[0].id, 'neis:1:2')
+    assert.deepEqual(mergeClassLists(null, undefined), [])
   })
 })
 const lesson = { id: 'one', day: '월요일', period: '1', classroom: '1학년 2반', subject: '국어', teacher: '김지현' }

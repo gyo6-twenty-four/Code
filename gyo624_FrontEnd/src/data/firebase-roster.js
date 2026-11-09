@@ -184,9 +184,12 @@ export async function deleteClassRecord(classId) {
 }
 
 function placeFromClassId(classId) {
-  const match = /^gsm:[A-Za-z0-9]+:\d+:(\d+)-(\d+)$/.exec(String(classId || ''))
-  if (!match) return null
-  return { grade: Number(match[1]), classNumber: Number(match[2]) }
+  const gsm = /^gsm:[A-Za-z0-9]+:\d+:(\d+)-(\d+)$/.exec(String(classId || ''))
+  if (gsm) return { grade: Number(gsm[1]), classNumber: Number(gsm[2]) }
+  const neis = /^neis:(\d+):(.+)$/.exec(String(classId || ''))
+  if (!neis) return null
+  const classNumber = Number(String(neis[2]).replace(/\D/g, ''))
+  return Number.isInteger(classNumber) && classNumber > 0 ? { grade: Number(neis[1]), classNumber } : null
 }
 
 export async function saveStudentRecord(student) {
