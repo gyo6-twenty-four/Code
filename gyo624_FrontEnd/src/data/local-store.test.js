@@ -64,8 +64,11 @@ describe('Standalone UI workspace', () => {
     const other = await addClass(store, adminId, 2026, 2, 3);
     await grant(store, adminId, actorId, assigned.id);
     const student = await addStudent(store, adminId, other.id, '다른 학급 학생', 4);
+    const extra = await addStudent(store, adminId, other.id, '삭제할 학생', 5);
     assert.deepEqual((await store.handle('/classes?schoolYear=2026', { actorId })).data.map(item => item.id), [assigned.id, other.id]);
     assert.equal((await store.handle(`/classes/${other.id}/students`, { actorId })).data[0].name, '다른 학급 학생');
+    await store.handle(`/admin/students/${encodeURIComponent(extra.id)}`, { actorId: adminId, method: 'DELETE' });
+    assert.equal((await store.handle(`/classes/${other.id}/students`, { actorId })).data.some(item => item.id === extra.id), false);
     const item = (await store.handle(`/students/${student.id}/record-items`, {
       actorId,
       method: 'POST',

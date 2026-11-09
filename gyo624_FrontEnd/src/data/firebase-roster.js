@@ -192,6 +192,11 @@ function placeFromClassId(classId) {
   return Number.isInteger(classNumber) && classNumber > 0 ? { grade: Number(neis[1]), classNumber } : null
 }
 
+export async function deleteStudentRecord(studentId) {
+  requireValue(studentId, '학생을 확인해 주세요.')
+  await deleteDoc(doc(db(), 'students', studentId))
+}
+
 export async function saveStudentRecord(student) {
   const schoolCode = String(student?.schoolCode || schoolCodeFromClassId(student?.classId) || '').toUpperCase()
   const place = placeFromClassId(student?.classId)
@@ -223,5 +228,8 @@ export async function mirrorRosterWrite(path, method, response) {
     else if (response?.data) await saveClassRecord(response.data)
     return
   }
-  if (parts[1] === 'students' && response?.data) await saveStudentRecord(response.data)
+  if (parts[1] === 'students') {
+    if (method === 'DELETE') await deleteStudentRecord(decodeURIComponent(parts[2] || ''))
+    else if (response?.data) await saveStudentRecord(response.data)
+  }
 }

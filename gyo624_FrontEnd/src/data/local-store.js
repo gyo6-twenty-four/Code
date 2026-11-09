@@ -1082,7 +1082,11 @@ export function createLocalStore({
       return save(entry, '학급 관리', school.schoolCode);
     }
     if (parts[0] === 'admin' && parts[1] === 'students') {
-      const student = find('students', parts[2]);
+      const student = find('students', decodeURIComponent(parts[2] || ''));
+      if (method === 'DELETE') {
+        db.students = db.students.filter(item => item.id !== student.id);
+        return save(null, '학생 삭제', student.schoolCode || readSchool(db.classes.find(item => item.id === student.classId)).schoolCode);
+      }
       requireValue(!db.students.some(s => s.id !== student.id && s.classId === student.classId && s.number === body.number), '같은 출석 번호가 있어요.');
       Object.assign(student, body);
       if (!student.schoolCode) student.schoolCode = readSchool(db.classes.find(item => item.id === student.classId)).schoolCode;

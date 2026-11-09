@@ -292,7 +292,8 @@ export function Rosters({
 }) {
   const [draft, setDraft] = useState(null),
     [studentDraft, setStudentDraft] = useState(null),
-    [remove, setRemove] = useState(false);
+    [remove, setRemove] = useState(false),
+    [removeStudent, setRemoveStudent] = useState(false);
   const mutation = useMutation(notify);
   const showSchool = !schoolCodeOf(adminSchool);
   const draftSchool = draft?.school?.schoolCode ? draft.school : null;
@@ -310,10 +311,10 @@ export function Rosters({
         setRemove(false);
         const current = (classes.data || []).find(item => item.id === classId);
         setDraft(current ? { ...current, school: current.schoolCode ? { name: current.schoolName, schoolCode: current.schoolCode, officeCode: current.officeCode, officeName: current.officeName, kind: current.kind } : null } : null);
-      }}>학급 수정</button>}<button className="secondary-button" type="button" disabled={!classId} onClick={() => setStudentDraft({
+      }}>학급 수정</button>}<button className="secondary-button" type="button" disabled={!classId} onClick={() => { setRemoveStudent(false); setStudentDraft({
         name: '',
         number: ''
-      })}>학생 등록</button></div><ApiState state={students}>{students.data?.map(item => <article className="api-panel" key={item.id}><strong>{item.number}번, {item.name}</strong><button type="button" className="text-button" onClick={() => setStudentDraft(item)}>학생 정보 수정</button></article>)}</ApiState><Pagination state={students} />
+      }); }}>학생 등록</button></div><ApiState state={students}>{students.data?.map(item => <article className="api-panel" key={item.id}><strong>{item.number}번, {item.name}</strong><div className="exchange-actions"><button type="button" className="text-button" onClick={() => { setRemoveStudent(false); setStudentDraft(item); }}>학생 정보 수정</button><button type="button" className="text-button danger" onClick={() => { setRemoveStudent(true); setStudentDraft(item); }}>삭제</button></div></article>)}</ApiState><Pagination state={students} />
     {draft && <Modal title={remove ? '학급 삭제' : '학급 정보'} onClose={() => setDraft(null)}><form onSubmit={async e => {
         e.preventDefault();
         if (!remove && !draftSchool?.schoolCode) {
@@ -347,28 +348,32 @@ export function Rosters({
             ...draft,
             classNumber: e.target.value
           })} /></>}<SaveButton mutation={mutation}>{remove ? '삭제 확인' : '저장하기'}</SaveButton>{draft.id && !remove && <button type="button" className="text-button danger" onClick={() => setRemove(true)}>학급 삭제</button>}</form></Modal>}
-    {studentDraft && <Modal title="학생 정보" onClose={() => setStudentDraft(null)}><form onSubmit={async e => {
+    {studentDraft && <Modal title={removeStudent ? '학생 삭제' : '학생 정보'} onClose={() => { setStudentDraft(null); setRemoveStudent(false); }}><form onSubmit={async e => {
         e.preventDefault();
-        if (await mutation.run(studentDraft.id ? `/admin/students/${studentDraft.id}` : `/admin/classes/${encodeURIComponent(classId)}/students`, {
-          method: studentDraft.id ? 'PATCH' : 'POST',
-          body: {
-            name: studentDraft.name.trim(),
-            number: Number(studentDraft.number),
-            schoolYear: year,
-            school: adminSchool
-          }
-        }, '학생 정보를 저장했어요.')) {
+        const path = studentDraft.id ? `/admin/students/${encodeURIComponent(studentDraft.id)}` : `/admin/classes/${encodeURIComponent(classId)}/students`;
+        if (await mutation.run(path, {
+          method: removeStudent ? 'DELETE' : studentDraft.id ? 'PATCH' : 'POST',
+          ...(removeStudent ? {} : {
+            body: {
+              name: studentDraft.name.trim(),
+              number: Number(studentDraft.number),
+              schoolYear: year,
+              school: adminSchool
+            }
+          })
+        }, removeStudent ? '학생을 삭제했어요.' : '학생 정보를 저장했어요.')) {
           setStudentDraft(null);
+          setRemoveStudent(false);
           students.reload();
-          if (!studentDraft.id) reloadSchools?.();
+          reloadSchools?.();
         }
-      }}><Field label="학생 이름" required value={studentDraft.name} onChange={e => setStudentDraft({
+      }}>{removeStudent ? <p>이 학생을 명단과 Firebase에서 삭제할까요? 작성한 관찰·생기부는 남아요.</p> : <><Field label="학생 이름" required value={studentDraft.name} onChange={e => setStudentDraft({
           ...studentDraft,
           name: e.target.value
         })} /><Field label="출석 번호" type="number" required min={1} max={999} value={studentDraft.number || ''} onChange={e => setStudentDraft({
           ...studentDraft,
           number: e.target.value
-        })} /><SaveButton mutation={mutation} /></form></Modal>}<MutationError mutation={mutation} /></section>;
+        })} /></>}<SaveButton mutation={mutation}>{removeStudent ? '삭제 확인' : '저장하기'}</SaveButton>{studentDraft.id && !removeStudent && <button type="button" className="text-button danger" onClick={() => setRemoveStudent(true)}>학생 삭제</button>}</form></Modal>}<MutationError mutation={mutation} /></section>;
 }
 
 function groupLogs(items = []) {
