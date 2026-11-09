@@ -8,6 +8,9 @@ import {
   splitGeneratedDraft,
   adjacentStep,
   advanceError,
+  inputStepsFor,
+  knownSchoolLevel,
+  prioritizeTeacherSubjects,
   buildUserPrompt,
   cleanGeneratedText,
   combineStandards,
@@ -47,6 +50,21 @@ test('학생 활동을 적지 않아도 수업 내용만으로 생성 단계로 
   assert.equal(STEPS.some(item => item.id === 'student'), false)
   assert.equal(adjacentStep('lesson', 1), 'growth')
   assert.equal(generationError(activity, { policy: {} }), '')
+})
+
+test('학교가 정해져 있으면 학교급 단계를 건너뛰고 담당 과목을 위로 둔다', () => {
+  assert.equal(knownSchoolLevel('서울특별시 고등학교'), 'high')
+  assert.equal(knownSchoolLevel('방송통신중학교'), 'middle')
+  assert.equal(knownSchoolLevel('특수학교'), '')
+  const steps = inputStepsFor(true)
+  assert.equal(steps.some(item => item.id === 'school'), false)
+  assert.equal(adjacentStep('curriculum', 1, steps), 'subject')
+  assert.equal(adjacentStep('subject', -1, steps), 'curriculum')
+  const ranked = prioritizeTeacherSubjects(
+    [{ id: '2022:high:영어', name: '영어' }, { id: '2022:high:수학', name: '수학' }, { id: '2022:high:국어', name: '국어' }],
+    ['2022:high:국어', '2022:high:수학'],
+  )
+  assert.deepEqual(ranked.map(item => item.id), ['2022:high:국어', '2022:high:수학', '2022:high:영어'])
 })
 
 test('빈 활동과 키워드만으로는 생성할 수 없다', () => {

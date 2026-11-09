@@ -7,7 +7,6 @@ import {
   GROWTH_FIELDS,
   LESSON_FIELDS,
   SCHOOL_LEVELS,
-  STEPS,
   STUDENT_FIELDS,
   TRAITS,
   adjacentStep,
@@ -16,12 +15,15 @@ import {
   emptyForm,
   emptyPolicy,
   filterStandards,
+  inputStepsFor,
+  knownSchoolLevel,
   pageWindow,
   fromDraft,
   generationError,
   lengthPlan,
   lengthPresets,
   payloadFromForm,
+  prioritizeTeacherSubjects,
   schoolLevelLabel,
   subjectTypeLabel,
   textSize,
@@ -32,7 +34,6 @@ import { generateSetek, setekStatus } from './setek-client'
 
 const sessionKey = id => `education24-setek-form-v1:${id}`
 const noRows = []
-const inputSteps = STEPS.filter(item => item.id !== 'result')
 
 function readSession(id) {
   if (!id || !globalThis.sessionStorage) return null
@@ -77,10 +78,17 @@ function FieldGroup({ title, hint, fields, values, onChange }) {
 
 export default function Setek({ account, notify }) {
   const resultRef = useRef(null)
+  const detectedLevel = knownSchoolLevel(account?.school?.kind)
+  const inputSteps = inputStepsFor(Boolean(detectedLevel))
+  const teacherSubjectIds = Array.isArray(account?.subjectIds) ? account.subjectIds : []
   const [session] = useState(() => readSession(account?.id))
-  const [form, setForm] = useState(() => restoreForm(session))
+  const [form, setForm] = useState(() => {
+    const restored = restoreForm(session)
+    return detectedLevel ? { ...restored, schoolLevel: detectedLevel } : restored
+  })
   const [step, setStep] = useState(() => {
     const saved = session?.step === 'result' || session?.step === 'student' ? 'growth' : session?.step
+    if (detectedLevel && saved === 'school') return restoreForm(session).curriculumId ? 'subject' : 'curriculum'
     return inputSteps.some(item => item.id === saved) ? saved : 'curriculum'
   })
   const [studentOpen, setStudentOpen] = useState(() => studentInput(restoreForm(session)) || session?.step === 'student')
@@ -110,6 +118,15 @@ export default function Setek({ account, notify }) {
   const [generating, setGenerating] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState(null)
+
+  useEffect(() => {
+    if (!detectedLevel) return
+    setForm(current => {
+      if (current.schoolLevel === detectedLevel) return current
+      if (!current.schoolLevel) return { ...current, schoolLevel: detectedLevel }
+      return { ...current, schoolLevel: detectedLevel, subjectId: '', standardIds: [] }
+    })
+  }, [detectedLevel])
 
   useEffect(() => {
     if (!account?.id) return
@@ -176,7 +193,10 @@ export default function Setek({ account, notify }) {
   const visibleStandards = useMemo(() => combineStandards(standards, snapshots, form.standardIds), [standards, snapshots, form.standardIds])
   const meta = { subjectsStatus, subjectsMessage, subjectCount: subjects.length, standardsStatus, policy }
   const plan = lengthPlan(form, policy)
-  const filteredSubjects = subjects.filter(item => `${item.name} ${subjectTypeLabel(item.subjectType)}`.toLocaleLowerCase().includes(subjectQuery.trim().toLocaleLowerCase()))
+  const filteredSubjects = prioritizeTeacherSubjects(
+    subjects.filter(item => `${item.name} ${subjectTypeLabel(item.subjectType)}`.toLocaleLowerCase().includes(subjectQuery.trim().toLocaleLowerCase())),
+    teacherSubjectIds,
+  )
   const filteredStandards = filterStandards(visibleStandards, standardQuery)
   const subjectWindow = pageWindow(filteredSubjects, subjectPage)
   const standardWindow = pageWindow(filteredStandards, standardPage)
@@ -184,7 +204,7 @@ export default function Setek({ account, notify }) {
   const activeCount = plan.unit === 'bytes' ? size.bytes : size.characters
   const overLimit = Boolean(resultText) && plan.target > 0 && activeCount > plan.target
   const edited = Boolean(resultText.trim()) && resultText !== baseline
-  const stepIndex = STEPS.findIndex(item => item.id === step)
+  const stepIndex = inputSteps.findIndex(item => item.id === step)
 
   function clearMessages() {
     setStepError('')
@@ -214,7 +234,7 @@ export default function Setek({ account, notify }) {
     const message = advanceError(step, form, meta)
     if (message) { setStepError(message); return }
     setStepError('')
-    setStep(adjacentStep(step, 1))
+    setStep(adjacentStep(step, 1, inputSteps))
   }
   function openDraft(record) {
     const restored = fromDraft(record)
@@ -232,7 +252,7 @@ export default function Setek({ account, notify }) {
     clearMessages()
   }
   function resetWriting() {
-    setForm(emptyForm())
+    setForm(detectedLevel ? { ...emptyForm(), schoolLevel: detectedLevel } : emptyForm())
     setStep('curriculum')
     setResultText('')
     setBaseline('')
@@ -334,7 +354,7 @@ export default function Setek({ account, notify }) {
 
           {step === 'school' && <section className="api-panel api-stack"><h2>학교급</h2><ChoiceGroup label="학교급">{SCHOOL_LEVELS.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.schoolLevel === item.id} onClick={() => { setSnapshots([]); setSubjectPage(1); setStandardPage(1); patch({ schoolLevel: item.id, subjectId: '', standardIds: [] }) }}><strong>{item.label}</strong></button>)}</ChoiceGroup></section>}
 
-          {step === 'subject' && <section className="api-panel api-stack"><h2>과목</h2>{subjectsStatus === 'loading' && <p role="status">과목을 불러오고 있어요.</p>}{subjectsStatus === 'error' && <div className="api-error" role="alert"><p>{subjectsMessage}</p><button type="button" className="secondary-button" onClick={() => setSubjectsTick(value => value + 1)}>다시 불러오기</button></div>}{subjectsStatus === 'ready' && subjects.length === 0 && <p className="dialog-hint">{subjectsMessage || '이 교육과정의 과목을 찾지 못했어요.'}</p>}{subjects.length > 0 && <Field label="과목 검색" value={subjectQuery} onChange={event => { setSubjectQuery(event.target.value); setSubjectPage(1) }} />}{subjectWindow.items.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.subjectId === item.id} onClick={() => { setSnapshots([]); setStandardPage(1); patch({ subjectId: item.id, standardIds: [] }) }}><strong>{item.name}</strong><span>{item.group || subjectTypeLabel(item.subjectType)}</span></button>)}{subjects.length > 0 && filteredSubjects.length === 0 && <p className="dialog-hint">검색 결과가 없어요.</p>}<ListPager label="과목 페이지" page={subjectWindow.page} totalPages={subjectWindow.totalPages} onPage={setSubjectPage} /></section>}
+          {step === 'subject' && <section className="api-panel api-stack"><h2>과목</h2>{subjectsStatus === 'loading' && <p role="status">과목을 불러오고 있어요.</p>}{subjectsStatus === 'error' && <div className="api-error" role="alert"><p>{subjectsMessage}</p><button type="button" className="secondary-button" onClick={() => setSubjectsTick(value => value + 1)}>다시 불러오기</button></div>}{subjectsStatus === 'ready' && subjects.length === 0 && <p className="dialog-hint">{subjectsMessage || '이 교육과정의 과목을 찾지 못했어요.'}</p>}{subjects.length > 0 && <Field label="과목 검색" value={subjectQuery} onChange={event => { setSubjectQuery(event.target.value); setSubjectPage(1) }} />}{subjectWindow.items.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.subjectId === item.id} onClick={() => { setSnapshots([]); setStandardPage(1); patch({ subjectId: item.id, standardIds: [] }) }}><strong>{item.name}</strong><span>{teacherSubjectIds.includes(item.id) ? `담당 · ${item.group || subjectTypeLabel(item.subjectType)}` : (item.group || subjectTypeLabel(item.subjectType))}</span></button>)}{subjects.length > 0 && filteredSubjects.length === 0 && <p className="dialog-hint">검색 결과가 없어요.</p>}<ListPager label="과목 페이지" page={subjectWindow.page} totalPages={subjectWindow.totalPages} onPage={setSubjectPage} /></section>}
 
           {step === 'standards' && <section className="api-panel api-stack"><h2>성취기준</h2><p className="dialog-hint">여러 개를 고를 수 있어요. 등록되지 않은 과목은 미등록으로 두고, 활동 내용만으로 다음 단계로 갈 수 있어요.</p>{standardsStatus === 'loading' && <p role="status">성취기준을 불러오고 있어요.</p>}{standardsStatus === 'error' && <div className="api-error" role="alert"><p>{standardsMessage}</p><button type="button" className="secondary-button" onClick={() => setStandardsTick(value => value + 1)}>다시 불러오기</button></div>}{standardsStatus === 'ready' && standards.length === 0 && <p className="dialog-hint">이 과목의 성취기준은 미등록 상태예요. 코드를 임의로 만들어 넣지 않아요.</p>}{visibleStandards.length > 0 && <Field label="성취기준 검색" value={standardQuery} onChange={event => { setStandardQuery(event.target.value); setStandardPage(1) }} />}{standardWindow.items.map(item => <div className="setek-standard" key={item.id}><label className="api-check"><input type="checkbox" checked={form.standardIds.includes(item.id)} onChange={() => toggleStandard(item.id)} /><span><strong>{item.code}</strong>{item.category ? ` · ${item.category}` : ''}{item.archived ? ' · 저장된 기준' : ''}<br />{item.content}</span></label>{item.source && <p className="dialog-hint">출처: {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</p>}</div>)}{visibleStandards.length > 0 && filteredStandards.length === 0 && <p className="dialog-hint">검색 결과가 없어요.</p>}<ListPager label="성취기준 페이지" page={standardWindow.page} totalPages={standardWindow.totalPages} onPage={setStandardPage} /><p className="dialog-hint">선택 {form.standardIds.length}개{standardWindow.total > standardWindow.items.length ? ` · 전체 ${standardWindow.total}개` : ''}</p></section>}
 
@@ -344,7 +364,7 @@ export default function Setek({ account, notify }) {
 
         {stepError && <p className="field-error" role="alert">{stepError}</p>}
         <div className="setek-nav">
-          {step !== 'curriculum' && <button type="button" className="secondary-button" onClick={() => { setStep(adjacentStep(step, -1)); setStepError('') }}>이전</button>}
+          {step !== 'curriculum' && <button type="button" className="secondary-button" onClick={() => { setStep(adjacentStep(step, -1, inputSteps)); setStepError('') }}>이전</button>}
           {step !== 'growth' && <PrimaryButton onClick={next}>다음</PrimaryButton>}
           {step === 'growth' && <PrimaryButton busy={generating} disabled={aiStatus === 'missing' || aiStatus === 'error'} onClick={() => runGenerate('draft')}>{baseline ? '다시 생성' : '초안 생성'}</PrimaryButton>}
         </div>

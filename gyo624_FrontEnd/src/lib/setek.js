@@ -175,9 +175,31 @@ export function subjectTypeLabel(id) {
   return SUBJECT_TYPES.find(item => item.id === id)?.label || ''
 }
 
-export function adjacentStep(id, direction) {
-  const index = STEPS.findIndex(step => step.id === id)
-  return STEPS[Math.min(STEPS.length - 1, Math.max(0, index + direction))]?.id || id
+export function knownSchoolLevel(kind) {
+  const level = String(kind || '').includes('고등') ? 'high' : String(kind || '').includes('중학') ? 'middle' : ''
+  return SCHOOL_LEVELS.some(item => item.id === level) ? level : ''
+}
+
+export function inputStepsFor(schoolLevelKnown) {
+  return STEPS.filter(item => item.id !== 'result' && !(schoolLevelKnown && item.id === 'school'))
+}
+
+export function adjacentStep(id, direction, steps = STEPS) {
+  const index = steps.findIndex(step => step.id === id)
+  return steps[Math.min(steps.length - 1, Math.max(0, index + direction))]?.id || id
+}
+
+export function prioritizeTeacherSubjects(subjects = [], teacherSubjectIds = []) {
+  const order = new Map((teacherSubjectIds || []).map((id, index) => [id, index]))
+  if (!order.size) return subjects
+  return subjects.slice().sort((a, b) => {
+    const aOwn = order.has(a.id)
+    const bOwn = order.has(b.id)
+    if (aOwn && bOwn) return order.get(a.id) - order.get(b.id)
+    if (aOwn) return -1
+    if (bOwn) return 1
+    return 0
+  })
 }
 
 export function countUnits(text, unit = 'characters') {
