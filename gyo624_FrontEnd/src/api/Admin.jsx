@@ -1,4 +1,4 @@
-import { compareClassItems } from '../lib/classrooms';
+import { compareClassItems, compareStudents } from '../lib/classrooms';
 import { RECORD_TYPES, assignedRecordTypes, className, recordTypeLabel, statusLabel } from './model';
 import { useState } from 'react';
 import { Field, Modal, PrimaryButton } from '../components/ui';
@@ -314,7 +314,7 @@ export function Rosters({
       }}>학급 수정</button>}<button className="secondary-button" type="button" disabled={!classId} onClick={() => { setRemoveStudent(false); setStudentDraft({
         name: '',
         number: ''
-      }); }}>학생 등록</button></div><ApiState state={students}>{students.data?.map(item => <article className="api-panel" key={item.id}><strong>{item.number}번, {item.name}</strong><div className="exchange-actions"><button type="button" className="text-button" onClick={() => { setRemoveStudent(false); setStudentDraft(item); }}>학생 정보 수정</button><button type="button" className="text-button danger" onClick={() => { setRemoveStudent(true); setStudentDraft(item); }}>삭제</button></div></article>)}</ApiState><Pagination state={students} />
+      }); }}>학생 등록</button></div><ApiState state={students}>{[...(students.data || [])].sort(compareStudents).map(item => <article className="api-panel" key={item.id}><strong>{item.number}번, {item.name}</strong><div className="exchange-actions"><button type="button" className="text-button" onClick={() => { setRemoveStudent(false); setStudentDraft(item); }}>학생 정보 수정</button><button type="button" className="text-button danger" onClick={() => { setRemoveStudent(true); setStudentDraft(item); }}>삭제</button></div></article>)}</ApiState><Pagination state={students} />
     {draft && <Modal title={remove ? '학급 삭제' : '학급 정보'} onClose={() => setDraft(null)}><form onSubmit={async e => {
         e.preventDefault();
         if (!remove && !draftSchool?.schoolCode) {

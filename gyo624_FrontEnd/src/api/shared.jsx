@@ -1,5 +1,5 @@
 import { Field, PrimaryButton } from '../components/ui';
-import { compareClassItems } from '../lib/classrooms';
+import { compareClassItems, compareStudents } from '../lib/classrooms';
 import { classOptionLabel, safeDetails, statusLabel } from './model';
 import { detailError } from './client';
 export function ApiState({
@@ -43,13 +43,6 @@ export function ClassSelect({
   const options = Array.isArray(classes.data) ? [...classes.data].sort(compareClassItems) : [];
   return <><ApiState state={classes} empty={empty} /><Field label={label} required={!optional} value={value} disabled={classes.loading || !!classes.error} onChange={event => onChange(event.target.value)}><option value="">{optional ? '내 수업' : '학급 선택'}</option>{options.map(item => <option key={item.id} value={item.id}>{classOptionLabel(item, showSchool)}</option>)}</Field>{classes.setPage && <Pagination state={classes} onChange={() => onChange('')} />}</>;
 }
-function compareStudents(left, right) {
-  const leftNo = Number(left?.number)
-  const rightNo = Number(right?.number)
-  if (Number.isFinite(leftNo) && Number.isFinite(rightNo) && leftNo !== rightNo) return leftNo - rightNo
-  return String(left?.name || '').localeCompare(String(right?.name || ''), 'ko')
-}
-
 export function StudentSelect({
   students,
   value,

@@ -10,6 +10,13 @@ export function compareClassroomNames(left, right) {
   return String(left || '').localeCompare(String(right || ''), 'ko', { numeric: true })
 }
 
+export function compareStudents(left, right) {
+  const leftNo = Number(left?.number)
+  const rightNo = Number(right?.number)
+  if (Number.isFinite(leftNo) && Number.isFinite(rightNo) && leftNo !== rightNo) return leftNo - rightNo
+  return String(left?.name || '').localeCompare(String(right?.name || ''), 'ko')
+}
+
 export function classPlaceKey(item) {
   const grade = Number(item?.grade)
   const classNumber = Number(String(item?.classNumber ?? item?.classLabel ?? '').replace(/\D/g, ''))

@@ -1,6 +1,6 @@
 import { observationDateError } from '../lib/observations.js';
 import { passwordError } from '../lib/passwords.js';
-import { compareClassItems } from '../lib/classrooms.js';
+import { compareClassItems, compareStudents } from '../lib/classrooms.js';
 import { elementarySchool, normalizeSchool, virtualStudentSchool } from '../lib/school.js';
 import virtualStudentSeed from './virtual-student-seed.json' with { type: 'json' };
 import { assignmentAfterSchoolChange, readTeaching, teachingError } from '../lib/teaching.js';
@@ -655,8 +655,8 @@ export function createLocalStore({
     }
     if (parts[0] === 'classes' && parts[2] === 'students') {
       const catalog = neisClass(id);
-      if (catalog) return page(studentsIn(catalog), q);
-      return page(studentsIn(classAccess(id)), q);
+      if (catalog) return page([...studentsIn(catalog)].sort(compareStudents), q);
+      return page([...studentsIn(classAccess(id))].sort(compareStudents), q);
     }
     if (p === '/timetables') return page(db.timetables.filter(t => {
       if (q.get('schoolYear') && t.schoolYear !== Number(q.get('schoolYear'))) return false;
@@ -816,7 +816,7 @@ export function createLocalStore({
     if (parts[2] === 'record-board') {
       const catalog = parts[0] === 'classes' ? neisClass(id) : null;
       const students = catalog ? studentsIn(catalog) : parts[0] === 'classes' ? db.students.filter(s => s.classId === classAccess(id).id) : [studentAccess(id)];
-      return result(students.map(s => ({
+      return result([...students].sort(compareStudents).map(s => ({
         name: s.name,
         recordCount: db.records.filter(r => r.studentId === s.id).length,
         completedCount: db.records.filter(r => r.studentId === s.id && r.status === 'SUBMITTED').length

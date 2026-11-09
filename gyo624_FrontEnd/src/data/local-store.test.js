@@ -584,6 +584,7 @@ describe('Standalone UI workspace', () => {
     assert.equal(roster.data.every(item => item.schoolName === '경북소프트웨어마이스터고등학교'), true);
     const classStudents = await store.handle(`/classes/${roster.data[0].id}/students?schoolYear=2026&page=1&size=100`, { actorId: adminId, virtualSchool: meister });
     assert.equal(classStudents.data.length, 16);
+    assert.deepEqual(classStudents.data.map(item => item.number), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
     assert.equal(classStudents.data[0].name.length > 0, true);
     const neisStudents = await store.handle('/classes/neis:1:2/students?schoolYear=2026&page=1&size=100', { actorId: adminId, virtualSchool: meister });
     assert.equal(neisStudents.data.length, 16);

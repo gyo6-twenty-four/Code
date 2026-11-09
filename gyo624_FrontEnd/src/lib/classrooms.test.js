@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeClassroom, classParts, classroomOptions, compareClassItems, mergeClassLists, timetableError } from './classrooms.js'
+import { normalizeClassroom, classParts, classroomOptions, compareClassItems, compareStudents, mergeClassLists, timetableError } from './classrooms.js'
 
 describe('학급 입력 제한', () => {
   it('학년/반을 표준 형식으로 정리한다', () => {
@@ -42,6 +42,13 @@ describe('학급 입력 제한', () => {
       [{ id: 'neis:1:2', grade: 1, classNumber: 2, name: '1학년 2반' }],
     )[0].id, 'neis:1:2')
     assert.deepEqual(mergeClassLists(null, undefined), [])
+  })
+  it('출석 번호를 1, 2, 10 숫자 순으로 정렬한다', () => {
+    assert.deepEqual([
+      { number: 10, name: '한민주' },
+      { number: 1, name: '박다은' },
+      { number: 2, name: '김지민' },
+    ].sort(compareStudents).map(item => item.number), [1, 2, 10])
   })
 })
 const lesson = { id: 'one', day: '월요일', period: '1', classroom: '1학년 2반', subject: '국어', teacher: '김지현' }
