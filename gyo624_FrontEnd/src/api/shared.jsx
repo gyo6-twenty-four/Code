@@ -43,12 +43,20 @@ export function ClassSelect({
   const options = Array.isArray(classes.data) ? [...classes.data].sort(compareClassItems) : [];
   return <><ApiState state={classes} empty={empty} /><Field label={label} required={!optional} value={value} disabled={classes.loading || !!classes.error} onChange={event => onChange(event.target.value)}><option value="">{optional ? '내 수업' : '학급 선택'}</option>{options.map(item => <option key={item.id} value={item.id}>{classOptionLabel(item, showSchool)}</option>)}</Field>{classes.setPage && <Pagination state={classes} onChange={() => onChange('')} />}</>;
 }
+function compareStudents(left, right) {
+  const leftNo = Number(left?.number)
+  const rightNo = Number(right?.number)
+  if (Number.isFinite(leftNo) && Number.isFinite(rightNo) && leftNo !== rightNo) return leftNo - rightNo
+  return String(left?.name || '').localeCompare(String(right?.name || ''), 'ko')
+}
+
 export function StudentSelect({
   students,
   value,
   onChange
 }) {
-  return <><ApiState state={students} empty="학급을 선택하거나 학생 명단을 확인해 주세요." /><Field label="학생" required value={value} disabled={students.loading || !!students.error} onChange={event => onChange(event.target.value)}><option value="">학생 선택</option>{Array.isArray(students.data) && students.data.map(item => <option key={item.id} value={item.id}>{item.number ? `${item.number}번, ` : ''}{item.name}</option>)}</Field><Pagination state={students} onChange={() => onChange('')} /></>;
+  const options = Array.isArray(students.data) ? [...students.data].sort(compareStudents) : []
+  return <><ApiState state={students} empty="학급을 선택하거나 학생 명단을 확인해 주세요." /><Field label="학생" required value={value} disabled={students.loading || !!students.error} onChange={event => onChange(event.target.value)}><option value="">학생 선택</option>{options.map(item => <option key={item.id} value={item.id}>{item.number ? `${item.number}번, ` : ''}{item.name}</option>)}</Field><Pagination state={students} onChange={() => onChange('')} /></>;
 }
 export function SaveButton({ mutation, children = '저장하기', disabled = false, showError = true }) {
   return <>{showError && <MutationError mutation={mutation} />}<PrimaryButton type="submit" busy={mutation.busy} disabled={disabled}>{mutation.busy ? '처리 중…' : children}</PrimaryButton></>;

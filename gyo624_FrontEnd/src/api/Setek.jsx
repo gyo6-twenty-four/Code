@@ -11,6 +11,7 @@ import {
   TRAITS,
   adjacentStep,
   advanceError,
+  rosterError,
   combineStandards,
   emptyForm,
   emptyPolicy,
@@ -31,6 +32,9 @@ import {
   validateGenerationPayload,
 } from '../lib/setek'
 import { generateSetek, setekStatus } from './setek-client'
+import { usePage } from './hooks'
+import { loadClasses, onNeisSchool, readNeisSchool } from './neis'
+import { ClassSelect, StudentSelect } from './shared'
 
 const sessionKey = id => `education24-setek-form-v1:${id}`
 const noRows = []
@@ -76,7 +80,7 @@ function FieldGroup({ title, hint, fields, values, onChange }) {
   return <section className="api-stack"><h2>{title}</h2>{hint && <p className="dialog-hint">{hint}</p>}{fields.map(([key, label]) => <Field key={key} label={label} multiline value={values[key] || ''} onChange={event => onChange(key, event.target.value)} />)}</section>
 }
 
-export default function Setek({ account, notify }) {
+export default function Setek({ account, notify, year, school }) {
   const resultRef = useRef(null)
   const detectedLevel = knownSchoolLevel(account?.school?.kind)
   const inputSteps = inputStepsFor(Boolean(detectedLevel))
@@ -87,8 +91,9 @@ export default function Setek({ account, notify }) {
     return detectedLevel ? { ...restored, schoolLevel: detectedLevel } : restored
   })
   const [step, setStep] = useState(() => {
-    const saved = session?.step === 'result' || session?.step === 'student' ? 'growth' : session?.step
-    if (detectedLevel && saved === 'school') return restoreForm(session).curriculumId ? 'subject' : 'curriculum'
+    const restored = restoreForm(session)
+    const saved = session?.step === 'result' || session?.step === 'student' || session?.step === 'roster' ? 'growth' : session?.step
+    if (detectedLevel && saved === 'school') return restored.curriculumId ? 'subject' : 'curriculum'
     return inputSteps.some(item => item.id === saved) ? saved : 'curriculum'
   })
   const [studentOpen, setStudentOpen] = useState(() => studentInput(restoreForm(session)) || session?.step === 'student')
@@ -118,6 +123,48 @@ export default function Setek({ account, notify }) {
   const [generating, setGenerating] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState(null)
+  const localClasses = usePage('/classes', {
+    schoolYear: year,
+    scope: 'school',
+    ...(account?.role === 'ADMIN' && school?.schoolCode ? { schoolCode: school.schoolCode } : {}),
+  })
+  const [neisSchool, setNeisSchool] = useState(readNeisSchool)
+  const [classFetch, setClassFetch] = useState({ id: '', error: '', data: [] })
+  const [classAttempt, setClassAttempt] = useState(0)
+  const classQuery = neisSchool ? `${year}|${classAttempt}|${neisSchool.officeCode}|${neisSchool.schoolCode}` : ''
+  useEffect(() => onNeisSchool(() => {
+    setNeisSchool(readNeisSchool())
+    setForm(current => ({ ...current, classId: '', studentId: '' }))
+  }), [])
+  useEffect(() => {
+    if (!classQuery) return undefined
+    const controller = new AbortController()
+    const id = classQuery
+    loadClasses(neisSchool, year, controller.signal)
+      .then(data => setClassFetch({ id, error: '', data }))
+      .catch(loadError => { if (loadError.name !== 'AbortError') setClassFetch({ id, error: loadError.message, data: [] }) })
+    return () => controller.abort()
+  }, [classQuery, neisSchool, year])
+  const neisClasses = classQuery && classFetch.id === classQuery
+    ? { loading: false, error: classFetch.error, data: classFetch.data }
+    : { loading: Boolean(classQuery), error: '', data: [] }
+  const seenClasses = new Set()
+  const classes = {
+    loading: localClasses.loading || neisClasses.loading,
+    error: localClasses.error || (neisClasses.error ? new Error(neisClasses.error) : null),
+    data: [...(localClasses.data || []), ...neisClasses.data].filter(item => {
+      if (!item?.id || seenClasses.has(item.id)) return false
+      seenClasses.add(item.id)
+      return true
+    }),
+    reload: () => {
+      localClasses.reload?.()
+      setClassAttempt(value => value + 1)
+    },
+    setPage: localClasses.setPage,
+    page: localClasses.page,
+  }
+  const students = usePage(form.classId ? `/classes/${form.classId}/students` : null, { schoolYear: year })
 
   useEffect(() => {
     if (!detectedLevel) return
@@ -231,6 +278,8 @@ export default function Setek({ account, notify }) {
     setForm(current => ({ ...current, standardIds: current.standardIds.includes(id) ? current.standardIds.filter(item => item !== id) : [...current.standardIds, id] }))
   }
   function next() {
+    const roster = rosterError(form)
+    if (roster) { setStepError(roster); return }
     const message = advanceError(step, form, meta)
     if (message) { setStepError(message); return }
     setStepError('')
@@ -349,6 +398,10 @@ export default function Setek({ account, notify }) {
     <WritingWorkspace
       source={<WritingPane variant="source" title="작성 자료" description="수업 활동과 학생의 변화에서 확인한 사실을 입력하세요.">
         <fieldset className="writing-input-lock" disabled={generating || busy} aria-label="초안 입력 자료">
+          <div className="api-toolbar api-stack">
+            <ClassSelect classes={classes} value={form.classId} onChange={id => { students.setPage(1); patch({ classId: id, studentId: '' }) }} empty={neisSchool ? '이 학년도의 나이스 학급이 없어요.' : '이 학년도에 등록된 학급이 없어요.'} />
+            <StudentSelect students={students} value={form.studentId} onChange={id => patch({ studentId: id })} />
+          </div>
           <ol className="setek-steps">{inputSteps.map((item, index) => <li key={item.id}><button type="button" className={`setek-step${item.id === step ? ' is-current' : ''}${index < stepIndex ? ' is-done' : ''}`} aria-current={item.id === step ? 'step' : undefined} disabled={index > stepIndex} onClick={() => { if (index <= stepIndex) { setStep(item.id); setStepError('') } }}>{index + 1}. {item.label}</button></li>)}</ol>
           {step === 'curriculum' && <section className="api-panel api-stack"><h2>교육과정</h2><ChoiceGroup label="교육과정">{curricula.map(item => <button type="button" key={item.id} className="setek-choice" aria-pressed={form.curriculumId === item.id} onClick={() => { setSnapshots([]); setSubjectPage(1); setStandardPage(1); patch({ curriculumId: item.id, subjectId: '', standardIds: [] }) }}><strong>{item.name}</strong><span>{item.year ? `${item.year}년` : '연도 미입력'}{item.source === 'custom' ? ' · 학교에서 추가' : ''}</span></button>)}</ChoiceGroup></section>}
 

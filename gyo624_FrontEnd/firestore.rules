@@ -265,7 +265,9 @@ service cloud.firestore {
       allow read, delete: if signedIn() && request.auth.uid == uid;
       allow create, update: if signedIn()
         && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['curriculumId', 'curriculumName', 'curriculumYear', 'schoolLevel', 'subjectId', 'subjectName', 'subjectType', 'selectedStandards', 'lesson', 'student', 'growth', 'traits', 'traitNote', 'teacherRequest', 'lengthMode', 'customLength', 'unit', 'targetLength', 'generatedContent', 'editedContent', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['classId', 'studentId', 'curriculumId', 'curriculumName', 'curriculumYear', 'schoolLevel', 'subjectId', 'subjectName', 'subjectType', 'selectedStandards', 'lesson', 'student', 'growth', 'traits', 'traitNote', 'teacherRequest', 'lengthMode', 'customLength', 'unit', 'targetLength', 'generatedContent', 'editedContent', 'createdAt', 'updatedAt'])
+        && setekText(request.resource.data.classId, 200)
+        && setekText(request.resource.data.studentId, 200)
         && request.resource.data.schoolLevel in ['elementary', 'middle', 'high']
         && request.resource.data.unit in ['characters', 'bytes']
         && request.resource.data.targetLength is int
@@ -288,6 +290,92 @@ service cloud.firestore {
         && setekText(request.resource.data.traitNote, 24000)
         && setekText(request.resource.data.subjectName, 300)
         && (resource == null || request.resource.data.createdAt == resource.data.createdAt);
+    }
+
+    function teacherSchoolCode() {
+      return signedIn()
+        && exists(userPath(request.auth.uid))
+        && get(userPath(request.auth.uid)).data.status == 'ACTIVE'
+        && get(userPath(request.auth.uid)).data.keys().hasAny(['schoolCode'])
+        ? get(userPath(request.auth.uid)).data.schoolCode
+        : '';
+    }
+    function validClassRecord(data) {
+      return data.keys().hasOnly(['schoolCode', 'schoolName', 'officeCode', 'officeName', 'kind', 'schoolYear', 'grade', 'classNumber', 'name'])
+        && data.schoolCode is string
+        && data.schoolCode.matches('^[A-Z0-9]{7,10}$')
+        && data.schoolName is string
+        && data.schoolName.size() > 0
+        && data.schoolName.size() <= 300
+        && data.officeCode is string
+        && data.officeCode.size() <= 10
+        && data.officeName is string
+        && data.officeName.size() <= 180
+        && data.kind is string
+        && data.kind.size() <= 120
+        && data.schoolYear is int
+        && data.schoolYear >= 2000
+        && data.schoolYear <= 2100
+        && data.grade is int
+        && data.grade >= 1
+        && data.grade <= 6
+        && data.classNumber is int
+        && data.classNumber >= 1
+        && data.classNumber <= 99
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 40;
+    }
+    function validStudentRecord(data) {
+      return data.keys().hasOnly(['schoolCode', 'schoolYear', 'classId', 'grade', 'classNumber', 'number', 'name', 'pseudonymId'])
+        && data.schoolCode is string
+        && data.schoolCode.matches('^[A-Z0-9]{7,10}$')
+        && data.schoolYear is int
+        && data.schoolYear >= 2000
+        && data.schoolYear <= 2100
+        && data.classId is string
+        && data.classId.size() > 0
+        && data.classId.size() <= 120
+        && data.grade is int
+        && data.grade >= 1
+        && data.grade <= 6
+        && data.classNumber is int
+        && data.classNumber >= 1
+        && data.classNumber <= 99
+        && data.number is int
+        && data.number >= 1
+        && data.number <= 999
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 40
+        && data.pseudonymId is string
+        && data.pseudonymId.size() <= 40;
+    }
+    function canWriteSchool(code) {
+      return isAdmin() || teacherSchoolCode() == code;
+    }
+
+    match /classes/{classId} {
+      allow get: if signedIn() && (isAdmin() || resource.data.schoolCode == teacherSchoolCode());
+      allow list: if signedIn() && (isAdmin() || resource.data.schoolCode == teacherSchoolCode());
+      allow create: if signedIn() && validClassRecord(request.resource.data) && canWriteSchool(request.resource.data.schoolCode);
+      allow update: if signedIn()
+        && validClassRecord(request.resource.data)
+        && request.resource.data.schoolCode == resource.data.schoolCode
+        && canWriteSchool(resource.data.schoolCode);
+      allow delete: if isAdmin();
+    }
+
+    match /students/{studentId} {
+      allow get: if signedIn() && (isAdmin() || resource.data.schoolCode == teacherSchoolCode());
+      allow list: if signedIn() && (isAdmin() || resource.data.schoolCode == teacherSchoolCode());
+      allow create: if signedIn() && validStudentRecord(request.resource.data) && canWriteSchool(request.resource.data.schoolCode);
+      allow update: if signedIn()
+        && validStudentRecord(request.resource.data)
+        && request.resource.data.schoolCode == resource.data.schoolCode
+        && request.resource.data.classId == resource.data.classId
+        && canWriteSchool(resource.data.schoolCode);
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

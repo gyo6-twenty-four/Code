@@ -253,10 +253,10 @@ export default function App() {
       screen = <Reports {...common} />;
       break;
     case '/setek':
-      screen = <Setek account={account} notify={notify} />;
+      screen = <Setek account={account} notify={notify} year={year} school={account?.school} />;
       break;
     case '/admin/setek':
-      screen = <SetekAdmin account={account} notify={notify} />;
+      screen = <SetekAdmin account={account} notify={notify} year={year} school={adminSchool || account?.school} />;
       break;
     case '/reports/edit':
     case '/reports/check':

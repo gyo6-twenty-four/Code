@@ -575,6 +575,23 @@ describe('Standalone UI workspace', () => {
     const logs = (await store.handle('/admin/audit-logs?schoolCode=B7010083', { actorId: adminId })).data;
     assert.equal(logs.length > 0, true);
     assert.equal(logs.every(item => item.schoolCode === 'B7010083'), true);
+    const meister = { name: '경소마고', schoolCode: 'R1000001', officeCode: 'R10', officeName: '경상북도교육청', kind: '고등학교' };
+    const roster = await store.handle('/classes?schoolYear=2026&schoolCode=R1000001&page=1&size=100', { actorId: adminId, virtualSchool: meister });
+    assert.equal(roster.data.length, 12);
+    assert.equal(roster.data.every(item => item.schoolName === '경북소프트웨어마이스터고등학교'), true);
+    const classStudents = await store.handle(`/classes/${roster.data[0].id}/students?schoolYear=2026&page=1&size=100`, { actorId: adminId, virtualSchool: meister });
+    assert.equal(classStudents.data.length, 16);
+    assert.equal(classStudents.data[0].name.length > 0, true);
+    const again = await store.handle('/classes?schoolYear=2026&schoolCode=R1000001&page=1&size=100', { actorId: adminId, virtualSchool: meister });
+    assert.equal(again.data.length, 12);
+    const schoolsAfter = (await store.handle('/admin/schools?schoolYear=2026', { actorId: adminId, virtualSchool: meister })).data;
+    const meisterRow = schoolsAfter.find(item => item.schoolCode === 'R1000001');
+    assert.equal(meisterRow.name, '경북소프트웨어마이스터고등학교');
+    assert.equal(meisterRow.classCount, 12);
+    assert.equal(meisterRow.studentCount, 192);
+    assert.equal(schoolsAfter.find(item => item.schoolCode === 'B7010083').studentCount, 1);
+    const teacherClasses = await store.handle('/classes?schoolYear=2026&page=1&size=100', { actorId: firstTeacher });
+    assert.equal(teacherClasses.data.some(item => String(item.id).startsWith('gsm:')), false);
     await assert.rejects(store.handle('/admin/timetables/entries', {
       actorId: adminId,
       method: 'POST',

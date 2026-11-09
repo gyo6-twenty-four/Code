@@ -256,18 +256,17 @@ html:has(.app-shell) #root {
 
 .year-anchor {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
 }
 
 .year-return {
   position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
+  right: calc(100% + 6px);
+  top: 50%;
   z-index: 2;
   pointer-events: none;
-  transform: translateX(-50%);
+  transform: translateY(-50%);
 }
 
 .year-return.is-open {
@@ -292,13 +291,13 @@ html:has(.app-shell) #root {
   white-space: nowrap;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateX(8px);
   transition: transform 0.42s ease-in-out, opacity 0.42s ease-in-out, background-color 0.15s ease;
 }
 
 .year-return.is-open button {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 .year-return button:hover { background: var(--bg-secondary); }

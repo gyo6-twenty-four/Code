@@ -150,6 +150,8 @@ const blank = fields => Object.fromEntries(fields.map(([key]) => [key, '']))
 
 export function emptyForm() {
   return {
+    classId: '',
+    studentId: '',
     curriculumId: '',
     schoolLevel: '',
     subjectId: '',
@@ -260,6 +262,11 @@ export function activitySummary(form) {
     form?.traitNote,
   ].map(value => String(value || '').trim()).filter(Boolean)
   return { texts, enough: texts.some(value => Array.from(value).length >= 2) }
+}
+
+export function rosterError(form) {
+  if (!form?.classId || !form?.studentId) return '학급과 학생을 선택해 주세요.'
+  return ''
 }
 
 export function advanceError(step, form, meta = {}) {
@@ -609,6 +616,8 @@ export function toDraftRecord(form, context, previous = {}) {
   const now = new Date().toISOString()
   const base = emptyForm()
   return {
+    classId: String(form.classId || ''),
+    studentId: String(form.studentId || ''),
     curriculumId: form.curriculumId,
     curriculumName: context.curriculum?.name || previous.curriculumName || '',
     curriculumYear: Number(context.curriculum?.year || previous.curriculumYear || 0),
@@ -646,6 +655,8 @@ export function fromDraft(record) {
   return {
     form: {
       ...base,
+      classId: record.classId || '',
+      studentId: record.studentId || '',
       curriculumId: record.curriculumId || '',
       schoolLevel: record.schoolLevel || '',
       subjectId: record.subjectId || '',

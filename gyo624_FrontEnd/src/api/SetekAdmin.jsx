@@ -6,7 +6,7 @@ import Setek from './Setek'
 
 const emptyStandard = { code: '', category: '', content: '', source: '', sourceUrl: '' }
 
-export default function SetekAdmin({ account, notify }) {
+export default function SetekAdmin({ account, notify, year, school }) {
   const [tab, setTab] = useState('catalog')
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
@@ -81,7 +81,7 @@ export default function SetekAdmin({ account, notify }) {
       <button type="button" className="setek-keyword" role="tab" aria-selected={tab === 'catalog'} onClick={() => setTab('catalog')}>자료 관리</button>
       <button type="button" className="setek-keyword" role="tab" aria-selected={tab === 'write'} onClick={() => setTab('write')}>세특 작성</button>
     </div>
-    {tab === 'write' && <Setek account={account} notify={notify} />}
+    {tab === 'write' && <Setek account={account} notify={notify} year={year} school={school} />}
     {tab === 'catalog' && <>
       {status === 'loading' && <p role="status">자료를 불러오고 있어요.</p>}
       {error && <div className="api-error" role="alert"><p>{error}</p></div>}

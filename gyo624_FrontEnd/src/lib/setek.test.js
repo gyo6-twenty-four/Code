@@ -57,6 +57,7 @@ test('학교가 정해져 있으면 학교급 단계를 건너뛰고 담당 과�
   assert.equal(knownSchoolLevel('방송통신중학교'), 'middle')
   assert.equal(knownSchoolLevel('특수학교'), '')
   const steps = inputStepsFor(true)
+  assert.equal(steps[0].id, 'curriculum')
   assert.equal(steps.some(item => item.id === 'school'), false)
   assert.equal(adjacentStep('curriculum', 1, steps), 'subject')
   assert.equal(adjacentStep('subject', -1, steps), 'curriculum')
