@@ -106,15 +106,24 @@ export function rosterPage(roster, path) {
 let cached = null;
 let pending = null;
 let unavailable = false;
+let unavailableSince = 0;
+// 백엔드 연결 실패 후 재시도까지 대기 시간 (30초)
+const RETRY_AFTER_MS = 30_000;
 
 export function clearBackendRosterCache() {
   cached = null;
   pending = null;
   unavailable = false;
+  unavailableSince = 0;
 }
 
 export async function loadBackendRoster(signal) {
-  if (unavailable) return null;
+  // 연결 실패 후 RETRY_AFTER_MS 경과 시 재시도 허용
+  if (unavailable && Date.now() - unavailableSince < RETRY_AFTER_MS) return null;
+  if (unavailable) {
+    unavailable = false;
+    unavailableSince = 0;
+  }
   if (cached) return cached;
   if (!pending) {
     pending = (async () => {
@@ -127,6 +136,7 @@ export async function loadBackendRoster(signal) {
       } catch (error) {
         if (error?.name === 'AbortError') throw error;
         unavailable = true;
+        unavailableSince = Date.now();
         return null;
       }
       const text = await response.text();
@@ -135,6 +145,7 @@ export async function loadBackendRoster(signal) {
       // answers with an empty gateway error. Neither one is a roster payload.
       if (trimmed.startsWith('<') || (!response.ok && !trimmed.startsWith('{') && !trimmed.startsWith('['))) {
         unavailable = true;
+        unavailableSince = Date.now();
         return null;
       }
       if (!response.ok) throw new LocalError('학생 명단을 불러오지 못했어요.', response.status);

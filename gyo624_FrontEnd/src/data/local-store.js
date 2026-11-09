@@ -77,7 +77,34 @@ async function ensureTestSchoolAccount(db) {
   db.users.push(completeUser(TEST_SCHOOL_ACCOUNT, await digest(LOCAL_PASSWORD), (db.classes || []).map(c => c.id)));
   return true;
 }
-const DUMMY_STUDENT_NAMES = ['김민준', '박서연', '이도윤', '정하린'];
+const DUMMY_STUDENT_NAMES = ['김민준', '박서연', '이도윤', '정하린', '최수아', '윤지호', '송성준', '홍소율', '이지환', '정원준', '안민지', '김서윤', '박다은', '강민서', '오준혁', '임하은', '장시우', '이현준', '김서현', '한지수', '신동현', '류수진', '문태양', '정승현', '배나리', '유서준', '고민지', '남다율', '백수현'];
+const DEMO_YEAR = 2026;
+const DEMO_CLASSES = [
+  { grade: 1, classNumber: 1 },
+  { grade: 1, classNumber: 2 },
+  { grade: 2, classNumber: 1 },
+  { grade: 2, classNumber: 2 },
+  { grade: 3, classNumber: 1 },
+];
+const DEMO_STUDENTS_PER_CLASS = [
+  ['김민준', '박서연', '이도윤', '정하린', '최수아', '윤지호'],
+  ['송성준', '홍소율', '이지환', '정원준', '안민지', '김서윤'],
+  ['박다은', '강민서', '오준혁', '임하은', '장시우', '한지수'],
+  ['이현준', '김서현', '신동현', '류수진', '문태양', '정승현'],
+  ['배나리', '유서준', '고민지', '남다율', '백수현', '안도율'],
+];
+function buildDemoData(classIds) {
+  const classes = [];
+  const students = [];
+  DEMO_CLASSES.forEach(({ grade, classNumber }, ci) => {
+    const classId = classIds[ci];
+    classes.push({ id: classId, name: `${grade}학년 ${classNumber}반`, grade, classNumber, schoolYear: DEMO_YEAR });
+    DEMO_STUDENTS_PER_CLASS[ci].forEach((name, si) => {
+      students.push({ id: uuid(), name, number: si + 1, classId, schoolYear: DEMO_YEAR });
+    });
+  });
+  return { classes, students };
+}
 function removeSeededDemo(db) {
   let changed = false;
   const schoolWasDemo = db.school?.name === '한빛학교';
@@ -120,7 +147,8 @@ function removeSeededDemo(db) {
 const dateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 export function createLocalStore({
   storage,
-  now = () => new Date()
+  now = () => new Date(),
+  seedDemo = true
 } = {}) {
   let database;
   let loading;
@@ -139,6 +167,20 @@ export function createLocalStore({
         return database;
       }
       const passwordHash = await digest(LOCAL_PASSWORD);
+      let demoClasses = [];
+      let demoStudents = [];
+      let teacher1ClassIds = [];
+      let teacher2ClassIds = [];
+      let allClassIds = [];
+      if (seedDemo) {
+        // 데모용 학급 ID를 미리 생성해서 교사 classIds에 할당
+        const demoClassIds = DEMO_CLASSES.map(() => uuid());
+        ({ classes: demoClasses, students: demoStudents } = buildDemoData(demoClassIds));
+        // 교사1: 1학년 1반, 1학년 2반 / 교사2: 2학년 1반, 2학년 2반 / 관리자: 전체
+        teacher1ClassIds = [demoClassIds[0], demoClassIds[1]];
+        teacher2ClassIds = [demoClassIds[2], demoClassIds[3]];
+        allClassIds = [...demoClassIds];
+      }
       const users = [{
         id: uuid(),
         name: '김지현',
@@ -154,14 +196,20 @@ export function createLocalStore({
         name: '이서연',
         email: 'teacher2@education24.local',
         role: 'TEACHER'
-      }, TEST_SCHOOL_ACCOUNT].map(user => completeUser(user, passwordHash, []));
+      }, TEST_SCHOOL_ACCOUNT].map((user, index) => {
+        const classIds = !seedDemo ? [] :
+          user.role === 'ADMIN' || user.email === TEST_SCHOOL_ACCOUNT.email
+            ? allClassIds
+            : index === 0 ? teacher1ClassIds : index === 2 ? teacher2ClassIds : allClassIds;
+        return completeUser(user, passwordHash, classIds);
+      });
       database = {
         school: {
           name: ''
         },
         users,
-        classes: [],
-        students: [],
+        classes: demoClasses,
+        students: demoStudents,
         observations: [],
         careers: [],
         records: [],

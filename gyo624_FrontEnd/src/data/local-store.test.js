@@ -10,7 +10,8 @@ function setup() {
   return {
     store: createLocalStore({
       storage,
-      now: () => new Date(2026, 9, 28, 12)
+      now: () => new Date(2026, 9, 28, 12),
+      seedDemo: false
     }),
     storage
   };
