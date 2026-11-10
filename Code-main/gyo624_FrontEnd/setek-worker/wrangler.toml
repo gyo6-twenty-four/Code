@@ -1,0 +1,8 @@
+name = "gyo624-setek"
+main = "index.js"
+compatibility_date = "2026-11-01"
+
+# 키는 wrangler secret put AI_API_KEY 또는 OPENAI_API_KEY, 그리고 FIREBASE_WEB_API_KEY 로 넣습니다.
+# AI_PROVIDER 는 openai, gemini, anthropic 중 하나입니다.
+[vars]
+AI_PROVIDER = "openai"

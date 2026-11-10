@@ -1,0 +1,10 @@
+app:
+    jwt:
+        # 개발 실행마다 충분히 긴 임시 키를 생성한다. JWT_SECRET을 지정하면 고정 키를 사용한다.
+        secret: ${JWT_SECRET:${random.value}${random.value}${random.value}}
+    bootstrap-admin:
+        enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+        email: ${BOOTSTRAP_ADMIN_EMAIL:}
+        password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+        name: ${BOOTSTRAP_ADMIN_NAME:최초 관리자}
+        school-code: ${BOOTSTRAP_ADMIN_SCHOOL_CODE:DEFAULT}

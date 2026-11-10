@@ -1,0 +1,67 @@
+export function normalizeClassroom(value) {
+  const match = String(value || '').trim().match(/^([1-6])\s*학년\s*(\d{1,2})\s*반$/)
+  return match && Number(match[2]) >= 1 && Number(match[2]) <= 99 ? `${match[1]}학년 ${Number(match[2])}반` : ''
+}
+export function classParts(value) {
+  const valid = normalizeClassroom(value)
+  return valid ? valid.match(/\d+/g) : ['', '']
+}
+export function compareClassroomNames(left, right) {
+  return String(left || '').localeCompare(String(right || ''), 'ko', { numeric: true })
+}
+
+export function compareStudents(left, right) {
+  const leftNo = Number(left?.number)
+  const rightNo = Number(right?.number)
+  if (Number.isFinite(leftNo) && Number.isFinite(rightNo) && leftNo !== rightNo) return leftNo - rightNo
+  return String(left?.name || '').localeCompare(String(right?.name || ''), 'ko')
+}
+
+export function classPlaceKey(item) {
+  const grade = Number(item?.grade)
+  const classNumber = Number(String(item?.classNumber ?? item?.classLabel ?? '').replace(/\D/g, ''))
+  if (!Number.isInteger(grade) || grade < 1 || !Number.isInteger(classNumber) || classNumber < 1) return ''
+  return `${grade}:${classNumber}`
+}
+
+function classSourceRank(item) {
+  const id = String(item?.id || '')
+  if (id.startsWith('neis:')) return 0
+  if (id.startsWith('gsm:')) return 1
+  if (item?.storedIn === 'firebase') return 2
+  return 3
+}
+
+export function mergeClassLists(primary, extra) {
+  const groups = new Map()
+  for (const item of [...(Array.isArray(primary) ? primary : []), ...(Array.isArray(extra) ? extra : [])]) {
+    if (!item?.id) continue
+    const key = classPlaceKey(item) || `id:${item.id}`
+    const current = groups.get(key)
+    if (!current || classSourceRank(item) < classSourceRank(current)) groups.set(key, item)
+  }
+  return [...groups.values()]
+}
+
+export function compareClassItems(left, right) {
+  const grade = Number(left?.grade) - Number(right?.grade)
+  if (Number.isFinite(grade) && grade) return grade
+  const classNumber = Number(String(left?.classNumber ?? '').replace(/\D/g, '')) - Number(String(right?.classNumber ?? '').replace(/\D/g, ''))
+  if (Number.isFinite(classNumber) && classNumber) return classNumber
+  const nameOf = item => item?.name || item?.className || item?.classLabel || (item?.grade && item?.classNumber ? `${item.grade}학년 ${item.classNumber}반` : '')
+  return compareClassroomNames(nameOf(left), nameOf(right))
+}
+
+export function classroomOptions(rosters, settings) {
+  const current = settings ? normalizeClassroom(`${settings.grade}학년 ${settings.classroom}반`) : ''
+  return [...new Set([...rosters.map(item => normalizeClassroom(item.classroom)), current].filter(Boolean))].sort(compareClassroomNames)
+}
+export const weekdays = ['월요일', '화요일', '수요일', '목요일', '금요일']
+export const subjects = ['국어', '수학', '통합', '사회', '과학', '영어', '체육', '음악', '미술', '도덕', '실과', '창의적 체험 활동']
+export function timetableError(candidate, entries) {
+  if (!weekdays.includes(candidate.day) || !/^[1-9]$/.test(String(candidate.period)) || !normalizeClassroom(candidate.classroom) || !candidate.subject?.trim() || candidate.subject.trim().length > 40 || !candidate.teacher?.trim()) return '요일, 교시, 학급, 과목과 담당 교사를 확인해 주세요.'
+  const sameSlot = entries.filter(item => item.id !== candidate.id && item.day === candidate.day && Number(item.period) === Number(candidate.period))
+  if (sameSlot.some(item => normalizeClassroom(item.classroom) === normalizeClassroom(candidate.classroom))) return '이 학급은 같은 시간에 이미 수업이 있어요. 기존 수업을 수정하거나 다른 교시를 선택해 주세요.'
+  const conflict = sameSlot.find(item => (item.teacherId && candidate.teacherId ? item.teacherId === candidate.teacherId : item.teacher === candidate.teacher))
+  return conflict ? `${candidate.teacher} 선생님은 같은 시간에 ${conflict.classroom} 수업이 있어요.` : ''
+}

@@ -1,0 +1,347 @@
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  color: var(--fg-primary);
+  background: var(--bg-canvas);
+}
+
+:root[data-theme="dark"] .app-shell,
+:root[data-theme="dark"] .auth-page,
+:root[data-theme="dark"] .onboarding-page {
+  color: var(--fg-primary);
+  background: var(--bg-canvas);
+}
+
+:root[data-theme="dark"] .api-panel,
+:root[data-theme="dark"] .metric-card,
+:root[data-theme="dark"] .home-calendar-panel,
+:root[data-theme="dark"] .selected-day-panel,
+:root[data-theme="dark"] .day-card,
+:root[data-theme="dark"] .info-panel,
+:root[data-theme="dark"] .schedule-toolbar,
+:root[data-theme="dark"] .schedule-scroll,
+:root[data-theme="dark"] .exchange-section,
+:root[data-theme="dark"] .exchange-card,
+:root[data-theme="dark"] .exchange-notice,
+:root[data-theme="dark"] .observation-form,
+:root[data-theme="dark"] .chart-card,
+:root[data-theme="dark"] .next-activity,
+:root[data-theme="dark"] .logout-section,
+:root[data-theme="dark"] .auth-card,
+:root[data-theme="dark"] .onboarding-card,
+:root[data-theme="dark"] .settings-dialog,
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] .topbar,
+:root[data-theme="dark"] .mobile-brand,
+:root[data-theme="dark"] .mobile-footer,
+:root[data-theme="dark"] .navigation-drawer.settings-dialog,
+:root[data-theme="dark"] .year-switch,
+:root[data-theme="dark"] .year-return button,
+:root[data-theme="dark"] .secondary-button,
+:root[data-theme="dark"] .danger-button,
+:root[data-theme="dark"] .year-today-button,
+:root[data-theme="dark"] .calendar-month-controls button,
+:root[data-theme="dark"] .field .field-input,
+:root[data-theme="dark"] .field .field-control,
+:root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .field textarea,
+:root[data-theme="dark"] .field .field-number,
+:root[data-theme="dark"] .api-year,
+:root[data-theme="dark"] .field-popover,
+:root[data-theme="dark"] .select-search,
+:root[data-theme="dark"] .home-calendar-day,
+:root[data-theme="dark"] .segmented [aria-pressed='true'] {
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .workspace,
+:root[data-theme="dark"] .app-shell {
+  background: var(--bg-canvas);
+}
+
+:root[data-theme="dark"] .danger-button,
+:root[data-theme="dark"] .danger,
+:root[data-theme="dark"] .schedule-error {
+  color: var(--negative);
+}
+
+@media (max-width: 899px) {
+  :root[data-theme="dark"] .app-shell,
+  :root[data-theme="dark"] .workspace,
+  :root[data-theme="dark"] .mobile-footer {
+    background: var(--bg-primary);
+  }
+}
+
+:root[data-theme="dark"] .empty-slot {
+  color: var(--fg-tertiary);
+  background: transparent;
+}
+
+:root[data-theme="dark"] .empty-slot:hover {
+  color: var(--brand);
+  background: var(--brand-weak);
+}
+
+:root[data-theme="dark"] .close-button:hover {
+  background: var(--bg-secondary);
+}
+
+:root[data-theme="dark"] .filter:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .year-today-button:disabled,
+:root[data-theme="dark"] .secondary-button:disabled,
+:root[data-theme="dark"] .danger-button:disabled {
+  background: var(--bg-secondary);
+  color: var(--fg-tertiary);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .primary-button,
+:root[data-theme="dark"] .screen-heading > .primary-button,
+:root[data-theme="dark"] .api-toolbar > .primary-button,
+:root[data-theme="dark"] .heading-tools .primary-button,
+:root[data-theme="dark"] .api-stack .primary-button,
+:root[data-theme="dark"] .settings-dialog .primary-button,
+:root[data-theme="dark"] .auth-card .primary-button,
+:root[data-theme="dark"] .onboarding-card .primary-button {
+  background: var(--ink);
+  color: #121417;
+}
+
+:root[data-theme="dark"] .primary-button:hover:not(:disabled),
+:root[data-theme="dark"] .primary-button:active:not(:disabled) {
+  background: #fff;
+  color: #121417;
+}
+
+:root[data-theme="dark"] .primary-button.is-loading,
+:root[data-theme="dark"] .primary-button.is-loading:disabled {
+  background: #9aa3ad;
+  color: #121417;
+}
+
+:root[data-theme="dark"] .primary-button:disabled:not(.is-loading) {
+  background: #2a2f36;
+  color: #6d7580;
+}
+
+:root[data-theme="dark"] .secondary-button:hover:not(:disabled),
+:root[data-theme="dark"] .year-today-button:hover:not(:disabled),
+:root[data-theme="dark"] .year-return button:hover,
+:root[data-theme="dark"] .calendar-month-controls button:hover:not(:disabled),
+:root[data-theme="dark"] .text-button:hover:not(:disabled),
+:root[data-theme="dark"] .settings-row:hover,
+:root[data-theme="dark"] .settings-row[aria-pressed='true'],
+:root[data-theme="dark"] .filter[aria-pressed='true'],
+:root[data-theme="dark"] .select-option.is-active,
+:root[data-theme="dark"] .select-option.is-active.is-selected,
+:root[data-theme="dark"] .side-nav a:hover,
+:root[data-theme="dark"] .navigation-drawer .side-nav a:hover {
+  background: var(--bg-secondary);
+  color: var(--fg-primary);
+}
+
+:root[data-theme="dark"] .danger-button:hover:not(:disabled),
+:root[data-theme="dark"] .text-button.danger:hover:not(:disabled),
+:root[data-theme="dark"] .delete-confirm {
+  background: #3a1f1e;
+  border-color: #6a3530;
+  color: var(--negative);
+}
+
+:root[data-theme="dark"] .api-error {
+  background: #3a1f1e;
+  border-color: #6a3530;
+}
+
+:root[data-theme="dark"] .validation-banner { background: #16352c; }
+:root[data-theme="dark"] .validation-banner > p { color: var(--positive); }
+
+:root[data-theme="dark"] .lesson-card,
+:root[data-theme="dark"] .lesson-card:disabled {
+  color: #d5e4f6;
+  background: var(--brand-weak);
+  opacity: 1;
+  -webkit-text-fill-color: #d5e4f6;
+}
+
+:root[data-theme="dark"] .lesson-card span,
+:root[data-theme="dark"] .lesson-card:disabled span {
+  color: #b7cce8;
+  -webkit-text-fill-color: #b7cce8;
+}
+
+:root[data-theme="dark"] .lesson-card:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: #274468;
+}
+
+:root[data-theme="dark"] .field-placeholder,
+:root[data-theme="dark"] .select-search input::placeholder {
+  color: var(--fg-secondary);
+}
+
+:root[data-theme="dark"] .usage-months article {
+  background: var(--bg-secondary);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .usage-months article.has-usage {
+  background: var(--brand-weak);
+  border-color: #3d5a80;
+}
+
+:root[data-theme="dark"] .type-pills span {
+  color: var(--brand);
+}
+
+:root[data-theme="dark"] .signup-identity {
+  background: var(--brand-weak);
+  color: var(--fg-primary);
+}
+
+:root[data-theme="dark"] .field input[readonly] {
+  background: var(--bg-secondary);
+  color: var(--fg-secondary);
+}
+
+:root[data-theme="dark"] .select-search input {
+  background: var(--bg-secondary);
+  color: var(--fg-primary);
+}
+
+:root[data-theme="dark"] .home-calendar-grid tr > :first-child .day-number,
+:root[data-theme="dark"] .home-calendar-grid thead th:first-child {
+  color: #f0a8a6;
+}
+:root[data-theme="dark"] .home-calendar-grid tr > :last-child .day-number,
+:root[data-theme="dark"] .home-calendar-grid thead th:last-child {
+  color: #9dc0ee;
+}
+
+:root[data-theme="dark"] .home-calendar-grid .adjacent-month .day-number { color: #7d8692; }
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day:hover .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  background: #2a3340;
+}
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-pressed='true'] .day-number,
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-pressed='true']:hover .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px #c5ccd4;
+}
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-current='date'] .day-number,
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-current='date']:hover .day-number,
+:root[data-theme="dark"] .home-calendar-grid .home-calendar-day[aria-current='date'][aria-pressed='true'] .day-number,
+:root[data-theme="dark"] .home-calendar-grid .adjacent-month[aria-current='date'] .day-number {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  background: #6ea0e4;
+  box-shadow: none;
+  color: #0e1724;
+}
+
+:root[data-theme="dark"] .period-label {
+  background: var(--bg-secondary);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .nav-unread,
+:root[data-theme="dark"] .school-mark {
+  color: #fff;
+}
+
+:root[data-theme="dark"] .side-nav a[aria-current='page'],
+:root[data-theme="dark"] .navigation-drawer .side-nav a[aria-current='page'] {
+  color: var(--brand);
+  background: var(--brand-weak);
+}
+
+:root[data-theme="dark"] .bottom-nav [aria-current='page'] {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .field .field-input::placeholder,
+:root[data-theme="dark"] .field .field-input::placeholder {
+  color: var(--fg-tertiary);
+}
+
+:root[data-theme="dark"] .field .field-input:disabled,
+:root[data-theme="dark"] .field .field-control:disabled {
+  background: var(--bg-secondary);
+  color: var(--fg-tertiary);
+}
+
+:root[data-theme="dark"] .school-switch .field .field-control,
+:root[data-theme="dark"] .school-switch .field .field-control:hover:not(:disabled),
+:root[data-theme="dark"] .school-switch .field .field-control[aria-expanded='true'] {
+  background: transparent;
+  border-color: transparent;
+  color: inherit;
+}
+
+:root[data-theme="dark"] .number-step {
+  background: var(--bg-secondary);
+  color: var(--fg-secondary);
+}
+
+:root[data-theme="dark"] .settings-dialog::backdrop {
+  background: #00000088;
+}
+
+:root[data-theme="dark"] .field-popover {
+  box-shadow: 0 12px 32px #00000066;
+}
+
+:root[data-theme="dark"] .chart-bars span { background: #3a4048; }
+:root[data-theme="dark"] .chart-bars span:last-child { background: var(--brand); }
+
+:root[data-theme="dark"] .status-meter { background: var(--bg-secondary); }
+:root[data-theme="dark"] .status-meter > span { background: var(--brand); }
+
+:root[data-theme="dark"] .status-badge,
+:root[data-theme="dark"] .exchange-status {
+  background: var(--bg-secondary);
+  color: var(--fg-secondary);
+}
+
+:root[data-theme="dark"] .segmented { background: var(--bg-secondary); }
+
+:root[data-theme="dark"] .filter {
+  color: var(--fg-secondary);
+  background: transparent;
+}
+
+:root[data-theme="dark"] .auth-links a,
+:root[data-theme="dark"] .inline-link,
+:root[data-theme="dark"] .calendar-actions a,
+:root[data-theme="dark"] .forgot-link,
+:root[data-theme="dark"] .auth-card a {
+  color: var(--brand);
+}
+
+:root[data-theme="dark"] .setek-count.is-over { color: #ffb4b4; }
+:root[data-theme="dark"] .brand-logo {
+  filter: brightness(1.25) saturate(.92);
+}
+
+@media (hover: hover) {
+  :root[data-theme="dark"] .side-nav a:hover,
+  :root[data-theme="dark"] .navigation-drawer .side-nav a:hover { background: var(--bg-secondary); }
+  :root[data-theme="dark"] .side-nav a[aria-current='page']:hover,
+  :root[data-theme="dark"] .navigation-drawer .side-nav a[aria-current='page']:hover { background: var(--brand-weak); }
+}

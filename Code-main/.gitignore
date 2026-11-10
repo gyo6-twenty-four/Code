@@ -1,0 +1,97 @@
+# ==================================================
+# Spring Boot / Java
+# ==================================================
+
+# Gradle
+.gradle/
+**/build/
+
+# Maven
+**/target/
+
+# Java compiled files
+*.class
+
+# Log files
+*.log
+
+# Spring Boot
+spring.log
+
+# ==================================================
+# React / Node.js
+# ==================================================
+
+# Dependencies
+**/node_modules/
+
+# React / Vite build output
+**/dist/
+**/.vite/
+
+# Create React App build output
+**/build/
+
+# npm / yarn / pnpm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package manager cache
+.npm/
+.yarn/cache/
+.pnpm-store/
+
+# ==================================================
+# Environment Variables / Secrets
+# ==================================================
+
+.env
+.env.*
+!.env.example
+
+**/.env
+**/.env.*
+!**/.env.example
+
+# ==================================================
+# IDE
+# ==================================================
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# ==================================================
+# Operating System
+# ==================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# ==================================================
+# Temporary files
+# ==================================================
+
+*.tmp
+*.temp
+*.swp
+*.swo
+*~

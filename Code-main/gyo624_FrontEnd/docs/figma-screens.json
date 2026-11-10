@@ -1,0 +1,300 @@
+[
+  {
+    "code": "T01",
+    "mobile": "83:5204",
+    "pc": "83:5221",
+    "available": {
+      "mobile": true,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T02",
+    "mobile": "83:5242",
+    "pc": "83:5261",
+    "available": {
+      "mobile": false,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T03",
+    "mobile": "83:5281",
+    "pc": "83:5294",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T04",
+    "mobile": "83:5308",
+    "pc": "83:5330",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T05",
+    "mobile": "83:5353",
+    "pc": "83:5393",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": false,
+    "designPdf": "Untitled.pdf",
+    "status": "removed-by-request",
+    "replacement": "/coverage; 수업 메모는 /timeline"
+  },
+  {
+    "code": "T06",
+    "mobile": "83:5461",
+    "pc": "83:5498",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T07",
+    "mobile": "83:5572",
+    "pc": "83:5606",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T08",
+    "mobile": "83:5673",
+    "pc": "83:5713",
+    "available": {
+      "mobile": false,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T09",
+    "mobile": "83:5787",
+    "pc": "83:5828",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T10",
+    "mobile": "83:5909",
+    "pc": "83:5949",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T11",
+    "mobile": "83:6022",
+    "pc": "83:6056",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T12",
+    "mobile": "83:6122",
+    "pc": "83:6162",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T13",
+    "mobile": "83:6232",
+    "pc": "83:6273",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T14",
+    "mobile": "83:6359",
+    "pc": "83:6393",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T15",
+    "mobile": "83:6459",
+    "pc": "83:6494",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T16",
+    "mobile": "83:6561",
+    "pc": "83:6601",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T17",
+    "mobile": "83:6671",
+    "pc": "83:6705",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T18",
+    "mobile": "83:6777",
+    "pc": "83:6822",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T19",
+    "mobile": "83:6898",
+    "pc": "83:6938",
+    "available": {
+      "mobile": false,
+      "pc": false
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "T20",
+    "mobile": "83:7011",
+    "pc": "83:7051",
+    "available": {
+      "mobile": false,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "Untitled.pdf"
+  },
+  {
+    "code": "A20",
+    "mobile": "83:7146",
+    "pc": "83:7185",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "asdf.pdf",
+    "pdfPages": {
+      "mobile": 2,
+      "pc": 3
+    }
+  },
+  {
+    "code": "A21",
+    "mobile": "83:7259",
+    "pc": "83:7299",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "asdf.pdf",
+    "pdfPages": {
+      "mobile": 4,
+      "pc": 5
+    }
+  },
+  {
+    "code": "A22",
+    "mobile": "83:7362",
+    "pc": "83:7402",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "asdf.pdf",
+    "pdfPages": {
+      "mobile": 6,
+      "pc": 7
+    }
+  },
+  {
+    "code": "A23",
+    "mobile": "83:7465",
+    "pc": "83:7505",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "asdf.pdf",
+    "pdfPages": {
+      "mobile": 8,
+      "pc": 9
+    },
+    "uxRevision": "요일×교시 주간표, 학급/교사별 보기, 수업 추가·수정·삭제·복원, 중복 배정 방지"
+  },
+  {
+    "code": "A24",
+    "mobile": "83:7568",
+    "pc": "83:7608",
+    "available": {
+      "mobile": true,
+      "pc": true
+    },
+    "implemented": true,
+    "designPdf": "asdf.pdf",
+    "pdfPages": {
+      "mobile": 10,
+      "pc": 11
+    }
+  }
+]
