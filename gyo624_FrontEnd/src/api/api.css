@@ -131,8 +131,8 @@ a.primary-button { text-decoration: none; }
 .school-results { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .school-results .settings-row { width: 100%; }
 .choice-scroll { display: grid; gap: 8px; max-height: 240px; overflow: auto; padding-right: 4px; }
-.choice-grade { margin: 4px 0 0; color: var(--fg-secondary); font-size: 13px; font-weight: 600; }
-.choice-grade:first-child { margin-top: 0; }
+.choice-all { font-weight: 600; }
+.choice-group { padding-left: 28px; }
 .onboarding-card > form { margin-top: 24px; }
 .settings-dialog { max-width: calc(100vw - 32px); max-height: calc(100svh - 32px); overflow: auto; padding: 24px; }
 .dialog-heading h2 { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }

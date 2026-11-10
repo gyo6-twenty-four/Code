@@ -10,13 +10,22 @@ function toggleId(ids, id) {
   return ids.includes(id) ? ids.filter(item => item !== id) : [...ids, id]
 }
 
+function toggleIds(ids, group) {
+  return group.every(id => ids.includes(id)) ? ids.filter(id => !group.includes(id)) : [...new Set([...ids, ...group])]
+}
+
+function GroupCheck({ label, ids, value, onChange }) {
+  const count = ids.filter(id => value.includes(id)).length
+  return <label className="api-check choice-all"><input type="checkbox" checked={count === ids.length} ref={node => { if (node) node.indeterminate = count > 0 && count < ids.length }} onChange={() => onChange(toggleIds(value, ids))} /><span>{label}</span></label>
+}
+
 function savedClasses(items, ids) {
   const known = new Set(items.map(item => item.id))
   return [
     ...items,
-    ...ids.filter(id => id && !known.has(id)).map(id => {
+    ...ids.filter(id => id && !known.has(id)).flatMap(id => {
       const match = String(id).match(/^neis:(\d+):/)
-      return { id, name: classNameFromId(id), grade: match ? Number(match[1]) : 0 }
+      return match ? [{ id, name: classNameFromId(id), grade: Number(match[1]) }] : []
     }),
   ]
 }
@@ -73,7 +82,7 @@ export function TeachingFields({ school, value, onChange, onStatus }) {
   }, [classes.status, subjects.status, onStatus])
 
   const classItems = savedClasses(classes.items, [...new Set([...value.teachingClassIds, value.homeroomClassId].filter(Boolean))])
-  const grades = [...new Set(classItems.map(item => item.grade || 0))].sort((a, b) => a - b)
+  const grades = [...new Set(classItems.map(item => item.grade))].sort((a, b) => a - b)
   const filteredSubjects = subjects.items.filter(item => `${item.name} ${item.group || ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
   const knownSubjects = new Set(subjects.items.map(item => item.id))
   const extraSubjects = value.subjectIds.filter(id => !knownSubjects.has(id))
@@ -109,7 +118,14 @@ export function TeachingFields({ school, value, onChange, onStatus }) {
       {classes.status === 'loading' ? <p role="status">학급을 불러오고 있어요.</p> : null}
       {classes.status === 'error' ? <div className="api-error" role="alert"><p>{classes.message}</p><button type="button" className="secondary-button" onClick={() => setClassTick(tick => tick + 1)}>다시 불러오기</button></div> : null}
       {classes.status === 'ready' && classItems.length === 0 ? <p className="dialog-hint">{classes.message}</p> : null}
-      {classItems.length > 0 ? <div className="choice-scroll" role="group" aria-label="수업 들어가는 반">{grades.map(grade => <div key={grade}><p className="choice-grade">{grade ? `${grade}학년` : '이전에 선택한 학급'}</p>{classItems.filter(item => (item.grade || 0) === grade).map(item => <label className="api-check" key={item.id}><input type="checkbox" checked={value.teachingClassIds.includes(item.id)} onChange={() => onChange({ ...value, teachingClassIds: toggleId(value.teachingClassIds, item.id) })} /><span>{item.name}</span></label>)}</div>)}</div> : null}
+      {grades.length > 1 ? <GroupCheck label="전체 선택" ids={classItems.map(item => item.id)} value={value.teachingClassIds} onChange={ids => onChange({ ...value, teachingClassIds: ids })} /> : null}
+      {classItems.length > 0 ? <div className="choice-scroll" role="group" aria-label="수업 들어가는 반">{grades.map(grade => {
+        const items = classItems.filter(item => item.grade === grade)
+        return <div key={grade}>
+          <GroupCheck label={`${grade}학년 전체`} ids={items.map(item => item.id)} value={value.teachingClassIds} onChange={ids => onChange({ ...value, teachingClassIds: ids })} />
+          <div className="choice-group">{items.map(item => <label className="api-check" key={item.id}><input type="checkbox" checked={value.teachingClassIds.includes(item.id)} onChange={() => onChange({ ...value, teachingClassIds: toggleId(value.teachingClassIds, item.id) })} /><span>{item.name}</span></label>)}</div>
+        </div>
+      })}</div> : null}
     </fieldset>
   </div>
 }
