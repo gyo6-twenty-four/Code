@@ -19,7 +19,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.js', 'server/**/*.js', 'setek-worker/**/*.js', 'neis-worker/**/*.js'],
+    files: ['vite.config.js', 'neis-worker/**/*.js'],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
     },

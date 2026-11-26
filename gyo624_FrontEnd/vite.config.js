@@ -1,9 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
-import { setekApi } from './server/setek-plugin.js'
 
 const neisServices = new Set(['schoolInfo', 'classInfo', 'elsTimetable', 'misTimetable', 'hisTimetable', 'SchoolSchedule'])
 
@@ -58,16 +57,15 @@ function neisApi(root) {
   }
 }
 
-const backendTarget = process.env.API_PROXY_TARGET || 'http://127.0.0.1:8080'
-const backendProxy = {
-  '/api/v1': { target: backendTarget, changeOrigin: true },
-}
-
-export default defineConfig({
-  plugins: [neisApi(process.cwd()), setekApi(process.cwd()), react(), babel({ presets: [reactCompilerPreset()] })],
-  server: { proxy: backendProxy },
-  preview: {
-    allowedHosts: ['gyo624.dev', '.gyo624.dev'],
-    proxy: backendProxy,
-  },
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), ['API_PROXY_', 'SETEK_PROXY_'])
+  const proxy = {
+    '/api/v1': { target: env.API_PROXY_TARGET || 'http://127.0.0.1:8080', changeOrigin: true },
+    '/api/setek': { target: env.SETEK_PROXY_TARGET || 'http://127.0.0.1:8001', changeOrigin: true },
+  }
+  return {
+    plugins: [neisApi(process.cwd()), react(), babel({ presets: [reactCompilerPreset()] })],
+    server: { proxy },
+    preview: { allowedHosts: ['gyo624.dev', '.gyo624.dev'], proxy },
+  }
 })
